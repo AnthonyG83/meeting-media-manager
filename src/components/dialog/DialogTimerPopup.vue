@@ -428,6 +428,26 @@
             <q-tooltip :delay="500">{{ t('timer-remote-copy') }}</q-tooltip>
           </q-btn>
         </div>
+        <div
+          v-if="currentSettings.timerRemoteAllowControl"
+          class="row items-center no-wrap q-gutter-x-sm q-mt-xs"
+        >
+          <span class="col text-caption">
+            {{
+              t('timer-remote-pin-label', {
+                pin: currentSettings.timerRemotePin,
+              })
+            }}
+          </span>
+          <q-btn
+            dense
+            flat
+            :label="t('timer-remote-new-pin')"
+            no-caps
+            size="sm"
+            @click="renewTimerRemotePin"
+          />
+        </div>
       </div>
     </template>
 
@@ -494,6 +514,7 @@ import {
 } from 'src/helpers/date';
 import { errorCatcher } from 'src/helpers/error-catcher';
 import { createTemporaryNotification } from 'src/helpers/notifications';
+import { renewTimerRemotePin } from 'src/helpers/timer-remote';
 import { exportTimerReport } from 'src/helpers/timer-report';
 import { useAppSettingsStore } from 'src/stores/app-settings';
 import { withTimeout } from 'src/utils/general';

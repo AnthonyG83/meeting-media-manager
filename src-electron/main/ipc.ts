@@ -85,6 +85,8 @@ import {
   isDbCorrupt,
 } from 'src-electron/main/sqlite';
 import {
+  setTimerRemoteCommandSink,
+  setTimerRemoteConfig,
   setTimerRemoteText,
   startTimerRemote,
   stopTimerRemote,
@@ -107,7 +109,10 @@ import {
   getChallengeHost,
   passWafChallenge,
 } from 'src-electron/main/waf-challenge';
-import { logToWindow } from 'src-electron/main/window/window-base';
+import {
+  logToWindow,
+  sendToWindow,
+} from 'src-electron/main/window/window-base';
 import {
   focusMainWindow,
   mainWindowInfo,
@@ -153,7 +158,16 @@ function handleIpcSend(
 ) {
   ipcMain.on(channel, (e, ...args) => {
     if (isSelf(e.senderFrame?.url)) {
-      logToWindow(mainWindowInfo.mainWindow, 'on', { args, channel }, 'debug');
+      logToWindow(
+        mainWindowInfo.mainWindow,
+        'on',
+        // The timer remote's PIN is a secret: never into the logs.
+        {
+          args: channel === 'timerRemoteConfig' ? ['[redacted]'] : args,
+          channel,
+        },
+        'debug',
+      );
     } else {
       logToWindow(
         mainWindowInfo.mainWindow,
@@ -392,6 +406,16 @@ handleIpcInvoke('startTimerRemote', async (_e, port: unknown) =>
 
 handleIpcSend('stopTimerRemote', () => {
   stopTimerRemote();
+});
+
+// Commands from the timer remote page go to M3's main window, which owns the
+// timer.
+setTimerRemoteCommandSink((command) => {
+  sendToWindow(mainWindowInfo.mainWindow, 'timerRemoteCommand', command);
+});
+
+handleIpcSend('timerRemoteConfig', (_e, config: unknown) => {
+  setTimerRemoteConfig(config);
 });
 
 handleIpcSend('timerRemoteText', (_e, text: unknown) => {

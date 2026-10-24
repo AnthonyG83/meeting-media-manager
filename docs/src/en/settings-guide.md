@@ -503,13 +503,23 @@ Choose how the timer is reached from the main window:
 
 ### Timer Remote {#timer-remote}
 
-<!-- **Settings**: `timerRemoteEnable`, `timerRemotePort` -->
+<!-- **Settings**: `timerRemoteEnable`, `timerRemotePort`, `timerRemoteAllowControl`, `timerRemotePin`, `timerRemoteNewPin` -->
 
-When turned on, M³ serves a read-only copy of the timer display as a web page on your local network, for a tablet or phone at the lectern: the speaker sees the remaining time without it being on the congregation's screen or in a Zoom share. The page follows the timer in real time, including the pre-meeting countdown, the clock, overtime colors and the hand alert, and all the controls stay in M³.
+When turned on, M³ serves a copy of the timer display as a web page on your local network, for a tablet or phone at the lectern: the speaker sees the remaining time without it being on the congregation's screen or in a Zoom share. The page follows the timer in real time, including the pre-meeting countdown, the clock, overtime colors and the hand alert, and the controls stay in M³ unless you allow the page to control the timer (see below).
 
-The addresses to open on the device are listed in the timer popup, with a copy button. Change the port only if another program already uses it. Note that anyone on the same network can open the page while this is on; it shows nothing but the timer.
+The addresses to open on the device are listed in the timer popup, with a copy button. Change the port only if another program already uses it. Note that anyone on the same network can open the page while this is on; unless you allow control, it shows nothing but the timer.
 
-**Default**: `false`, port `8787`
+Every device has a **Hide timer** button on the page. It blanks the time on that device only, so a speaker who doesn't want to see the timer can turn it off for himself, while the hand alert still shows. Nothing changes in M³ or on the other screens.
+
+**Control the timer from the remote**: when **Let the timer remote control the timer** is on, the page also shows a control bar: the current or next part, buttons to start the next part, pause, resume and stop, and a list of the day's parts to pick from. The first time a device uses it, the page asks for the 6-digit PIN that M³ made when you turned this on. It is shown in the timer popup and in the settings, where **New PIN** replaces it. Control is off by default.
+
+You keep full control in M³, and the last command wins. When the remote starts or stops a part, M³ shows a small notification, so you aren't surprised.
+
+::: warning
+The page is plain HTTP on your local network. The PIN keeps other devices on the same Wi-Fi from driving the timer, but it doesn't protect against someone who can read the network's traffic. That is acceptable for a timer; keep control off if you don't need it.
+:::
+
+**Default**: `false`, port `8787`, control `false`
 
 ### Timer Display Formats {#timer-display-formats}
 

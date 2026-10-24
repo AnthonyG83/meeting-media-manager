@@ -174,6 +174,9 @@ export const electronApi: ElectronApi = {
   onShortcut: function (callback) {
     throw new Error('Function not implemented.');
   },
+  onTimerRemoteCommand: function () {
+    return () => void 0;
+  },
   onTimerWindowClosed: function () {
     return () => void 0;
   },
@@ -277,6 +280,7 @@ export const electronApi: ElectronApi = {
   startZoomHelper: async () => ({ ok: true }),
   stopTimerRemote: () => void 0,
   stopZoomHelper: () => void 0,
+  timerRemoteConfig: () => void 0,
   timerRemoteText: () => void 0,
   timerRemoteUpdate: () => void 0,
   toggleAuthorizedClose: function () {

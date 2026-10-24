@@ -1,28 +1,59 @@
-import type { TimerData, TimerRemoteStatus } from 'src/types';
+import type {
+  TimerData,
+  TimerRemoteAction,
+  TimerRemoteCommand,
+  TimerRemoteConfig,
+  TimerRemoteStatus,
+} from 'src/types';
 
-import { createServer, type Server, type ServerResponse } from 'node:http';
+import { createHash, timingSafeEqual } from 'node:crypto';
+import {
+  createServer,
+  type IncomingMessage,
+  type Server,
+  type ServerResponse,
+} from 'node:http';
 import { networkInterfaces } from 'node:os';
 import { captureElectronError } from 'src-electron/main/utils';
+import {
+  isValidTimerRemotePin,
+  TIMER_REMOTE_ACTIONS,
+  TIMER_REMOTE_PART_PATTERN,
+} from 'src/shared/timer-remote';
 import { log } from 'src/shared/vanilla';
 
-// The timer remote: a small read-only web page, served on the local network,
-// that mirrors the meeting timer in real time. Meant for a tablet at the
-// lectern, so the speaker sees the remaining time without it being on the
-// congregation's screen or in a Zoom share. All the controls stay in M3.
+// The timer remote: a small web page, served on the local network, that
+// mirrors the meeting timer in real time. Meant for a tablet at the lectern,
+// so the speaker sees the remaining time without it being on the
+// congregation's screen or in a Zoom share.
 //
 // The renderer pushes every timer broadcast here (timerRemoteUpdate); the
 // page holds a server-sent events stream open and redraws on each one. It
 // computes the clock and the pre-meeting countdown itself, the same way the
 // timer window does, so an idle timer costs no traffic.
+//
+// The page can also start, pause, resume and stop the timer, but only when
+// that is turned on in the settings, and only with the PIN (POST /command).
+// It is plain HTTP on the local network: the PIN keeps a phone on the same
+// Wi-Fi from driving the timer, it doesn't hide anything from someone who
+// can read the network's traffic.
 
 const MIN_PORT = 1024;
 const MAX_PORT = 65_535;
 const KEEPALIVE_MS = 20_000;
+const MAX_COMMAND_BODY_BYTES = 1024;
+const COMMAND_BODY_TIMEOUT_MS = 10_000;
+const MAX_WRONG_PINS = 5;
+const WRONG_PIN_WINDOW_MS = 60_000;
+const MAX_TRACKED_ADDRESSES = 500;
 
 let server: null | Server = null;
 let serverPort = 0;
 let latestData: null | TimerData = null;
 const clients = new Set<ServerResponse>();
+let controlConfig: TimerRemoteConfig = { allowControl: false, pin: '' };
+let commandSink: ((command: TimerRemoteCommand) => void) | null = null;
+const wrongPins = new Map<string, number[]>();
 let keepaliveTimer: ReturnType<typeof setInterval> | undefined;
 
 export const isValidTimerRemotePort = (port: unknown): port is number =>
@@ -63,6 +94,32 @@ const PAGE_HTML = `<!doctype html>
     <div id="handNames" class="hand-names"></div>
   </div>
   <div id="status" class="status" hidden></div>
+  <div class="tools">
+    <button id="controlsButton" type="button" class="tool" hidden></button>
+    <button id="hideButton" type="button" class="tool"></button>
+  </div>
+  <section id="controls" class="controls" hidden>
+    <form id="pinForm" class="pin-form" hidden>
+      <label id="pinLabel" for="pinInput"></label>
+      <div class="row">
+        <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off">
+        <button id="pinSave" type="submit" class="control"></button>
+      </div>
+    </form>
+    <div id="panel" class="panel" hidden>
+      <div id="partInfo" class="part-info"></div>
+      <div class="row">
+        <button id="nextButton" type="button" class="control primary"></button>
+        <button id="pauseButton" type="button" class="control"></button>
+        <button id="stopButton" type="button" class="control"></button>
+      </div>
+      <div class="row">
+        <select id="picker" class="control grow"></select>
+        <button id="selectButton" type="button" class="control"></button>
+      </div>
+    </div>
+    <div id="message" class="message" role="status" hidden></div>
+  </section>
 </main>
 <script src="/app.js"></script>
 </body>
@@ -86,7 +143,19 @@ body { background: #000; color: #fff; font-family: -apple-system, "Segoe UI", Ro
 .hand-names { background: rgba(0,0,0,.6); border-radius: 999px; color: #ffd60a; font-size: clamp(1rem, 4vh, 3rem); font-weight: bold; max-width: 90vw; overflow: hidden; padding: .3em 1em; text-overflow: ellipsis; white-space: nowrap; }
 .hand-names:empty { display: none; }
 @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .75; transform: scale(.94); } }
-.status { background: rgba(255,255,255,.12); border-radius: 999px; bottom: 2vh; font-size: clamp(0.8rem, 2.5vw, 1.2rem); left: 50%; padding: .4em 1.2em; position: absolute; transform: translateX(-50%); }
+.status { background: rgba(255,255,255,.12); border-radius: 999px; top: 2vh; font-size: clamp(0.8rem, 2.5vw, 1.2rem); left: 50%; padding: .4em 1.2em; position: absolute; transform: translateX(-50%); }
+.tools { display: flex; gap: 8px; position: absolute; right: 12px; top: 12px; }
+.tool { background: rgba(255,255,255,.12); border: 0; border-radius: 999px; color: inherit; font: inherit; font-size: 0.9rem; min-height: 40px; padding: 0 1em; }
+.controls { background: rgba(0,0,0,.6); bottom: 0; box-sizing: border-box; color: #fff; display: flex; flex-direction: column; gap: 12px; left: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); position: absolute; right: 0; }
+.panel, .pin-form { display: flex; flex-direction: column; gap: 12px; }
+.part-info { font-size: clamp(1rem, 3.5vw, 1.6rem); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row { display: flex; gap: 12px; }
+.control { background: rgba(255,255,255,.18); border: 0; border-radius: 12px; color: #fff; flex: 1; font: inherit; font-size: clamp(1rem, 3.5vw, 1.5rem); font-weight: 600; min-height: 56px; padding: 0 1em; }
+.control.primary { background: #0a84ff; }
+.control.grow { flex: 3; min-width: 0; }
+.control:disabled { opacity: .4; }
+.pin-form input { background: #fff; border: 0; border-radius: 12px; box-sizing: border-box; color: #000; flex: 3; font: inherit; font-size: 1.5rem; letter-spacing: .3em; min-height: 56px; min-width: 0; padding: 0 1em; text-align: center; }
+.message { color: #ffd60a; font-size: 1rem; text-align: center; }
 `;
 
 // Plain script (no build step): the same display rules as the timer window.
@@ -101,10 +170,40 @@ const PAGE_JS = String.raw`(function () {
     caption: document.getElementById('caption'),
     hand: document.getElementById('hand'),
     handNames: document.getElementById('handNames'),
-    status: document.getElementById('status')
+    status: document.getElementById('status'),
+    controlsButton: document.getElementById('controlsButton'),
+    hideButton: document.getElementById('hideButton'),
+    controls: document.getElementById('controls'),
+    pinForm: document.getElementById('pinForm'),
+    pinLabel: document.getElementById('pinLabel'),
+    pinInput: document.getElementById('pinInput'),
+    pinSave: document.getElementById('pinSave'),
+    panel: document.getElementById('panel'),
+    partInfo: document.getElementById('partInfo'),
+    nextButton: document.getElementById('nextButton'),
+    pauseButton: document.getElementById('pauseButton'),
+    stopButton: document.getElementById('stopButton'),
+    picker: document.getElementById('picker'),
+    selectButton: document.getElementById('selectButton'),
+    message: document.getElementById('message')
   };
+  var PIN_KEY = 'm3TimerRemotePin';
+  var HIDE_KEY = 'm3TimerRemoteHideTimer';
+  var pinFormOpen = false;
+  var pickerKey = '';
   var text = {};
   try { text = JSON.parse(document.documentElement.getAttribute('data-text') || '{}'); } catch (e) { text = {}; }
+
+  // Per device, kept in this browser only: the PIN and the hidden timer.
+  function store(key, value) {
+    try {
+      if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value);
+    } catch (e) { /* storage unavailable: nothing is remembered */ }
+  }
+  function stored(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
+  function timerHidden() { return stored(HIDE_KEY) === '1'; }
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function formatCountdown(total) { return pad(Math.floor(total / 60)) + ':' + pad(total % 60); }
@@ -140,8 +239,19 @@ const PAGE_JS = String.raw`(function () {
     el.display.style.backgroundColor = (useOvertime ? data.timerOvertimeBackgroundColor : data && data.timerBackgroundColor) || '#000';
     el.display.style.color = (useOvertime ? data.timerOvertimeTextColor : data && data.timerTextColor) || '#fff';
     var blink = running && (data.paused || (overtime && data.timerOvertimeAnimation));
+    var hidden = timerHidden();
+    if (hidden) {
+      // This device doesn't want to see the timer: nothing of it, colors included.
+      el.display.style.backgroundColor = '#000';
+      el.display.style.color = '#fff';
+      blink = false;
+    }
     el.time.className = 'time' + (blink ? ' blink' : '');
-    if (running) {
+    if (hidden) {
+      el.label.textContent = '';
+      el.time.textContent = '';
+      el.caption.textContent = '';
+    } else if (running) {
       el.label.textContent = data.timerCurrentPartLabel || '';
       el.time.textContent = data.time || '';
       el.caption.textContent = data.paused ? (text.paused || '') : (data.mode === 'countup' ? (text.elapsed || '') : (text.remaining || ''));
@@ -165,7 +275,111 @@ const PAGE_JS = String.raw`(function () {
     el.handNames.textContent = hand && data.handAlertNames ? data.handAlertNames.join(' \u00B7 ') : '';
     el.status.hidden = connected;
     el.status.textContent = connected ? '' : (text.reconnecting || 'Reconnecting\u2026');
+    el.hideButton.textContent = hidden ? (text.showTimer || '') : (text.hideTimer || '');
+    renderControls(running);
   }
+
+  function minutesText(minutes) {
+    return (text.minutes || '{minutes}').replace('{minutes}', String(minutes));
+  }
+  function partName(part) {
+    if (!part) return '';
+    var label = part.label || '';
+    // Some labels already carry their length.
+    return part.minutes && label.indexOf(String(part.minutes)) < 0
+      ? label + ' \u00B7 ' + minutesText(part.minutes)
+      : label;
+  }
+  function renderPicker(parts) {
+    var key = parts.map(function (p) { return [p.value, p.label, p.done, p.current].join('|'); }).join('\n');
+    if (key === pickerKey) return;
+    pickerKey = key;
+    var chosen = el.picker.value;
+    el.picker.textContent = '';
+    parts.forEach(function (part) {
+      var option = document.createElement('option');
+      option.value = part.value;
+      option.textContent = (part.current ? '\u25B6 ' : part.done ? '\u2713 ' : '') + partName(part);
+      el.picker.appendChild(option);
+    });
+    if (chosen) el.picker.value = chosen;
+  }
+  function renderControls(running) {
+    var allowed = !!(data && data.timerRemoteControlAllowed);
+    var hasPin = !!stored(PIN_KEY);
+    el.controlsButton.hidden = !(allowed && !hasPin && !pinFormOpen);
+    el.controlsButton.textContent = text.controls || '';
+    el.controls.hidden = !(allowed && (hasPin || pinFormOpen));
+    if (el.controls.hidden) return;
+    el.pinForm.hidden = hasPin;
+    el.panel.hidden = !hasPin;
+    el.pinLabel.textContent = text.pinPrompt || '';
+    el.pinSave.textContent = text.save || '';
+    if (!hasPin) return;
+    var parts = (data && data.timerRemoteParts) || [];
+    var shown = parts.filter(function (p) { return p.current; })[0] || parts.filter(function (p) { return p.next; })[0];
+    el.partInfo.textContent = partName(shown);
+    el.nextButton.textContent = text.startNext || '';
+    el.nextButton.disabled = !parts.some(function (p) { return p.next; });
+    el.pauseButton.textContent = (data && data.paused) ? (text.resume || '') : (text.pause || '');
+    el.pauseButton.disabled = !running;
+    el.stopButton.textContent = text.stop || '';
+    el.stopButton.disabled = !running;
+    el.selectButton.textContent = text.start || '';
+    el.selectButton.disabled = !parts.length;
+    renderPicker(parts);
+  }
+  function showMessage(message) {
+    el.message.textContent = message || '';
+    el.message.hidden = !message;
+  }
+  function send(action, part) {
+    var pin = stored(PIN_KEY);
+    if (!pin) { pinFormOpen = true; render(); return; }
+    var body = { action: action };
+    if (part) body.part = part;
+    fetch('/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Timer-Remote-Pin': pin },
+      body: JSON.stringify(body)
+    }).then(function (response) {
+      if (response.status === 202) { showMessage(''); return; }
+      if (response.status === 401) {
+        // Forget the PIN: it was changed in M3, or typed wrong.
+        store(PIN_KEY, null);
+        pinFormOpen = true;
+        showMessage(text.pinWrong);
+      } else if (response.status === 429) {
+        showMessage(text.tooManyAttempts);
+      } else {
+        showMessage(text.sendFailed);
+      }
+      render();
+    }).catch(function () { showMessage(text.sendFailed); });
+  }
+  el.hideButton.addEventListener('click', function () {
+    store(HIDE_KEY, timerHidden() ? null : '1');
+    render();
+  });
+  el.controlsButton.addEventListener('click', function () {
+    pinFormOpen = true;
+    render();
+    el.pinInput.focus();
+  });
+  el.pinForm.addEventListener('submit', function (event) {
+    event.preventDefault();
+    var pin = el.pinInput.value.replace(/\s/g, '');
+    el.pinInput.value = '';
+    if (!/^[0-9]{6}$/.test(pin)) { showMessage(text.pinWrong); return; }
+    store(PIN_KEY, pin);
+    pinFormOpen = false;
+    showMessage('');
+    render();
+  });
+  el.nextButton.addEventListener('click', function () { send('start-next'); });
+  el.pauseButton.addEventListener('click', function () { send(data && data.paused ? 'resume' : 'pause'); });
+  el.stopButton.addEventListener('click', function () { send('stop'); });
+  el.selectButton.addEventListener('click', function () { if (el.picker.value) send('select', el.picker.value); });
   function connect() {
     var source = new EventSource('/events');
     source.onopen = function () { connected = true; render(); };
@@ -186,7 +400,12 @@ const PAGE_JS = String.raw`(function () {
 })();`;
 
 const sendJsonEvent = (client: ServerResponse, data: TimerData) => {
-  client.write(`data: ${JSON.stringify(data)}\n\n`);
+  // Whether the page may send commands is the server's word, not the renderer's.
+  const payload = {
+    ...data,
+    timerRemoteControlAllowed: controlConfig.allowControl,
+  };
+  client.write(`data: ${JSON.stringify(payload)}\n\n`);
 };
 
 const htmlWithText = (text: Record<string, string>) =>
@@ -214,9 +433,8 @@ export const setTimerRemoteText = (text: unknown) => {
   pageText = safe;
 };
 
-export const updateTimerRemote = (data: unknown) => {
-  if (!data || typeof data !== 'object') return;
-  latestData = data as TimerData;
+const broadcast = () => {
+  if (!latestData) return;
   for (const client of clients) {
     try {
       sendJsonEvent(client, latestData);
@@ -226,19 +444,217 @@ export const updateTimerRemote = (data: unknown) => {
   }
 };
 
-const handleRequest = (
-  url: string,
-  method: string,
+export const updateTimerRemote = (data: unknown) => {
+  if (!data || typeof data !== 'object') return;
+  latestData = data as TimerData;
+  broadcast();
+};
+
+/**
+ * Whether the page may control the timer, and the PIN for it (sent by the
+ * renderer). Anything but a boolean and a well-formed PIN leaves control off.
+ */
+export const setTimerRemoteConfig = (config: unknown) => {
+  const candidate = (config ?? {}) as Partial<TimerRemoteConfig>;
+  controlConfig =
+    candidate.allowControl === true && isValidTimerRemotePin(candidate.pin)
+      ? { allowControl: true, pin: candidate.pin }
+      : { allowControl: false, pin: '' };
+  wrongPins.clear();
+  // Pages already open show or hide their controls right away.
+  broadcast();
+};
+
+/** Where the main process sends a checked command (M3's main window). */
+export const setTimerRemoteCommandSink = (
+  sink: ((command: TimerRemoteCommand) => void) | null,
+) => {
+  commandSink = sink;
+};
+
+const hashPin = (pin: string) => createHash('sha256').update(pin).digest();
+
+const pinMatches = (given: unknown) =>
+  typeof given === 'string' &&
+  given.length <= 64 &&
+  timingSafeEqual(hashPin(given), hashPin(controlConfig.pin));
+
+const getRecentWrongPins = (address: string, now: number) => {
+  const recent = (wrongPins.get(address) ?? []).filter(
+    (time) => now - time < WRONG_PIN_WINDOW_MS,
+  );
+  if (recent.length > 0) {
+    wrongPins.set(address, recent);
+  } else {
+    wrongPins.delete(address);
+  }
+  return recent;
+};
+
+const recordWrongPin = (address: string, now: number) => {
+  // A flood of addresses can't grow the table without bound.
+  if (wrongPins.size >= MAX_TRACKED_ADDRESSES) {
+    for (const known of wrongPins.keys()) getRecentWrongPins(known, now);
+    if (wrongPins.size >= MAX_TRACKED_ADDRESSES) wrongPins.clear();
+  }
+  wrongPins.set(address, [...getRecentWrongPins(address, now), now]);
+};
+
+/** A page opened from another site can't be trusted to speak for the user. */
+const originMatchesHost = (req: IncomingMessage) => {
+  const { host, origin } = req.headers;
+  if (origin === undefined) return true;
+  if (!host) return false;
+  try {
+    return new URL(origin).host.toLowerCase() === host.toLowerCase();
+  } catch {
+    return false;
+  }
+};
+
+/** The body of a command, or null when it is longer than allowed. */
+const readCommandBody = (req: IncomingMessage) =>
+  new Promise<null | string>((resolve) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    const finish = (body: null | string) => {
+      clearTimeout(timeout);
+      req.off('data', onData);
+      req.off('end', onEnd);
+      req.off('error', onError);
+      resolve(body);
+    };
+    const onData = (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > MAX_COMMAND_BODY_BYTES) {
+        finish(null);
+        return;
+      }
+      chunks.push(chunk);
+    };
+    const onEnd = () => finish(Buffer.concat(chunks).toString('utf8'));
+    const onError = () => finish(null);
+    const timeout = setTimeout(onError, COMMAND_BODY_TIMEOUT_MS);
+    req.on('data', onData);
+    req.on('end', onEnd);
+    req.on('error', onError);
+  });
+
+const parseCommand = (body: string): null | TimerRemoteCommand => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+  const { action, part } = parsed as Record<string, unknown>;
+  if (!TIMER_REMOTE_ACTIONS.includes(action as TimerRemoteAction)) return null;
+  if (part === undefined) return { action: action as TimerRemoteAction };
+  if (typeof part !== 'string' || !TIMER_REMOTE_PART_PATTERN.test(part)) {
+    return null;
+  }
+  return { action: action as TimerRemoteAction, part };
+};
+
+const replyError = (
   res: ServerResponse,
-): void => {
-  const headers = {
+  headers: Record<string, string>,
+  status: number,
+  error: string,
+  extraHeaders: Record<string, string> = {},
+) => {
+  res
+    .writeHead(status, {
+      ...headers,
+      ...extraHeaders,
+      'Content-Type': 'application/json; charset=utf-8',
+    })
+    .end(JSON.stringify({ error }));
+};
+
+/**
+ * POST /command. The checks run cheapest first, and the body of a request
+ * that hasn't proved itself with the PIN is never read.
+ */
+const handleCommand = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  headers: Record<string, string>,
+) => {
+  if (!controlConfig.allowControl || !commandSink) {
+    replyError(res, headers, 403, 'control-disabled');
+    return;
+  }
+  if (!/^application\/json\s*(;|$)/i.test(req.headers['content-type'] ?? '')) {
+    replyError(res, headers, 415, 'unsupported-content-type');
+    return;
+  }
+  const length = Number(req.headers['content-length'] ?? 0);
+  if (!Number.isFinite(length) || length > MAX_COMMAND_BODY_BYTES) {
+    replyError(res, headers, 413, 'too-large', { Connection: 'close' });
+    return;
+  }
+  if (!originMatchesHost(req)) {
+    replyError(res, headers, 403, 'cross-origin');
+    return;
+  }
+
+  const address = req.socket.remoteAddress ?? 'unknown';
+  const now = Date.now();
+  if (getRecentWrongPins(address, now).length >= MAX_WRONG_PINS) {
+    replyError(res, headers, 429, 'too-many-attempts', {
+      'Retry-After': String(Math.ceil(WRONG_PIN_WINDOW_MS / 1000)),
+    });
+    return;
+  }
+  if (!pinMatches(req.headers['x-timer-remote-pin'])) {
+    recordWrongPin(address, now);
+    log('[timerRemote] Command refused: wrong PIN', 'timer', 'warn', {
+      address,
+    });
+    replyError(res, headers, 401, 'wrong-pin');
+    return;
+  }
+
+  const body = await readCommandBody(req);
+  if (body === null) {
+    replyError(res, headers, 413, 'too-large', { Connection: 'close' });
+    return;
+  }
+  const command = parseCommand(body);
+  if (!command) {
+    replyError(res, headers, 400, 'bad-command');
+    return;
+  }
+
+  log('[timerRemote] Command', 'timer', 'log', command);
+  commandSink(command);
+  res.writeHead(202, headers).end();
+};
+
+const handleRequest = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> => {
+  const url = req.url ?? '/';
+  const method = req.method ?? 'GET';
+  // The page sends commands to its own address only. It is never answered
+  // with CORS headers (nor to OPTIONS), so a page from another site can't
+  // send the PIN header from a browser on the network.
+  const headers: Record<string, string> = {
     'Cache-Control': 'no-store',
     'Content-Security-Policy':
-      "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'",
+      "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
     'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
   };
+  if (method === 'POST' && url === '/command') {
+    await handleCommand(req, res, headers);
+    return;
+  }
   if (method !== 'GET' && method !== 'HEAD') {
-    res.writeHead(405, headers).end();
+    res.writeHead(405, { ...headers, Allow: 'GET, HEAD' }).end();
     return;
   }
   if (url === '/' || url === '/index.html') {
@@ -290,20 +706,19 @@ export const startTimerRemote = (port: unknown): Promise<TimerRemoteStatus> => {
       urls: getTimerRemoteUrls(port),
     });
   }
-  stopTimerRemote();
+  closeServer();
 
   return new Promise((resolve) => {
     const httpServer = createServer((req, res) => {
-      try {
-        handleRequest(req.url ?? '/', req.method ?? 'GET', res);
-      } catch (error) {
+      handleRequest(req, res).catch((error: unknown) => {
         captureElectronError(error, {
           contexts: { fn: { name: 'timerRemoteRequest' } },
         });
         if (!res.headersSent) res.writeHead(500);
         res.end();
-      }
+      });
     });
+    httpServer.requestTimeout = COMMAND_BODY_TIMEOUT_MS;
     httpServer.once('error', (error: NodeJS.ErrnoException) => {
       log('[timerRemote] Could not start', 'timer', 'error', error);
       if (server === httpServer) server = null;
@@ -331,7 +746,7 @@ export const startTimerRemote = (port: unknown): Promise<TimerRemoteStatus> => {
   });
 };
 
-export const stopTimerRemote = () => {
+const closeServer = () => {
   if (keepaliveTimer) clearInterval(keepaliveTimer);
   keepaliveTimer = undefined;
   for (const client of clients) {
@@ -351,7 +766,19 @@ export const stopTimerRemote = () => {
   latestData = null;
 };
 
+/** Stops serving, and takes control away until the renderer allows it again. */
+export const stopTimerRemote = () => {
+  closeServer();
+  controlConfig = { allowControl: false, pin: '' };
+  wrongPins.clear();
+};
+
 export const __testables = {
   getClientCount: () => clients.size,
   getServerPort: () => serverPort,
+  reset: () => {
+    controlConfig = { allowControl: false, pin: '' };
+    commandSink = null;
+    wrongPins.clear();
+  },
 };
