@@ -302,4 +302,28 @@ describe('timer remote page', () => {
     // The answer is handled the same way: a refused PIN is forgotten
     expect(localStorage.getItem('m3TimerRemotePin')).toBeNull();
   });
+  it('shows a pause icon, and a play icon once paused', async () => {
+    localStorage.setItem('m3TimerRemotePin', '123456');
+    await loadPage();
+    const emit = (paused: boolean) =>
+      FakeEventSource.last?.emit({
+        paused,
+        running: true,
+        time: '01:00',
+        timerRemoteControlAllowed: true,
+        timerRemoteParts: parts,
+      });
+
+    emit(false);
+    expect(byId('pauseButton').textContent).toBe('Pause');
+    expect(byId('pauseIcon').hasAttribute('hidden')).toBe(false);
+    expect(byId('resumeIcon').hasAttribute('hidden')).toBe(true);
+    expect(byId('selectButton').querySelector('svg')).not.toBeNull();
+    expect(byId('stopButton').querySelector('svg')).not.toBeNull();
+
+    emit(true);
+    expect(byId('pauseButton').textContent).toBe('Resume');
+    expect(byId('pauseIcon').hasAttribute('hidden')).toBe(true);
+    expect(byId('resumeIcon').hasAttribute('hidden')).toBe(false);
+  });
 });
