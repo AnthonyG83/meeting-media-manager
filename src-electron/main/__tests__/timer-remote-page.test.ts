@@ -68,7 +68,6 @@ const text = {
   save: 'Save',
   showTimer: 'Show timer',
   start: 'Start',
-  startNext: 'Start next part',
   stop: 'Stop',
 };
 
@@ -148,7 +147,10 @@ describe('timer remote page', () => {
 
     expect(localStorage.getItem('m3TimerRemotePin')).toBe('123456');
     expect(byId('panel').hidden).toBe(false);
-    expect(byId('partInfo').textContent).toBe('Gems · 10 min.');
+    // The next part is chosen, and named above the clock
+    expect((byId('picker') as HTMLSelectElement).value).toBe('gems');
+    expect(byId('label').textContent).toBe('Gems');
+    expect(byId('display').classList.contains('with-controls')).toBe(true);
     expect((byId('pauseButton') as HTMLButtonElement).disabled).toBe(true);
     expect(byId('picker').querySelectorAll('option')).toHaveLength(2);
     expect(byId('picker').querySelectorAll('option')[0]?.textContent).toContain(
@@ -190,7 +192,9 @@ describe('timer remote page', () => {
       ],
     });
 
-    byId('nextButton').click();
+    // A part started or ended: the picker offers the next part
+    expect((byId('picker') as HTMLSelectElement).value).toBe('treasures');
+    expect(byId('label').textContent).toBe('Gems');
     byId('pauseButton').click();
     byId('stopButton').click();
     (byId('picker') as HTMLSelectElement).value = 'gems';
@@ -201,10 +205,8 @@ describe('timer remote page', () => {
       '/command',
       '/command',
       '/command',
-      '/command',
     ]);
     expect(sent.map(([, init]) => JSON.parse(init.body))).toEqual([
-      { action: 'start-next' },
       { action: 'pause' },
       { action: 'stop' },
       { action: 'select', part: 'gems' },
@@ -244,5 +246,60 @@ describe('timer remote page', () => {
     byId('hideButton').click();
     expect(localStorage.getItem('m3TimerRemoteHideTimer')).toBeNull();
     expect(byId('time').textContent).toBe('04:59');
+  });
+  it('sends commands with XMLHttpRequest on an iPad too old for fetch', async () => {
+    localStorage.setItem('m3TimerRemotePin', '123456');
+    await loadPage();
+    const sent: {
+      body: unknown;
+      headers: Record<string, string>;
+      url: string;
+    }[] = [];
+    class FakeXhr {
+      headers: Record<string, string> = {};
+      onerror: (() => void) | null = null;
+      onload: (() => void) | null = null;
+      status = 0;
+      url = '';
+      open(_method: string, url: string) {
+        this.url = url;
+      }
+      send(body: string) {
+        sent.push({
+          body: JSON.parse(body),
+          headers: this.headers,
+          url: this.url,
+        });
+        this.status = 401;
+        this.onload?.();
+      }
+      setRequestHeader(name: string, value: string) {
+        this.headers[name] = value;
+      }
+    }
+    vi.stubGlobal('fetch', undefined);
+    vi.stubGlobal('XMLHttpRequest', FakeXhr);
+    FakeEventSource.last?.emit({
+      paused: false,
+      running: true,
+      time: '01:00',
+      timerRemoteControlAllowed: true,
+      timerRemoteParts: parts,
+    });
+
+    byId('stopButton').click();
+
+    expect(sent).toEqual([
+      {
+        body: { action: 'stop' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Timer-Remote-Pin': '123456',
+        },
+        url: '/command',
+      },
+    ]);
+    // The answer is handled the same way: a refused PIN is forgotten
+    expect(localStorage.getItem('m3TimerRemotePin')).toBeNull();
   });
 });

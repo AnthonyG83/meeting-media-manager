@@ -43,7 +43,6 @@ const getPageText = (): Record<string, string> => ({
   sendFailed: t('timer-remote-send-failed'),
   showTimer: t('timer-remote-show-timer'),
   start: t('start'),
-  startNext: t('timer-remote-start-next'),
   stop: t('stop'),
   tooManyAttempts: t('timer-remote-too-many-attempts'),
 });
