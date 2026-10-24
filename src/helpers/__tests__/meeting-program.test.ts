@@ -195,7 +195,7 @@ describe('parseMidweekProgram', () => {
     expect(
       parseMidweekProgram(
         html.replace(
-          '<h3><strong>3. Bible Reading</strong></h3>\n<p>(4 min.)</p>\n',
+          /<h3><strong>3\. Bible Reading<\/strong><\/h3>\s*<p>\(4 min\.\)<\/p>/,
           '',
         ),
       ),

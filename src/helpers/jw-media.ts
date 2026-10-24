@@ -4473,16 +4473,16 @@ interface MidweekProgramSource {
 /**
  * Where the meeting timer can read the week's part lengths: the workbook
  * page on WOL, found by the MEPS id of the week's document. Nothing is
- * fetched here; undefined when the timer doesn't want the lengths, or when
- * the week is not a regular one (a CO visit has a different program).
+ * fetched here; undefined when the timer doesn't want the lengths. A CO
+ * visit week reads the same: the workbook doesn't change, the CO's talk
+ * only takes the place of the CBS, which the timer then leaves out.
  */
 const getMidweekProgramSource = async (
   db: string,
   docId: number,
   langwritten: '' | JwLangCode,
-  lookupDate: Date,
 ): Promise<MidweekProgramSource | undefined> => {
-  if (!langwritten || isDemoModeActive() || isCoWeek(lookupDate)) return;
+  if (!langwritten || isDemoModeActive()) return;
   try {
     const settings = useCurrentStateStore().currentSettings;
     if (settings?.timerImportProgramTimings === false) return;
@@ -4798,7 +4798,6 @@ export const getMwMedia = async (
         db,
         docId,
         publication.langwritten,
-        lookupDate,
       ),
     };
   } catch (e) {
