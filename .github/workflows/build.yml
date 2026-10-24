@@ -122,7 +122,8 @@ jobs:
     needs: [quality]
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Test build on a fork: no Apple signing keys, so no macOS build
+        os: [ubuntu-latest, windows-latest]
     steps:
       - name: Check out master branch
         if: ${{ inputs.checkout-latest == true }}
