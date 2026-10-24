@@ -83,6 +83,10 @@ export interface TimerData {
   timerOvertimeTextColor?: string;
   /** The planned length of the part being timed, in both timer modes. */
   timerPartTargetSeconds?: number;
+  /** Set by the main process: the page may send commands (with the PIN). */
+  timerRemoteControlAllowed?: boolean;
+  /** The day's parts, for the remote's part list (the remote only). */
+  timerRemoteParts?: TimerRemotePart[];
   timerTextColor?: string;
   timerTextSize?: string;
   timerTimeOfDayDisplay?: TimerTimeOfDayDisplay;
@@ -94,6 +98,19 @@ export interface TimerData {
 export interface TimerPartCounts {
   ayfm: number;
   lac: number;
+}
+
+/** One part in the timer remote's list. */
+export interface TimerRemotePart {
+  current: boolean;
+  /** The part has been timed. */
+  done: boolean;
+  label: string;
+  /** The planned length. */
+  minutes: number;
+  /** The part "Start" would time next. */
+  next: boolean;
+  value: string;
 }
 
 export type TimerTimeOfDayDisplay = 'analog' | 'analog-digital' | 'digital';

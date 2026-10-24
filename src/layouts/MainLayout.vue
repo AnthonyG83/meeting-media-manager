@@ -158,7 +158,10 @@ import {
   createTemporaryNotification,
   notifyDiskFull,
 } from 'src/helpers/notifications';
-import { syncTimerRemote } from 'src/helpers/timer-remote';
+import {
+  handleTimerRemoteCommand,
+  syncTimerRemote,
+} from 'src/helpers/timer-remote';
 import { createWatchFolderEventQueue } from 'src/helpers/watch-folder-event-queue';
 import { cancelZoomRun, stopZoomSharingAfterMedia } from 'src/helpers/zoom';
 import {
@@ -250,6 +253,7 @@ const {
   onMediaWindowRendererGone,
   onPathProbeNetworkWarning,
   onShortcut,
+  onTimerRemoteCommand,
   onTimerWindowClosed,
   onVideoCaptureCrashDetected,
   onWatchFolderError,
@@ -799,6 +803,10 @@ const initListeners = () => {
   onTimerWindowClosed(() => {
     currentState.setTimerWindowVisible(false);
   });
+
+  // The timer remote's page (when allowed to, and given the PIN) drives the
+  // same timer as the operator: the last command wins.
+  onTimerRemoteCommand(handleTimerRemoteCommand);
 
   onWatchFolderError(() => {
     if (!watchFolderErrorShown.value) {
@@ -1827,6 +1835,8 @@ watchImmediate(
     currentCongregation.value,
     currentSettings.value?.enableTimerDisplay,
     currentSettings.value?.timerRemoteEnable,
+    currentSettings.value?.timerRemoteAllowControl,
+    currentSettings.value?.timerRemotePin,
     currentSettings.value?.timerRemotePort,
     locale.value,
   ],

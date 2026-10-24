@@ -306,6 +306,10 @@ export interface ElectronApi {
   onShortcut: (
     callback: (args: { shortcut: keyof SettingsValues }) => void,
   ) => void;
+  /** A command from the timer page, already checked by the main process. */
+  onTimerRemoteCommand: (
+    callback: (command: TimerRemoteCommand) => void,
+  ) => () => void;
   onTimerWindowClosed: (callback: () => void) => () => void;
   onUpdateAvailable: (callback: (args: UpdateVersionInfo) => void) => void;
   onUpdateDownloaded: (callback: (args: UpdateVersionInfo) => void) => void;
@@ -419,6 +423,11 @@ export interface ElectronApi {
   startZoomHelper: () => Promise<ZoomHelperStartResult>;
   stopTimerRemote: () => void;
   stopZoomHelper: () => void;
+  /**
+   * Whether the timer page may control the timer, and the PIN it needs to.
+   * Sent whenever either changes; control stays off until it is sent.
+   */
+  timerRemoteConfig: (config: TimerRemoteConfig) => void;
   /** The timer page's few words, in M3's language. */
   timerRemoteText: (text: Record<string, string>) => void;
   /** The latest timer state, pushed to every open timer page. */
@@ -582,6 +591,7 @@ export type ElectronIpcListenKey =
   | 'setShouldQuit'
   | 'shortcut'
   | 'syncMeetingSchedule'
+  | 'timerRemoteCommand'
   | 'timerWindowClosed'
   | 'update-available'
   | 'update-download-progress'
@@ -617,6 +627,7 @@ export type ElectronIpcSendKey =
   | 'setPathProbeNotificationPaths'
   | 'stopTimerRemote'
   | 'stopZoomHelper'
+  | 'timerRemoteConfig'
   | 'timerRemoteText'
   | 'timerRemoteUpdate'
   | 'toggleMediaWindow'
@@ -692,6 +703,20 @@ export interface SerializedPreloadError {
   name: string;
   stack?: string;
   syscall?: string;
+}
+
+export type TimerRemoteAction =
+  'pause' | 'resume' | 'select' | 'start-next' | 'stop';
+
+export interface TimerRemoteCommand {
+  action: TimerRemoteAction;
+  /** The part to time, for `select`. */
+  part?: string;
+}
+
+export interface TimerRemoteConfig {
+  allowControl: boolean;
+  pin: string;
 }
 
 export interface TimerRemoteStatus {

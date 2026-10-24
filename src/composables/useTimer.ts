@@ -6,6 +6,7 @@ import type {
   MeetingPartTimings,
   TimerData,
   TimerPartCounts,
+  TimerRemotePart,
 } from 'src/types';
 
 import {
@@ -802,6 +803,21 @@ const createTimer = () => {
     }
   };
 
+  const getRemoteParts = (): TimerRemotePart[] => {
+    const nextValue = nextPart.value?.value;
+    return meetingPartsOptions.value.map((option) => {
+      const current = timerRunning.value && option.value === currentPart.value;
+      return {
+        current,
+        done: !current && !!partTimings.value[option.value]?.endTime,
+        label: option.label,
+        minutes: partDurations.value[option.value] ?? 0,
+        next: option.value === nextValue,
+        value: option.value,
+      };
+    });
+  };
+
   const updateTimerWindow = () => {
     // Send timer data to the timer window via broadcast channel
     const handAlert = useHandAlertStore();
@@ -846,7 +862,11 @@ const createTimer = () => {
     safePostTimerData(timerData);
     if (currentSettings.value?.timerRemoteEnable) {
       try {
-        globalThis.electronApi.timerRemoteUpdate(timerData);
+        // Only the remote shows (and picks from) the day's list of parts.
+        globalThis.electronApi.timerRemoteUpdate({
+          ...timerData,
+          timerRemoteParts: getRemoteParts(),
+        });
       } catch (error) {
         errorCatcher(error, {
           contexts: { fn: { name: 'timerRemoteUpdate' } },

@@ -154,6 +154,7 @@ export interface SettingsItem {
 }
 
 export type SettingsItemAction =
+  | 'newTimerRemotePin'
   | 'obsConnect'
   | 'openCongregationLookup'
   | 'openZoomSetupAssistant'
@@ -179,7 +180,8 @@ export type SettingsItemListKey =
 
 export type SettingsItemOption = 'coTuesdays' | 'futureDate' | 'meetingTime';
 
-export type SettingsItemRule = 'notEmpty' | 'portNumber' | 'regular';
+export type SettingsItemRule =
+  'notEmpty' | 'pinCode' | 'portNumber' | 'regular';
 
 export type SettingsItems = Record<keyof SettingsValues, SettingsItem>;
 
@@ -340,7 +342,10 @@ export interface SettingsValues {
   timerOvertimeIndicator: boolean;
   timerOvertimeShowAmountOnly: boolean;
   timerOvertimeTextColor: string;
+  timerRemoteAllowControl: boolean;
   timerRemoteEnable: boolean;
+  timerRemoteNewPin: null;
+  timerRemotePin: string;
   timerRemotePort: null | string;
   timerShowOnActionIsland: boolean;
   timerTextColor: string;
