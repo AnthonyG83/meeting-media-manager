@@ -113,9 +113,9 @@ const PAGE_HTML = `<!doctype html>
         <select id="picker" class="control grow"></select>
       </div>
       <div class="row">
-        <button id="selectButton" type="button" class="control start"></button>
-        <button id="pauseButton" type="button" class="control"></button>
-        <button id="stopButton" type="button" class="control stop"></button>
+        <button id="selectButton" type="button" class="control start"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><span id="selectLabel"></span></button>
+        <button id="pauseButton" type="button" class="control"><svg id="pauseIcon" class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg><svg id="resumeIcon" class="icon" hidden viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><span id="pauseLabel"></span></button>
+        <button id="stopButton" type="button" class="control stop"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6z"/></svg><span id="stopLabel"></span></button>
       </div>
     </div>
     <div id="message" class="message" role="status" hidden></div>
@@ -160,6 +160,8 @@ body { background: #000; color: #fff; font-family: -apple-system, "Segoe UI", Ro
 .row { display: flex; }
 .row > * + * { margin-left: 12px; }
 .control { background: rgba(255,255,255,.18); border: 0; border-radius: 12px; color: #fff; flex: 1; font: inherit; font-size: 1.25rem; font-size: clamp(1rem, 3.5vw, 1.5rem); font-weight: 600; min-height: 56px; padding: 0 1em; }
+.control .icon { fill: currentColor; height: 1.1em; margin-right: .4em; vertical-align: -0.15em; width: 1.1em; }
+.control .icon[hidden] { display: none; }
 .control.start { background: #1f8f45; }
 .control.stop { background: #c62828; }
 .control.grow { flex: 3; min-width: 0; }
@@ -190,6 +192,11 @@ const PAGE_JS = String.raw`(function () {
     pinSave: document.getElementById('pinSave'),
     panel: document.getElementById('panel'),
     pauseButton: document.getElementById('pauseButton'),
+    pauseIcon: document.getElementById('pauseIcon'),
+    resumeIcon: document.getElementById('resumeIcon'),
+    pauseLabel: document.getElementById('pauseLabel'),
+    stopLabel: document.getElementById('stopLabel'),
+    selectLabel: document.getElementById('selectLabel'),
     stopButton: document.getElementById('stopButton'),
     picker: document.getElementById('picker'),
     selectButton: document.getElementById('selectButton'),
@@ -301,6 +308,10 @@ const PAGE_JS = String.raw`(function () {
       ? label + ' \u00B7 ' + minutesText(part.minutes)
       : label;
   }
+  function toggleHidden(element, hidden) {
+    if (hidden) element.setAttribute('hidden', '');
+    else element.removeAttribute('hidden');
+  }
   function selectedPartName() {
     var parts = (data && data.timerRemoteParts) || [];
     var value = el.picker.value;
@@ -337,11 +348,15 @@ const PAGE_JS = String.raw`(function () {
     el.pinSave.textContent = text.save || '';
     if (!hasPin) return;
     var parts = (data && data.timerRemoteParts) || [];
-    el.pauseButton.textContent = (data && data.paused) ? (text.resume || '') : (text.pause || '');
+    var paused = !!(data && data.paused);
+    el.pauseLabel.textContent = paused ? (text.resume || '') : (text.pause || '');
+    // SVG elements have no hidden property: set the attribute itself
+    toggleHidden(el.pauseIcon, paused);
+    toggleHidden(el.resumeIcon, !paused);
     el.pauseButton.disabled = !running;
-    el.stopButton.textContent = text.stop || '';
+    el.stopLabel.textContent = text.stop || '';
     el.stopButton.disabled = !running;
-    el.selectButton.textContent = text.start || '';
+    el.selectLabel.textContent = text.start || '';
     el.selectButton.disabled = !parts.length;
     renderPicker(parts);
   }
