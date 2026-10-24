@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const errorCatcherMock = vi.fn();
 const createTemporaryNotificationMock = vi.fn();
@@ -322,5 +322,176 @@ describe('obsStopRecording', () => {
     expect(errorCatcherMock).toHaveBeenCalledWith(error, {
       contexts: { fn: { name: 'obsStopRecording' } },
     });
+  });
+});
+
+describe('obsSetProgramScene', () => {
+  const callMock = vi.fn();
+  const calls = () => callMock.mock.calls;
+
+  // OBS names its transitions in its own language: here, French.
+  const answer = (current: Record<string, unknown>) => {
+    callMock.mockImplementation(async (request: string) => {
+      if (request === 'GetSceneTransitionList') {
+        return {
+          transitions: [
+            { transitionKind: 'cut_transition', transitionName: 'Coupure' },
+            { transitionKind: 'fade_transition', transitionName: 'Fondu' },
+            { transitionKind: 'swipe_transition', transitionName: 'Balayage' },
+          ],
+        };
+      }
+      if (request === 'GetCurrentSceneTransition') return current;
+      return undefined;
+    });
+  };
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    obsStateStore.obsConnectionState = 'connected';
+    const obsUtils = await import('src/utils/obs');
+    obsUtils.obsWebSocketInfo.obsWebSocket = { call: callMock } as never;
+    answer({
+      transitionDuration: 700,
+      transitionFixed: false,
+      transitionName: 'Balayage',
+    });
+  });
+
+  afterEach(async () => {
+    // Let any pending restore run, so no test leaves OBS's transition saved.
+    await vi.runAllTimersAsync();
+    vi.useRealTimers();
+  });
+
+  it("switches with OBS's own transition when none is given", async () => {
+    const { obsSetProgramScene } = await import('../obs');
+
+    await obsSetProgramScene({ sceneName: 'Media' });
+
+    expect(calls()).toEqual([
+      ['SetCurrentProgramScene', { sceneName: 'Media' }],
+    ]);
+  });
+
+  it("cuts, then puts OBS's own transition back", async () => {
+    const { obsSetProgramScene } = await import('../obs');
+
+    await obsSetProgramScene({ sceneName: 'Media' }, 'cut');
+
+    expect(callMock).toHaveBeenCalledWith('SetCurrentSceneTransition', {
+      transitionName: 'Coupure',
+    });
+    expect(callMock).not.toHaveBeenCalledWith(
+      'SetCurrentSceneTransitionDuration',
+      expect.anything(),
+    );
+    expect(calls().at(-1)).toEqual([
+      'SetCurrentProgramScene',
+      { sceneName: 'Media' },
+    ]);
+
+    await vi.advanceTimersByTimeAsync(250);
+    expect(calls().slice(-2)).toEqual([
+      ['SetCurrentSceneTransition', { transitionName: 'Balayage' }],
+      ['SetCurrentSceneTransitionDuration', { transitionDuration: 700 }],
+    ]);
+  });
+
+  it("fades in half a second, and puts OBS's own transition back once it's done", async () => {
+    const { obsSetProgramScene } = await import('../obs');
+
+    await obsSetProgramScene({ sceneName: 'Media' }, 'fade');
+
+    expect(calls()).toContainEqual([
+      'SetCurrentSceneTransition',
+      { transitionName: 'Fondu' },
+    ]);
+    expect(calls()).toContainEqual([
+      'SetCurrentSceneTransitionDuration',
+      { transitionDuration: 500 },
+    ]);
+
+    await vi.advanceTimersByTimeAsync(700);
+    expect(callMock).not.toHaveBeenCalledWith('SetCurrentSceneTransition', {
+      transitionName: 'Balayage',
+    });
+
+    await vi.advanceTimersByTimeAsync(100);
+    expect(callMock).toHaveBeenCalledWith('SetCurrentSceneTransition', {
+      transitionName: 'Balayage',
+    });
+  });
+
+  it('puts back the transition OBS had first after two quick switches', async () => {
+    const { obsSetProgramScene } = await import('../obs');
+
+    await obsSetProgramScene({ sceneName: 'Media' }, 'fade');
+    // By now, OBS's current transition is M³'s fade.
+    answer({
+      transitionDuration: 500,
+      transitionFixed: false,
+      transitionName: 'Fondu',
+    });
+    await obsSetProgramScene({ sceneName: 'Camera' }, 'cut');
+    await vi.runAllTimersAsync();
+
+    const restores = calls().filter(
+      ([request, args]) =>
+        request === 'SetCurrentSceneTransition' &&
+        (args as { transitionName: string }).transitionName === 'Balayage',
+    );
+    expect(restores).toHaveLength(1);
+    expect(calls().at(-1)).toEqual([
+      'SetCurrentSceneTransitionDuration',
+      { transitionDuration: 700 },
+    ]);
+  });
+
+  it("doesn't set a duration back for a fixed transition", async () => {
+    answer({
+      transitionDuration: null,
+      transitionFixed: true,
+      transitionName: 'Coupure',
+    });
+    const { obsSetProgramScene } = await import('../obs');
+
+    await obsSetProgramScene({ sceneName: 'Media' }, 'fade');
+    await vi.runAllTimersAsync();
+
+    expect(calls().at(-1)).toEqual([
+      'SetCurrentSceneTransition',
+      { transitionName: 'Coupure' },
+    ]);
+  });
+
+  it('still switches when OBS has no such transition', async () => {
+    callMock.mockImplementation(async (request: string) =>
+      request === 'GetSceneTransitionList' ? { transitions: [] } : undefined,
+    );
+    const { obsSetProgramScene } = await import('../obs');
+
+    await obsSetProgramScene({ sceneName: 'Media' }, 'cut');
+
+    expect(calls()).toEqual([
+      ['GetSceneTransitionList'],
+      ['SetCurrentProgramScene', { sceneName: 'Media' }],
+    ]);
+  });
+
+  it('still switches when changing the transition fails', async () => {
+    callMock.mockImplementation(async (request: string) => {
+      if (request === 'GetSceneTransitionList') throw new Error('boom');
+      return undefined;
+    });
+    const { obsSetProgramScene } = await import('../obs');
+
+    await obsSetProgramScene({ sceneName: 'Media' }, 'cut');
+
+    expect(callMock).toHaveBeenCalledWith('SetCurrentProgramScene', {
+      sceneName: 'Media',
+    });
+    expect(errorCatcherMock).toHaveBeenCalled();
   });
 });

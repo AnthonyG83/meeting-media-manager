@@ -1,12 +1,21 @@
+import type * as VueUse from '@vueuse/core';
+import type {
+  DateInfo,
+  ObsSceneWindowCommand,
+  ObsSceneWindowState,
+} from 'src/types';
+
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils';
 import { installQuasarPlugin } from 'app/test/vitest/helpers/install-quasar-plugin';
 import { installPinia } from 'app/test/vitest/mocks/pinia';
 import { defaultSettings } from 'src/constants/settings';
+import { useAppSettingsStore } from 'stores/app-settings';
 import { useCongregationSettingsStore } from 'stores/congregation-settings';
 import { useCurrentStateStore } from 'stores/current-state';
+import { useJwStore } from 'stores/jw';
 import { useObsStateStore } from 'stores/obs-state';
 import { useRecordingStore } from 'stores/recording-state';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import DialogObsPopup from '../DialogObsPopup.vue';
 
@@ -23,6 +32,39 @@ const obsGetRecordingStateMock = vi.hoisted(() =>
   vi.fn<() => Promise<boolean>>(async () => false),
 );
 
+// Forwards to the fake socket, so tests see the scene asked for there too.
+const obsSetProgramSceneMock = vi.hoisted(() =>
+  vi.fn<
+    (sceneArgs: Record<string, string>, transition?: unknown) => Promise<void>
+  >(async (sceneArgs) => {
+    await callMock('SetCurrentProgramScene', sceneArgs);
+  }),
+);
+
+const obsStartRecordingMock = vi.hoisted(() =>
+  vi.fn<() => Promise<boolean>>(async () => true),
+);
+
+// The scene window's channels (see useObsSceneWindowBridge): what the popup
+// sends it, and what it sends back.
+const sceneWindow = vi.hoisted(() => ({
+  command: undefined as unknown as { value: ObsSceneWindowCommand | undefined },
+  postState: vi.fn<(state: ObsSceneWindowState) => void>(),
+}));
+
+vi.mock('@vueuse/core', async (importOriginal) => {
+  const original = await importOriginal<typeof VueUse>();
+  const { ref: vueRef } = await import('vue');
+  sceneWindow.command = vueRef<ObsSceneWindowCommand>();
+  return {
+    ...original,
+    useBroadcastChannel: ({ name }: { name: string }) =>
+      name === 'obs-scene-window-command'
+        ? { data: sceneWindow.command, post: vi.fn() }
+        : { data: vueRef(), post: sceneWindow.postState },
+  };
+});
+
 const obsGetRecordingDirectoryMock = vi.hoisted(() =>
   vi.fn<() => Promise<null | string>>(async () => null),
 );
@@ -35,7 +77,8 @@ vi.mock('src/helpers/obs', () => ({
   obsConnect: vi.fn(),
   obsGetRecordingDirectory: obsGetRecordingDirectoryMock,
   obsGetRecordingState: obsGetRecordingStateMock,
-  obsStartRecording: vi.fn(),
+  obsSetProgramScene: obsSetProgramSceneMock,
+  obsStartRecording: obsStartRecordingMock,
   obsStopRecording: vi.fn(),
 }));
 
@@ -340,5 +383,387 @@ describe('DialogObsPopup - image scene', () => {
       'SetCurrentProgramScene',
       expect.anything(),
     );
+  });
+});
+
+const sendSceneEvent = async (scene: 'camera' | 'media') => {
+  globalThis.dispatchEvent(
+    new CustomEvent('obsSceneEvent', { detail: { scene } }),
+  );
+  await flushPromises();
+};
+
+const playMedia = async (url: string, uniqueId = 'item') => {
+  const currentState = useCurrentStateStore();
+  currentState.mediaPlaying.url = url;
+  currentState.mediaPlaying.uniqueId = uniqueId;
+  await sendSceneEvent('media');
+};
+
+const stopMedia = async () => {
+  const currentState = useCurrentStateStore();
+  currentState.mediaPlaying.url = '';
+  currentState.mediaPlaying.uniqueId = '';
+  await sendSceneEvent('camera');
+};
+
+const mountConnected = (overrides: Partial<typeof defaultSettings>) => {
+  const obsState = setupObsSettings(overrides);
+  obsState.obsConnectionState = 'connected';
+  obsState.scenes = [
+    { sceneName: 'Camera' },
+    { sceneName: 'Media' },
+    { sceneName: 'Lectern' },
+  ];
+  mount(DialogObsPopup, { props: { modelValue: true } });
+  return obsState;
+};
+
+describe('DialogObsPopup - media transitions', () => {
+  it('cuts to an image and back', async () => {
+    mountConnected({ obsMediaTransitions: true });
+
+    await playMedia('file:///media/picture.jpg');
+    expect(obsSetProgramSceneMock).toHaveBeenLastCalledWith(
+      { sceneName: 'Media' },
+      'cut',
+    );
+
+    await stopMedia();
+    expect(obsSetProgramSceneMock).toHaveBeenLastCalledWith(
+      { sceneName: 'Camera' },
+      'cut',
+    );
+  });
+
+  it('fades to a video and back', async () => {
+    mountConnected({ obsMediaTransitions: true });
+
+    await playMedia('file:///media/video.mp4');
+    expect(obsSetProgramSceneMock).toHaveBeenLastCalledWith(
+      { sceneName: 'Media' },
+      'fade',
+    );
+
+    await stopMedia();
+    expect(obsSetProgramSceneMock).toHaveBeenLastCalledWith(
+      { sceneName: 'Camera' },
+      'fade',
+    );
+  });
+
+  it("keeps OBS's own transition when the setting is off", async () => {
+    mountConnected({ obsMediaTransitions: false });
+
+    await playMedia('file:///media/video.mp4');
+    await stopMedia();
+
+    expect(obsSetProgramSceneMock).toHaveBeenNthCalledWith(
+      1,
+      { sceneName: 'Media' },
+      null,
+    );
+    expect(obsSetProgramSceneMock).toHaveBeenNthCalledWith(
+      2,
+      { sceneName: 'Camera' },
+      null,
+    );
+  });
+
+  it("keeps OBS's own transition for a scene picked by hand", async () => {
+    mountConnected({ obsMediaTransitions: true });
+    await flushPromises();
+
+    clickSceneButton('Lectern');
+    await flushPromises();
+
+    expect(obsSetProgramSceneMock).toHaveBeenLastCalledWith(
+      { sceneName: 'Lectern' },
+      null,
+    );
+  });
+});
+
+describe('DialogObsPopup - Stage for the prayer after the first and last song', () => {
+  const SONG = 'file:///media/song.mp4';
+
+  const setupMeeting = (overrides: Partial<typeof defaultSettings> = {}) => {
+    const currentState = useCurrentStateStore();
+    currentState.selectedDate = '2026-10-21';
+    const song = (uniqueId: string) => ({
+      tag: { type: 'song', value: uniqueId },
+      uniqueId,
+    });
+    useJwStore().lookupPeriod[CONGREGATION_ID] = [
+      {
+        date: new Date('2026-10-21T00:00:00'),
+        mediaSections: [
+          { config: { uniqueId: 'opening' }, items: [song('first-song')] },
+          {
+            config: { uniqueId: 'middle' },
+            items: [{ uniqueId: 'video' }, song('middle-song')],
+          },
+          { config: { uniqueId: 'closing' }, items: [song('last-song')] },
+        ],
+        status: 'complete',
+      } as unknown as DateInfo,
+    ];
+
+    const obsState = mountConnected({
+      obsRememberPreviouslyUsedScene: true,
+      obsStageAfterFirstLastSong: true,
+      obsSwitchSceneAfterMedia: true,
+      ...overrides,
+    });
+    // The scene in use before the song, which M³ would otherwise go back to.
+    obsState.previousScene = 'Lectern';
+    return obsState;
+  };
+
+  const findDialogButton = (text: string) => {
+    const button = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.modal-confirm button'),
+    ).find((el) => el.textContent?.includes(text));
+    if (!button) throw new Error(`No dialog button with text "${text}"`);
+    return button;
+  };
+
+  it.each(['first-song', 'last-song'])(
+    'goes back to Stage after %s, not to the scene used before',
+    async (songId) => {
+      setupMeeting();
+
+      await playMedia(SONG, songId);
+      await stopMedia();
+
+      expect(obsSetProgramSceneMock).toHaveBeenLastCalledWith(
+        { sceneName: 'Camera' },
+        null,
+      );
+    },
+  );
+
+  it('goes back to the scene used before after a middle song', async () => {
+    setupMeeting();
+
+    await playMedia(SONG, 'middle-song');
+    await stopMedia();
+
+    expect(obsSetProgramSceneMock).toHaveBeenLastCalledWith(
+      { sceneName: 'Lectern' },
+      null,
+    );
+  });
+
+  it('goes back to the scene used before when the setting is off', async () => {
+    setupMeeting({ obsStageAfterFirstLastSong: false });
+
+    await playMedia(SONG, 'first-song');
+    await stopMedia();
+
+    expect(obsSetProgramSceneMock).toHaveBeenLastCalledWith(
+      { sceneName: 'Lectern' },
+      null,
+    );
+  });
+
+  it('shows Stage as the scene coming up while the song plays', async () => {
+    setupMeeting();
+
+    await playMedia(SONG, 'first-song');
+
+    expect(isActiveSceneButton('Stage')).toBe(true);
+    expect(isActiveSceneButton('Lectern')).toBe(false);
+  });
+
+  it('asks before another scene replaces Stage, and keeps Stage when told to', async () => {
+    const obsState = setupMeeting();
+    await playMedia(SONG, 'first-song');
+
+    clickSceneButton('Lectern');
+    await flushPromises();
+
+    expect(document.body.textContent).toContain('Skip Stage for the prayer?');
+    findDialogButton('Keep Stage').click();
+    await flushPromises();
+    expect(obsState.stageForPrayerSkipped).toBe(false);
+
+    await stopMedia();
+    expect(obsSetProgramSceneMock).toHaveBeenLastCalledWith(
+      { sceneName: 'Camera' },
+      null,
+    );
+  });
+
+  it('uses the scene picked instead of Stage once confirmed', async () => {
+    setupMeeting();
+    await playMedia(SONG, 'first-song');
+
+    clickSceneButton('Lectern');
+    await flushPromises();
+    findDialogButton('Use Lectern').click();
+    await flushPromises();
+
+    await stopMedia();
+    expect(obsSetProgramSceneMock).toHaveBeenLastCalledWith(
+      { sceneName: 'Lectern' },
+      null,
+    );
+  });
+
+  it("doesn't ask when Stage itself is picked", async () => {
+    setupMeeting();
+    await playMedia(SONG, 'first-song');
+
+    clickSceneButton('Stage');
+    await flushPromises();
+
+    expect(document.body.textContent).not.toContain(
+      'Skip Stage for the prayer?',
+    );
+  });
+});
+
+describe('DialogObsPopup - scene window', () => {
+  // The stores and the channel outlive each test: start from a clean slate.
+  beforeEach(() => {
+    sceneWindow.command.value = undefined;
+    useObsStateStore().$reset();
+    useAppSettingsStore().obsSceneWindowCollapsed = false;
+    const { mediaPlaying } = useCurrentStateStore();
+    mediaPlaying.url = '';
+    mediaPlaying.uniqueId = '';
+  });
+
+  const setObsSceneWindowSpy = () =>
+    vi.spyOn(globalThis.electronApi, 'setObsSceneWindow');
+
+  const lastState = () => sceneWindow.postState.mock.calls.at(-1)?.[0];
+
+  const sendCommand = async (command: ObsSceneWindowCommand) => {
+    sceneWindow.command.value = command;
+    await flushPromises();
+  };
+
+  it('stays closed while the setting is off', async () => {
+    const spy = setObsSceneWindowSpy();
+    mountConnected({ obsSceneWindow: false });
+    await flushPromises();
+
+    expect(spy).toHaveBeenLastCalledWith('closed', true);
+    expect(sceneWindow.postState).not.toHaveBeenCalled();
+  });
+
+  it('shows, on top, and hides once collapsed', async () => {
+    const spy = setObsSceneWindowSpy();
+    mountConnected({ obsSceneWindow: true, obsSceneWindowOnTop: true });
+    await flushPromises();
+    expect(spy).toHaveBeenLastCalledWith('shown', true);
+
+    await sendCommand({ type: 'collapse' });
+
+    expect(useAppSettingsStore().obsSceneWindowCollapsed).toBe(true);
+    expect(spy).toHaveBeenLastCalledWith('hidden', true);
+  });
+
+  it('sends the scenes, with the active one', async () => {
+    mountConnected({ obsSceneWindow: true });
+    await flushPromises();
+
+    expect(lastState()).toMatchObject({
+      connection: 'connected',
+      live: null,
+      scenes: [
+        { id: 'Camera', kind: 'camera', label: 'Stage', missing: false },
+        { id: 'Media', kind: 'media', label: 'Media only', missing: false },
+        { id: 'Lectern', kind: null, label: 'Lectern', missing: false },
+      ],
+    });
+  });
+
+  it('sends it all again when the window (re)loads', async () => {
+    mountConnected({ obsSceneWindow: true });
+    await flushPromises();
+    sceneWindow.postState.mockClear();
+
+    await sendCommand({ type: 'ready' });
+
+    expect(sceneWindow.postState).toHaveBeenCalledOnce();
+  });
+
+  it('switches to the scene picked there', async () => {
+    mountConnected({ obsSceneWindow: true });
+    await flushPromises();
+
+    await sendCommand({ scene: 'Lectern', type: 'pick' });
+
+    expect(obsSetProgramSceneMock).toHaveBeenLastCalledWith(
+      { sceneName: 'Lectern' },
+      null,
+    );
+  });
+
+  it('starts recording from there', async () => {
+    mountConnected({ obsEnableRecordingControls: true, obsSceneWindow: true });
+    await flushPromises();
+
+    await sendCommand({ type: 'toggle-recording' });
+
+    expect(obsStartRecordingMock).toHaveBeenCalled();
+  });
+
+  describe('during the first song', () => {
+    const setupSong = async () => {
+      const currentState = useCurrentStateStore();
+      currentState.selectedDate = '2026-10-21';
+      useJwStore().lookupPeriod[CONGREGATION_ID] = [
+        {
+          date: new Date('2026-10-21T00:00:00'),
+          mediaSections: [
+            {
+              config: { uniqueId: 'opening' },
+              items: [{ tag: { type: 'song', value: '1' }, uniqueId: 'song' }],
+            },
+          ],
+          status: 'complete',
+        } as unknown as DateInfo,
+      ];
+      const obsState = mountConnected({
+        obsMediaTransitions: true,
+        obsRememberPreviouslyUsedScene: true,
+        obsSceneWindow: true,
+        obsStageAfterFirstLastSong: true,
+        obsSwitchSceneAfterMedia: true,
+      });
+      obsState.previousScene = 'Lectern';
+      await playMedia('file:///media/song.mp4', 'song');
+      return obsState;
+    };
+
+    it('sends the media live and Stage next, for the prayer', async () => {
+      await setupSong();
+
+      expect(lastState()).toMatchObject({
+        activeSceneId: 'Camera',
+        live: { image: false, label: 'Media only', transition: 'fade' },
+        next: { forPrayer: true, label: 'Stage', sceneId: 'Camera' },
+      });
+    });
+
+    it('uses the scene picked there instead of Stage once confirmed there', async () => {
+      await setupSong();
+
+      await sendCommand({
+        scene: 'Lectern',
+        skipStageForPrayer: true,
+        type: 'pick',
+      });
+      await stopMedia();
+
+      expect(obsSetProgramSceneMock).toHaveBeenLastCalledWith(
+        { sceneName: 'Lectern' },
+        'fade',
+      );
+    });
   });
 });

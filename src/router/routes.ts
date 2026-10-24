@@ -58,6 +58,15 @@ const routes: RouteRecordRaw[] = [
     'TimerLayout',
   ),
 
+  mainChildRoute(
+    '/obs-scenes',
+    'obs-scenes',
+    'ObsScenesPage',
+    { title: 'Scenes' },
+    undefined,
+    'ObsScenesLayout',
+  ),
+
   mainChildRoute('/setup-wizard', 'setup-wizard', 'SetupWizard', {
     icon: 'mmm-configuration',
     title: 'setup-wizard',

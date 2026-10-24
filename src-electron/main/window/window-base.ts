@@ -44,7 +44,7 @@ export function closeOtherWindows(source: BrowserWindow) {
  * @returns The created window
  */
 export function createWindow(
-  name: 'main' | 'media' | 'timer' | 'website' = 'main',
+  name: 'main' | 'media' | 'obs-scenes' | 'timer' | 'website' = 'main',
   options?: BrowserWindowConstructorOptions,
   websiteParams?: JwSiteParams,
 ) {
@@ -86,7 +86,8 @@ export function createWindow(
 
   // Show the window when it's ready
   win.on('ready-to-show', () => {
-    if (name === 'media') return;
+    // These two are shown by their own module, when wanted.
+    if (name === 'media' || name === 'obs-scenes') return;
     if (name === 'timer') {
       win.showInactive();
       return;
@@ -109,6 +110,9 @@ export function createWindow(
   switch (name) {
     case 'media':
       page = 'media-player';
+      break;
+    case 'obs-scenes':
+      page = 'obs-scenes';
       break;
     case 'timer':
       page = 'timer';

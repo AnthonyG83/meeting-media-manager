@@ -383,6 +383,19 @@ export const getVisibleMeetingItems = (
 };
 
 /**
+ * Whether a media item is the meeting's first or last song (the songs
+ * followed by a prayer), going by the day's visible items in order.
+ */
+export const isFirstOrLastMeetingSong = (
+  dateInfo: DateInfo | null | undefined,
+  uniqueId: string | undefined,
+): boolean => {
+  if (!uniqueId) return false;
+  const songs = getVisibleMeetingItems(dateInfo, { songsOnly: true });
+  return songs[0]?.uniqueId === uniqueId || songs.at(-1)?.uniqueId === uniqueId;
+};
+
+/**
  * Error messages music-metadata throws when a file ends before its own
  * headers say it should - the normal outcome when a file that is still
  * downloading (or was copied incompletely) is read before it finished:

@@ -304,11 +304,15 @@ export interface SettingsValues {
   obsHideIcons: boolean;
   obsImageScene: null | string;
   obsMediaScene: null | string;
+  obsMediaTransitions: boolean;
   obsPassword: null | string;
   obsPort: null | string;
   obsPostponeImages: boolean;
   obsQuickToggle: boolean;
   obsRememberPreviouslyUsedScene: boolean;
+  obsSceneWindow: boolean;
+  obsSceneWindowOnTop: boolean;
+  obsStageAfterFirstLastSong: boolean;
   obsSwitchSceneAfterMedia: boolean;
   pinyinSongFolder: null | string;
   recordingEnable: boolean;

@@ -1,3 +1,5 @@
+import type { DateInfo } from 'src/types';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -6,6 +8,7 @@ import {
   getFileNameMaskFromPubMediaId,
   isAudio,
   isExpectedMediaAccessError,
+  isFirstOrLastMeetingSong,
   isHeic,
   isImage,
   isJwPlaylist,
@@ -357,5 +360,36 @@ describe('Media Utilities', () => {
         ).toEqual([]);
       }
     });
+  });
+});
+
+describe('isFirstOrLastMeetingSong', () => {
+  const song = (uniqueId: string, hidden = false) => ({
+    hidden,
+    tag: { type: 'song', value: uniqueId },
+    uniqueId,
+  });
+  const day = {
+    mediaSections: [
+      { items: [song('hidden-song', true), song('opening')] },
+      { items: [{ uniqueId: 'video' }, song('middle')] },
+      { items: [song('closing'), { uniqueId: 'image' }] },
+    ],
+  } as unknown as DateInfo;
+
+  it.each([
+    ['opening', true],
+    ['closing', true],
+    ['middle', false],
+    ['video', false],
+    ['image', false],
+    ['hidden-song', false],
+    ['', false],
+  ])('%s: %s', (uniqueId, expected) => {
+    expect(isFirstOrLastMeetingSong(day, uniqueId)).toBe(expected);
+  });
+
+  it('is false without a meeting day', () => {
+    expect(isFirstOrLastMeetingSong(undefined, 'opening')).toBe(false);
   });
 });

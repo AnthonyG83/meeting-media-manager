@@ -8,6 +8,8 @@ import { DEFAULT_ZOOM_LAYOUT } from 'src/shared/zoom-layout';
 interface Store {
   displayCameraId: null | string;
   migrations: string[];
+  /** The OBS scene window is collapsed to the action island (per computer). */
+  obsSceneWindowCollapsed: boolean;
   screenPreferences: ScreenPreferences;
   timerPreferences: ScreenPreferences;
   yeartextPreviewDismissed: Record<number, boolean>;
@@ -61,6 +63,7 @@ export const useAppSettingsStore = defineStore('app-settings', {
   state: (): Store => ({
     displayCameraId: null,
     migrations: [],
+    obsSceneWindowCollapsed: false,
     screenPreferences: { preferredScreenNumber: 0, preferWindowed: false },
     timerPreferences: { preferredScreenNumber: 0, preferWindowed: true },
     yeartextPreviewDismissed: {},

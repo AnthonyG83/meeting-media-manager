@@ -1,5 +1,9 @@
 import type { OBSWebSocketError } from 'obs-websocket-js';
-import type { ObsConnectionState, ObsSceneType } from 'src/types';
+import type {
+  ObsConnectionState,
+  ObsMediaTransition,
+  ObsSceneType,
+} from 'src/types';
 import type { JsonObject } from 'type-fest';
 
 import { defineStore } from 'pinia';
@@ -9,11 +13,20 @@ import { isUUID } from 'src/utils/general';
 interface Store {
   currentScene: string;
   currentSceneType: ObsSceneType;
+  /** The transition the media now showing came up with, to hide it too. */
+  mediaTransition: null | ObsMediaTransition;
   obsConnectionState: ObsConnectionState;
   obsMessage: string;
   obsSceneListError: boolean;
   previousScene: string;
   scenes: JsonObject[];
+  /**
+   * The media showing is the meeting's first or last song: when it ends,
+   * M³ goes back to the camera scene for the prayer (obsStageAfterFirstLastSong).
+   */
+  stageForPrayer: boolean;
+  /** The operator picked another scene for after that song, when warned. */
+  stageForPrayerSkipped: boolean;
 }
 
 export const useObsStateStore = defineStore('obs-state', {
@@ -40,11 +53,14 @@ export const useObsStateStore = defineStore('obs-state', {
     return {
       currentScene: '',
       currentSceneType: 'camera',
+      mediaTransition: null,
       obsConnectionState: 'notConnected',
       obsMessage: '',
       obsSceneListError: false,
       previousScene: '',
       scenes: [],
+      stageForPrayer: false,
+      stageForPrayerSkipped: false,
     };
   },
 });

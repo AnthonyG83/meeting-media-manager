@@ -30,6 +30,7 @@ import type {
   resolve,
 } from 'upath';
 
+import type { ObsSceneWindowMode } from './obs';
 import type { TimerData } from './timer';
 
 export interface ConversionOptions {
@@ -416,6 +417,8 @@ export interface ElectronApi {
    */
   setExecutable: (path: string) => Promise<boolean>;
   setHardwareAcceleration: (disabled: boolean) => void;
+  /** Shows, hides (collapsed) or closes M³'s OBS scene window. */
+  setObsSceneWindow: (mode: ObsSceneWindowMode, alwaysOnTop: boolean) => void;
   setPathProbeNotificationPaths: (paths: string[]) => void;
   showFileOnWindows: (filePath: string) => Promise<void>;
   /** Serves the read-only timer page on the local network. */
@@ -624,6 +627,7 @@ export type ElectronIpcSendKey =
   | 'relaunchApp'
   | 'resumeAllDownloads'
   | 'setElectronUrlVariables'
+  | 'setObsSceneWindow'
   | 'setPathProbeNotificationPaths'
   | 'stopTimerRemote'
   | 'stopZoomHelper'

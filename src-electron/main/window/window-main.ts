@@ -16,6 +16,7 @@ import {
   createMediaWindow,
   moveMediaWindowThrottled,
 } from 'src-electron/main/window/window-media';
+import { closeObsScenesWindow } from 'src-electron/main/window/window-obs-scenes';
 
 export const mainWindowInfo = {
   mainWindow: null as BrowserWindow | null,
@@ -77,6 +78,8 @@ export function createMainWindow() {
             contexts: { fn: { name: 'mainWindow close cancelAllDownloads' } },
           });
         }
+        // The scene window refuses to close any other way.
+        closeObsScenesWindow();
         closeOtherWindows(mainWindowInfo.mainWindow);
       } else {
         setShouldQuit(false);

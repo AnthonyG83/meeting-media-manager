@@ -5,7 +5,7 @@ import type { GlobalQuasarIconMapFn } from 'quasar';
  * dropdown arrows, close buttons...) onto the app's own `mmm-*` icon font,
  * and prefixes any other bare icon name with `mmm-`. Installed as
  * `$q.iconMapFn` by every window that renders Quasar components with
- * built-in icons (MainLayout, MediaPlayerPage).
+ * built-in icons (MainLayout, MediaPlayerPage, ObsScenesLayout).
  */
 export const mmmIconMapFn: GlobalQuasarIconMapFn = (iconName) => {
   if (iconName.startsWith('chevron_')) {

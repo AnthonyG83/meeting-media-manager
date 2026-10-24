@@ -124,6 +124,7 @@ import {
   mediaWindowInfo,
   moveMediaWindow,
 } from 'src-electron/main/window/window-media';
+import { setObsScenesWindow } from 'src-electron/main/window/window-obs-scenes';
 import {
   createTimerWindow,
   moveTimerWindow,
@@ -280,6 +281,13 @@ handleIpcSend('focusMainWindow', () => {
 handleIpcSend('focusMediaWindow', () => {
   focusMediaWindow();
 });
+
+handleIpcSend(
+  'setObsSceneWindow',
+  (_e, mode: unknown, alwaysOnTop: unknown) => {
+    setObsScenesWindow(mode, alwaysOnTop);
+  },
+);
 
 handleIpcSend('toggleTimerWindow', async (_e, show: boolean) => {
   if (show) {

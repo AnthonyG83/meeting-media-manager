@@ -664,8 +664,12 @@ Configure which OBS scenes to use for different purposes:
 - **Quick Toggle**: Enable quick on/off toggle for OBS integration
 - **Switch Scene After Media**: Automatically return to previous scene after media
 - **Remember Previous Scene**: Remember and restore the previous scene
+- **Go Back to Stage for the Prayer After the First and Last Song**: When the meeting's first or last song ends, always switch to the stage (camera) scene for the prayer, even if another scene was in use before the song. Picking another scene while one of these songs is playing asks first
+- **Cut to Images, Fade to Videos**: Cut straight to and from an image, and fade to and from a video or audio file in half a second. OBS Studio's own transition is put back right after
 - **Hide Icons**: Hide OBS-related icons in the interface
 - **Recording Controls**: Show controls that start and stop OBS recording from M³
+- **Show Scenes in a Window of Their Own**: Put M³'s scene buttons and recording controls in a small window of their own, to place next to OBS Studio (for example, between M³ and OBS Studio on a split screen). The window can't be closed on its own, only with M³, and is kept on a screen when one is unplugged. Its collapse button tucks it into the action island, and the OBS Studio button there brings it back. The window shows what's live, how it came up (cut or fade) and which scene comes next, and asks before another scene replaces Stage for the prayer. With this window, you can turn off OBS Studio's own Scenes dock to save space, which also means every scene change goes through M³'s rules, such as never putting a camera over media
+- **Keep the Scene Window on Top**: Keep the scene window above other windows, so clicking OBS Studio or Zoom never hides it
 
 ::: warning Important Note
 
