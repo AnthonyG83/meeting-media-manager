@@ -496,10 +496,13 @@ namespace M3.ZoomHelper
         const string HotkeyVideo = "Alt+V";
         const string HotkeyMuteAll = "Alt+M";
         const string HotkeyParticipants = "Alt+U";
+        // "Raise hand": a toolbar button of its own when the meeting's
+        // reactions are turned off in Zoom, else in the Reactions panel.
+        const string HotkeyRaiseHand = "Alt+Y";
         // Toolbar buttons that are clearly neither Share nor React, and in two
         // cases must never be pressed to find out: End (Alt+Q) and Record
         // (Alt+R).
-        static readonly string[] OtherButtonHotkeys = { "Alt+Q", "Alt+R", "Alt+H", "Alt+U", "Alt+I" };
+        static readonly string[] OtherButtonHotkeys = { "Alt+Q", "Alt+R", "Alt+H", "Alt+U", "Alt+I", "Alt+Y" };
 
         // A trailing "(Ctrl+Alt+Shift+A)" style shortcut in a control name.
         // Key names are matched by shape only, since Zoom may translate them
@@ -2251,6 +2254,54 @@ namespace M3.ZoomHelper
             return title;
         }
 
+        /// <summary>Zoom's own "Raise hand" toolbar button ("Lower hand" while
+        /// the hand is up), shown instead of the Reactions button when the
+        /// meeting's reactions are turned off in Zoom. Known by its
+        /// shortcut; null when there's none (reactions on).</summary>
+        static El OwnHandButton(El window)
+        {
+            foreach (var button in ToolbarButtons(window))
+                if (HasHotkey(button.Name, HotkeyRaiseHand)) return button;
+            return null;
+        }
+
+        /// <summary>Raises or lowers the host's own hand, and returns the hand
+        /// button's name before (null when only the shortcut did it):
+        /// through Zoom's own "Raise hand" button with reactions turned off,
+        /// else the Reactions panel. If neither can be found, Zoom's Alt+Y
+        /// shortcut, as M3 did before it used the panel; should that change
+        /// nothing either, the panel's error stands, so the setup assistant
+        /// asks for the React button.</summary>
+        static string ToggleOwnHand(El window, string reactTitle, string notTitle, Func<bool> done, out string learnedReactTitle)
+        {
+            learnedReactTitle = reactTitle;
+            var own = OwnHandButton(window);
+            if (own != null)
+            {
+                var title = FirstSegment(own.Name);
+                PressAndWait(own, () =>
+                {
+                    var again = OwnHandButton(window);
+                    return again != null && FirstSegment(again.Name) == title ? again : null;
+                }, done, PressCheckMs * 2);
+                return title;
+            }
+            try
+            {
+                return PressHandButton(window, reactTitle, notTitle, done, out learnedReactTitle);
+            }
+            catch (ZoomActionError error)
+            {
+                if (error.Message != "react-button-not-found"
+                    && error.Message != "reaction-panel-not-found"
+                    && error.Message != "hand-button-not-found") throw;
+                Focus(window);
+                AltKey('Y');
+                if (WaitUntil(done, PressCheckMs * 2)) return null;
+                throw;
+            }
+        }
+
         /// <summary>Learns how Zoom marks a raised hand in the user's language:
         /// raises the host's own hand from the Reactions panel, reads what
         /// Zoom added to the host's row in the participants list, then lowers
@@ -2284,7 +2335,7 @@ namespace M3.ZoomHelper
                 return false;
             };
             string learnedReactTitle;
-            var raiseTitle = PressHandButton(window, reactTitle, null, handUp, out learnedReactTitle);
+            var raiseTitle = ToggleOwnHand(window, reactTitle, null, handUp, out learnedReactTitle);
             var raised = WaitUntil(handUp, 5000);
             if (!raised) throw new ZoomActionError("hand-not-raised");
 
@@ -2294,7 +2345,7 @@ namespace M3.ZoomHelper
                 return MeetingRowDetails(window).TryGetValue(name, out now) && !Segments(now).Contains(phrase);
             };
             string ignored;
-            PressHandButton(window, learnedReactTitle, raiseTitle, handDown, out ignored);
+            ToggleOwnHand(window, learnedReactTitle, raiseTitle, handDown, out ignored);
             var lowered = WaitUntil(handDown, 5000);
             if (!lowered) throw new ZoomActionError("hand-not-lowered");
 
