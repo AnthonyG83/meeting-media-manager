@@ -1365,7 +1365,6 @@
   "timer-remote-pin-wrong": "Wrong PIN. Check the PIN in M³ and try again.",
   "timer-remote-send-failed": "The command didn't go through.",
   "timer-remote-show-timer": "Show timer",
-  "timer-remote-start-next": "Start next part",
   "timer-remote-too-many-attempts": "Too many wrong PINs. Wait a minute and try again.",
   "timerRemoteAllowControl": "Let the timer remote control the timer",
   "timerRemoteAllowControl-explain": "Lets the timer page start, pause and stop the timer, and pick the part, from the tablet, for example for a speaker who wants to start his own part. It asks for the PIN below once on each device. You keep full control in M³, and the last command wins. The page is plain HTTP on your local network: the PIN keeps other devices on the same network from driving the timer, but it doesn't protect against someone who can read that network's traffic.",

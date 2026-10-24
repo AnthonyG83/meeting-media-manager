@@ -511,7 +511,7 @@ The addresses to open on the device are listed in the timer popup, with a copy b
 
 Every device has a **Hide timer** button on the page. It blanks the time on that device only, so a speaker who doesn't want to see the timer can turn it off for himself, while the hand alert still shows. Nothing changes in M³ or on the other screens.
 
-**Control the timer from the remote**: when **Let the timer remote control the timer** is on, the page also shows a control bar: the current or next part, buttons to start the next part, pause, resume and stop, and a list of the day's parts to pick from. The first time a device uses it, the page asks for the 6-digit PIN that M³ made when you turned this on. It is shown in the timer popup and in the settings, where **New PIN** replaces it. Control is off by default.
+**Control the timer from the remote**: when **Let the timer remote control the timer** is on, the page also shows a control bar: a list of the day's parts (the next one is already chosen, and its name shows above the clock), a green Start button for the chosen part, Pause or Resume, and a red Stop button. The first time a device uses it, the page asks for the 6-digit PIN that M³ made when you turned this on. It is shown in the timer popup and in the settings, where **New PIN** replaces it. Control is off by default. On an iPad or iPhone, open the page in Safari and use **Share → Add to Home Screen**: opened from the home screen, it fills the whole screen without Safari's tab and address bars. Older iPads are supported too.
 
 You keep full control in M³, and the last command wins. When the remote starts or stops a part, M³ shows a small notification, so you aren't surprised.
 

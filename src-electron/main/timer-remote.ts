@@ -86,9 +86,11 @@ const PAGE_HTML = `<!doctype html>
 </head>
 <body>
 <main id="display" class="display">
-  <div id="label" class="label"></div>
-  <div id="time" class="time">--:--</div>
-  <div id="caption" class="caption"></div>
+  <div class="face">
+    <div id="label" class="label"></div>
+    <div id="time" class="time">--:--</div>
+    <div id="caption" class="caption"></div>
+  </div>
   <div id="hand" class="hand" hidden>
     <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M22 58c-5 0-9-3-11-7L4 36c-1-3 1-6 4-6s4 2 5 4l4 8V12c0-2 2-4 4-4s4 2 4 4v18h2V7c0-2 2-4 4-4s4 2 4 4v23h2V10c0-2 2-4 4-4s4 2 4 4v20h2V17c0-2 2-4 4-4s4 2 4 4v27c0 8-6 14-14 14H22z"/></svg>
     <div id="handNames" class="hand-names"></div>
@@ -107,15 +109,13 @@ const PAGE_HTML = `<!doctype html>
       </div>
     </form>
     <div id="panel" class="panel" hidden>
-      <div id="partInfo" class="part-info"></div>
-      <div class="row">
-        <button id="nextButton" type="button" class="control primary"></button>
-        <button id="pauseButton" type="button" class="control"></button>
-        <button id="stopButton" type="button" class="control"></button>
-      </div>
       <div class="row">
         <select id="picker" class="control grow"></select>
-        <button id="selectButton" type="button" class="control"></button>
+      </div>
+      <div class="row">
+        <button id="selectButton" type="button" class="control start"></button>
+        <button id="pauseButton" type="button" class="control"></button>
+        <button id="stopButton" type="button" class="control stop"></button>
       </div>
     </div>
     <div id="message" class="message" role="status" hidden></div>
@@ -130,28 +130,38 @@ html, body { height: 100%; margin: 0; }
 /* The classes below set display, which would otherwise beat the hidden attribute. */
 [hidden] { display: none !important; }
 body { background: #000; color: #fff; font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-user-select: none; user-select: none; overflow: hidden; }
-.display { align-items: center; display: flex; flex-direction: column; gap: 2vh; height: 100%; justify-content: center; position: relative; transition: background-color 700ms ease, color 700ms ease; }
-.label { font-size: clamp(1rem, 4vw, 3rem); font-weight: 600; letter-spacing: 0.04em; max-width: 94vw; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.display { display: flex; flex-direction: column; height: 100%; position: relative; transition: background-color 700ms ease, color 700ms ease; }
+/* The clock takes the room the controls leave, so the two never overlap. */
+.face { align-items: center; display: flex; flex: 1; flex-direction: column; justify-content: center; min-height: 0; overflow: hidden; padding: 56px 16px 0; }
+.face > * + * { margin-top: 2vh; }
+.label { font-size: 4vw; font-size: clamp(1rem, 4vw, 3rem); font-weight: 600; letter-spacing: 0.04em; max-width: 94vw; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 .label:empty { display: none; }
-.time { font-size: clamp(3rem, 26vw, 40vh); font-variant-numeric: tabular-nums; font-weight: 700; line-height: 1; white-space: nowrap; }
-.caption { font-size: clamp(0.9rem, 3vw, 2rem); opacity: 0.7; }
+.time { font-size: 24vw; font-size: min(26vw, 40vh); font-variant-numeric: tabular-nums; font-weight: 700; line-height: 1; white-space: nowrap; }
+.caption { font-size: 3vw; font-size: clamp(0.9rem, 3vw, 2rem); opacity: 0.7; }
 .caption:empty { display: none; }
 .blink { animation: blink 2s infinite; }
 @keyframes blink { 0%, 60% { opacity: 1; } 61%, 100% { opacity: 0.7; } }
-.hand { align-items: center; display: flex; flex-direction: column; gap: 1vh; inset: 0; justify-content: center; pointer-events: none; position: absolute; }
-.hand svg { animation: pulse 1.2s ease-in-out infinite; fill: #ffd60a; filter: drop-shadow(0 0 1.5vh rgba(0,0,0,.6)); height: min(45vh, 45vw); width: min(45vh, 45vw); }
-.hand-names { background: rgba(0,0,0,.6); border-radius: 999px; color: #ffd60a; font-size: clamp(1rem, 4vh, 3rem); font-weight: bold; max-width: 90vw; overflow: hidden; padding: .3em 1em; text-overflow: ellipsis; white-space: nowrap; }
+.hand { align-items: center; display: flex; flex-direction: column; bottom: 0; justify-content: center; left: 0; pointer-events: none; position: absolute; right: 0; top: 0; }
+.hand > * + * { margin-top: 1vh; }
+.hand svg { animation: pulse 1.2s ease-in-out infinite; fill: #ffd60a; filter: drop-shadow(0 0 1.5vh rgba(0,0,0,.6)); height: 40vmin; height: min(45vh, 45vw); width: 40vmin; width: min(45vh, 45vw); }
+.hand-names { background: rgba(0,0,0,.6); border-radius: 999px; color: #ffd60a; font-size: 4vh; font-size: clamp(1rem, 4vh, 3rem); font-weight: bold; max-width: 90vw; overflow: hidden; padding: .3em 1em; text-overflow: ellipsis; white-space: nowrap; }
 .hand-names:empty { display: none; }
 @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .75; transform: scale(.94); } }
-.status { background: rgba(255,255,255,.12); border-radius: 999px; top: 2vh; font-size: clamp(0.8rem, 2.5vw, 1.2rem); left: 50%; padding: .4em 1.2em; position: absolute; transform: translateX(-50%); }
-.tools { display: flex; gap: 8px; position: absolute; right: 12px; top: 12px; }
+.status { background: rgba(255,255,255,.12); border-radius: 999px; top: 2vh; font-size: 1rem; font-size: clamp(0.8rem, 2.5vw, 1.2rem); left: 50%; padding: .4em 1.2em; position: absolute; transform: translateX(-50%); }
+.tools { display: flex; position: absolute; right: 12px; top: 12px; }
+.tools > * + * { margin-left: 8px; }
 .tool { background: rgba(255,255,255,.12); border: 0; border-radius: 999px; color: inherit; font: inherit; font-size: 0.9rem; min-height: 40px; padding: 0 1em; }
-.controls { background: rgba(0,0,0,.6); bottom: 0; box-sizing: border-box; color: #fff; display: flex; flex-direction: column; gap: 12px; left: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); position: absolute; right: 0; }
-.panel, .pin-form { display: flex; flex-direction: column; gap: 12px; }
-.part-info { font-size: clamp(1rem, 3.5vw, 1.6rem); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.row { display: flex; gap: 12px; }
-.control { background: rgba(255,255,255,.18); border: 0; border-radius: 12px; color: #fff; flex: 1; font: inherit; font-size: clamp(1rem, 3.5vw, 1.5rem); font-weight: 600; min-height: 56px; padding: 0 1em; }
-.control.primary { background: #0a84ff; }
+.controls { background: rgba(0,0,0,.6); box-sizing: border-box; color: #fff; display: flex; flex: none; flex-direction: column; padding: 12px 16px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); position: relative; }
+.controls > * + *, .panel > * + *, .pin-form > * + * { margin-top: 12px; }
+.with-controls .time { font-size: 22vw; font-size: min(24vw, 28vh); }
+/* The time of day has more characters ("10:45:00 AM"): smaller, so it still fits */
+.time.clock { font-size: 13vw; font-size: min(13vw, 26vh); }
+.panel, .pin-form { display: flex; flex-direction: column; }
+.row { display: flex; }
+.row > * + * { margin-left: 12px; }
+.control { background: rgba(255,255,255,.18); border: 0; border-radius: 12px; color: #fff; flex: 1; font: inherit; font-size: 1.25rem; font-size: clamp(1rem, 3.5vw, 1.5rem); font-weight: 600; min-height: 56px; padding: 0 1em; }
+.control.start { background: #1f8f45; }
+.control.stop { background: #c62828; }
 .control.grow { flex: 3; min-width: 0; }
 .control:disabled { opacity: .4; }
 .pin-form input { background: #fff; border: 0; border-radius: 12px; box-sizing: border-box; color: #000; flex: 3; font: inherit; font-size: 1.5rem; letter-spacing: .3em; min-height: 56px; min-width: 0; padding: 0 1em; text-align: center; }
@@ -179,8 +189,6 @@ const PAGE_JS = String.raw`(function () {
     pinInput: document.getElementById('pinInput'),
     pinSave: document.getElementById('pinSave'),
     panel: document.getElementById('panel'),
-    partInfo: document.getElementById('partInfo'),
-    nextButton: document.getElementById('nextButton'),
     pauseButton: document.getElementById('pauseButton'),
     stopButton: document.getElementById('stopButton'),
     picker: document.getElementById('picker'),
@@ -234,6 +242,8 @@ const PAGE_JS = String.raw`(function () {
   function render() {
     var now = new Date();
     var running = !!(data && data.running);
+    // First, so the label below can name the part chosen in the picker
+    renderControls(running);
     var overtime = running && typeof data.time === 'string' && data.time.charAt(0) === '-';
     var useOvertime = overtime && data.timerOvertimeIndicator;
     el.display.style.backgroundColor = (useOvertime ? data.timerOvertimeBackgroundColor : data && data.timerBackgroundColor) || '#000';
@@ -246,7 +256,8 @@ const PAGE_JS = String.raw`(function () {
       el.display.style.color = '#fff';
       blink = false;
     }
-    el.time.className = 'time' + (blink ? ' blink' : '');
+    var showsClock = !hidden && !running && meetingCountdown(now) === null;
+    el.time.className = 'time' + (blink ? ' blink' : '') + (showsClock ? ' clock' : '');
     if (hidden) {
       el.label.textContent = '';
       el.time.textContent = '';
@@ -265,7 +276,8 @@ const PAGE_JS = String.raw`(function () {
         el.time.textContent = formatCountdown(countdown);
         el.caption.textContent = '';
       } else {
-        el.label.textContent = '';
+        // The part Start will time, while the controls are open
+        el.label.textContent = el.panel.hidden || el.controls.hidden ? '' : selectedPartName();
         el.time.textContent = formatTime(now);
         el.caption.textContent = '';
       }
@@ -276,7 +288,6 @@ const PAGE_JS = String.raw`(function () {
     el.status.hidden = connected;
     el.status.textContent = connected ? '' : (text.reconnecting || 'Reconnecting\u2026');
     el.hideButton.textContent = hidden ? (text.showTimer || '') : (text.hideTimer || '');
-    renderControls(running);
   }
 
   function minutesText(minutes) {
@@ -290,11 +301,19 @@ const PAGE_JS = String.raw`(function () {
       ? label + ' \u00B7 ' + minutesText(part.minutes)
       : label;
   }
+  function selectedPartName() {
+    var parts = (data && data.timerRemoteParts) || [];
+    var value = el.picker.value;
+    var part = parts.filter(function (p) { return p.value === value; })[0];
+    return part ? part.label || '' : '';
+  }
   function renderPicker(parts) {
     var key = parts.map(function (p) { return [p.value, p.label, p.done, p.current].join('|'); }).join('\n');
     if (key === pickerKey) return;
     pickerKey = key;
-    var chosen = el.picker.value;
+    // A part started or ended: offer the next one to start (else the running one)
+    var next = parts.filter(function (p) { return p.next; })[0] || parts.filter(function (p) { return p.current; })[0];
+    var chosen = next ? next.value : el.picker.value;
     el.picker.textContent = '';
     parts.forEach(function (part) {
       var option = document.createElement('option');
@@ -310,6 +329,7 @@ const PAGE_JS = String.raw`(function () {
     el.controlsButton.hidden = !(allowed && !hasPin && !pinFormOpen);
     el.controlsButton.textContent = text.controls || '';
     el.controls.hidden = !(allowed && (hasPin || pinFormOpen));
+    el.display.classList.toggle('with-controls', !el.controls.hidden);
     if (el.controls.hidden) return;
     el.pinForm.hidden = hasPin;
     el.panel.hidden = !hasPin;
@@ -317,10 +337,6 @@ const PAGE_JS = String.raw`(function () {
     el.pinSave.textContent = text.save || '';
     if (!hasPin) return;
     var parts = (data && data.timerRemoteParts) || [];
-    var shown = parts.filter(function (p) { return p.current; })[0] || parts.filter(function (p) { return p.next; })[0];
-    el.partInfo.textContent = partName(shown);
-    el.nextButton.textContent = text.startNext || '';
-    el.nextButton.disabled = !parts.some(function (p) { return p.next; });
     el.pauseButton.textContent = (data && data.paused) ? (text.resume || '') : (text.pause || '');
     el.pauseButton.disabled = !running;
     el.stopButton.textContent = text.stop || '';
@@ -338,24 +354,38 @@ const PAGE_JS = String.raw`(function () {
     if (!pin) { pinFormOpen = true; render(); return; }
     var body = { action: action };
     if (part) body.part = part;
-    fetch('/command', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Timer-Remote-Pin': pin },
-      body: JSON.stringify(body)
-    }).then(function (response) {
-      if (response.status === 202) { showMessage(''); return; }
-      if (response.status === 401) {
+    postCommand(JSON.stringify(body), pin, function (status) {
+      if (status === 202) { showMessage(''); return; }
+      if (status === 401) {
         // Forget the PIN: it was changed in M3, or typed wrong.
         store(PIN_KEY, null);
         pinFormOpen = true;
         showMessage(text.pinWrong);
-      } else if (response.status === 429) {
+      } else if (status === 429) {
         showMessage(text.tooManyAttempts);
       } else {
         showMessage(text.sendFailed);
       }
       render();
-    }).catch(function () { showMessage(text.sendFailed); });
+    }, function () { showMessage(text.sendFailed); });
+  }
+  // fetch() where there is one; older iPads (before iOS 10.3) only have XHR.
+  function postCommand(body, pin, onStatus, onError) {
+    if (window.fetch) {
+      fetch('/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Timer-Remote-Pin': pin },
+        body: body
+      }).then(function (response) { onStatus(response.status); }).catch(onError);
+      return;
+    }
+    var request = new XMLHttpRequest();
+    request.open('POST', '/command');
+    request.setRequestHeader('Content-Type', 'application/json');
+    request.setRequestHeader('X-Timer-Remote-Pin', pin);
+    request.onload = function () { onStatus(request.status); };
+    request.onerror = onError;
+    request.send(body);
   }
   el.hideButton.addEventListener('click', function () {
     store(HIDE_KEY, timerHidden() ? null : '1');
@@ -376,7 +406,6 @@ const PAGE_JS = String.raw`(function () {
     showMessage('');
     render();
   });
-  el.nextButton.addEventListener('click', function () { send('start-next'); });
   el.pauseButton.addEventListener('click', function () { send(data && data.paused ? 'resume' : 'pause'); });
   el.stopButton.addEventListener('click', function () { send('stop'); });
   el.selectButton.addEventListener('click', function () { if (el.picker.value) send('select', el.picker.value); });
