@@ -269,6 +269,7 @@ export const electronApi: ElectronApi = {
   setHardwareAcceleration: function (disabled) {
     throw new Error('Function not implemented.');
   },
+  setObsSceneWindow: () => void 0,
   setPathProbeNotificationPaths: function (paths) {
     throw new Error('Function not implemented.');
   },

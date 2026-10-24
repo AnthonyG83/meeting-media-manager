@@ -903,6 +903,18 @@ export const settingsDefinitions: SettingsItems = {
     subgroup: 'obsStudio',
     type: 'toggle',
   },
+  obsSceneWindow: {
+    depends: ['obsEnable', 'obsPort', 'obsPassword'],
+    group: 'integrations',
+    subgroup: 'obsStudio',
+    type: 'toggle',
+  },
+  obsSceneWindowOnTop: {
+    depends: ['obsEnable', 'obsPort', 'obsPassword', 'obsSceneWindow'],
+    group: 'integrations',
+    subgroup: 'obsStudio',
+    type: 'toggle',
+  },
   obsHideIcons: {
     depends: ['obsEnable', 'obsPort', 'obsPassword'],
     group: 'integrations',
@@ -1272,6 +1284,8 @@ export const defaultSettings: SettingsValues = {
   obsPostponeImages: false,
   obsQuickToggle: false,
   obsRememberPreviouslyUsedScene: true,
+  obsSceneWindow: false,
+  obsSceneWindowOnTop: true,
   obsStageAfterFirstLastSong: false,
   obsSwitchSceneAfterMedia: false,
   pinyinSongFolder: null,

@@ -196,6 +196,7 @@ const electronApi: ElectronApi = {
       'set-hardware-acceleration',
       v,
     ),
+  setObsSceneWindow: (m, t) => send('setObsSceneWindow', m, t),
   setPathProbeNotificationPaths: (paths) =>
     send('setPathProbeNotificationPaths', paths),
   showFileOnWindows,

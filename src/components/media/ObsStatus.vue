@@ -9,13 +9,24 @@
     unelevated
     @click="onClick"
     @mouseenter="
-      currentSettings?.obsQuickToggle && obsConnectionState === 'connected'
+      currentSettings?.obsQuickToggle &&
+      !sceneWindowEnabled &&
+      obsConnectionState === 'connected'
         ? (obsPopup = true)
         : undefined
     "
   >
     <q-spinner v-if="busy" size="sm" />
     <q-icon v-else name="mmm-obs-studio" />
+    <q-badge
+      v-if="sceneWindowEnabled && obsSceneWindowCollapsed"
+      color="white"
+      floating
+      rounded
+      text-color="primary"
+    >
+      <q-icon name="mmm-up" size="10px" />
+    </q-badge>
     <q-tooltip v-if="!obsPopup" :delay="1000" :offset="[14, 22]">
       {{ t(tooltipMessageKey) }}
     </q-tooltip>
@@ -36,6 +47,7 @@ import { isTransientObsError, obsConnect } from 'src/helpers/obs';
 import { log } from 'src/shared/vanilla';
 import { sleep } from 'src/utils/general';
 import { initObsWebSocket, obsWebSocketInfo } from 'src/utils/obs';
+import { useAppSettingsStore } from 'stores/app-settings';
 import { useCurrentStateStore } from 'stores/current-state';
 import { useObsStateStore } from 'stores/obs-state';
 import { computed, onMounted, onUnmounted, watch } from 'vue';
@@ -58,6 +70,13 @@ const { obsCloseHandler, obsErrorHandler, sceneExists } = obsState;
 
 const obsPopup = defineModel<boolean>({ required: true });
 
+// With the scene window on, this button collapses it to the action island
+// and brings it back, instead of opening the scene popup.
+const { obsSceneWindowCollapsed } = storeToRefs(useAppSettingsStore());
+const sceneWindowEnabled = computed(
+  () => !!currentSettings.value?.obsSceneWindow,
+);
+
 // Scene list fetch failures don't mean the socket is disconnected (it's
 // still identified and usable for recording/scene switching), so they only
 // call for attention instead of overriding obsConnectionState.
@@ -72,13 +91,23 @@ const status = computed<IslandButtonStatus>(() => {
 
 const { busy, classes, color, textColor } = useIslandButton(status, obsPopup);
 
-const tooltipMessageKey = computed(() =>
-  obsConnectionState.value === 'connected' && obsSceneListError.value
+const tooltipMessageKey = computed(() => {
+  if (sceneWindowEnabled.value) {
+    return obsSceneWindowCollapsed.value
+      ? 'obs-show-scene-window'
+      : 'obs-collapse-scene-window';
+  }
+  return obsConnectionState.value === 'connected' && obsSceneListError.value
     ? 'obs.scene-list-error'
-    : (obsMessage.value ?? 'scene-selection'),
-);
+    : (obsMessage.value ?? 'scene-selection');
+});
 
 const onClick = () => {
+  // The scene window says itself when OBS isn't connected, and reconnects.
+  if (sceneWindowEnabled.value) {
+    obsSceneWindowCollapsed.value = !obsSceneWindowCollapsed.value;
+    return;
+  }
   if (obsConnectionState.value === 'connected') {
     obsPopup.value = !obsPopup.value;
   } else if (obsConnectionState.value !== 'connecting') {

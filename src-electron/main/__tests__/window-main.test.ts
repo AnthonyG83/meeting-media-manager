@@ -5,6 +5,7 @@ const createWindow = vi.fn();
 const closeOtherWindows = vi.fn();
 const sendToWindow = vi.fn();
 const createMediaWindow = vi.fn();
+const closeObsScenesWindow = vi.fn();
 const cancelAllDownloads = vi.fn();
 const setAppQuitting = vi.fn();
 const setShouldQuit = vi.fn();
@@ -45,6 +46,10 @@ vi.mock('src-electron/main/window/window-base', () => ({
 vi.mock('src-electron/main/window/window-media', () => ({
   createMediaWindow,
   moveMediaWindowThrottled: vi.fn(),
+}));
+
+vi.mock('src-electron/main/window/window-obs-scenes', () => ({
+  closeObsScenesWindow,
 }));
 
 describe('window-main', () => {
@@ -129,6 +134,8 @@ describe('window-main', () => {
 
     expect(preventDefault).not.toHaveBeenCalled();
     expect(cancelAllDownloads).toHaveBeenCalledOnce();
+    // The scene window refuses a plain close, so it's closed first.
+    expect(closeObsScenesWindow).toHaveBeenCalledOnce();
     expect(closeOtherWindows).toHaveBeenCalledWith(createdWindow);
   });
 

@@ -308,6 +308,8 @@ export interface SettingsValues {
   obsPostponeImages: boolean;
   obsQuickToggle: boolean;
   obsRememberPreviouslyUsedScene: boolean;
+  obsSceneWindow: boolean;
+  obsSceneWindowOnTop: boolean;
   obsStageAfterFirstLastSong: boolean;
   obsSwitchSceneAfterMedia: boolean;
   pinyinSongFolder: null | string;

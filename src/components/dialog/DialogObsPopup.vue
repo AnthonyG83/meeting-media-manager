@@ -70,12 +70,21 @@
 </template>
 
 <script setup lang="ts">
-import type { ObsMediaTransition, ObsSceneType } from 'src/types';
+import type {
+  ObsMediaTransition,
+  ObsSceneType,
+  ObsSceneWindowCommand,
+  ObsSceneWindowMode,
+  ObsSceneWindowScene,
+  ObsSceneWindowState,
+} from 'src/types';
 
 import { useEventListener, watchImmediate } from '@vueuse/core';
 import ConfirmDialog from 'components/dialog/ConfirmDialog.vue';
 import ActionPopup from 'components/ui/ActionPopup.vue';
 import { storeToRefs } from 'pinia';
+import { useQuasar } from 'quasar';
+import { useObsSceneWindowBridge } from 'src/composables/useObsSceneWindowBridge';
 import { errorCatcher } from 'src/helpers/error-catcher';
 import { createTemporaryNotification } from 'src/helpers/notifications';
 import {
@@ -88,6 +97,7 @@ import { log } from 'src/shared/vanilla';
 import { isUUID } from 'src/utils/general';
 import { isFirstOrLastMeetingSong, isImage } from 'src/utils/media';
 import { obsWebSocketInfo } from 'src/utils/obs';
+import { useAppSettingsStore } from 'stores/app-settings';
 import { useCurrentStateStore } from 'stores/current-state';
 import { useObsStateStore } from 'stores/obs-state';
 import { useRecordingStore } from 'stores/recording-state';
@@ -125,7 +135,12 @@ const recording = useRecordingStore();
 const { isRecording, togglePending } = storeToRefs(recording);
 const { syncObsRecordingState, toggleRecording } = recording;
 
-const { t } = useI18n();
+const { locale, t } = useI18n();
+
+const $q = useQuasar();
+
+const appSettings = useAppSettingsStore();
+const { obsSceneWindowCollapsed } = storeToRefs(appSettings);
 
 // Connected (the popup only opens then), but the scene list may have failed
 // to load: say so, as the OBS button's tooltip does.
@@ -433,6 +448,106 @@ const sceneColumnClass = computed(() => {
   return sceneCount >= 4 ? 'col-3' : 'col-4';
 });
 
+// The scene window (obsSceneWindow): the same scene buttons and recording
+// controls, in a window of their own next to OBS Studio.
+const sceneWindowMode = computed<ObsSceneWindowMode>(() => {
+  const settings = currentSettings.value;
+  if (!settings?.obsEnable || !settings.obsSceneWindow) return 'closed';
+  return obsSceneWindowCollapsed.value ? 'hidden' : 'shown';
+});
+
+const sceneWindowOnTop = computed(
+  () => currentSettings.value?.obsSceneWindowOnTop !== false,
+);
+
+// getSceneLabel gives OBS's own value for a scene known by UUID.
+const getSceneText = (scene: string) => String(getSceneLabel(scene));
+
+const getSceneKind = (scene: string): ObsSceneWindowScene['kind'] => {
+  const settings = currentSettings.value;
+  if (scene === settings?.obsCameraScene) return 'camera';
+  if (scene === settings?.obsMediaScene) return 'media';
+  if (scene === settings?.obsImageScene) return 'image';
+  return null;
+};
+
+// The scene M³ goes to when the media showing ends.
+const getSceneAfterMedia = () => {
+  const settings = currentSettings.value;
+  const cameraScene = settings?.obsCameraScene || null; // NOSONAR: '' means not set
+  if (stageForPrayerIsDue()) return cameraScene;
+  if (settings?.obsRememberPreviouslyUsedScene) {
+    return previousScene.value || cameraScene; // NOSONAR: '' means not set
+  }
+  return cameraScene;
+};
+
+const getLiveMediaScene = () => {
+  const settings = currentSettings.value;
+  const image = isImage(mediaPlaying.value.url);
+  const scene =
+    image && settings?.obsImageScene
+      ? settings.obsImageScene
+      : settings?.obsMediaScene;
+  return { image, label: scene ? getSceneText(scene) : t('media-only') };
+};
+
+const getNextScene = (): ObsSceneWindowState['next'] => {
+  if (currentSceneType.value !== 'media') return null;
+  const sceneId = getSceneAfterMedia();
+  if (!sceneId) return null;
+  return {
+    forPrayer: stageForPrayerIsDue(),
+    label: getSceneText(sceneId),
+    sceneId,
+  };
+};
+
+const sceneWindowState = computed<ObsSceneWindowState>(() => ({
+  activeSceneId: resolvedScene.value || null, // NOSONAR: '' means none
+  connection: obsConnectionState.value,
+  dark: $q.dark.isActive,
+  hideIcons: !!currentSettings.value?.obsHideIcons,
+  live:
+    currentSceneType.value === 'media'
+      ? { ...getLiveMediaScene(), transition: mediaTransition.value }
+      : null,
+  locale: locale.value,
+  next: getNextScene(),
+  recording: currentSettings.value?.obsEnableRecordingControls
+    ? { active: isRecording.value, pending: togglePending.value }
+    : null,
+  scenes: sceneList.value.map((scene) => ({
+    id: scene,
+    kind: getSceneKind(scene),
+    label: getSceneText(scene),
+    missing: !sceneExists(scene),
+  })),
+}));
+
+const onSceneWindowCommand = (command: ObsSceneWindowCommand) => {
+  switch (command.type) {
+    case 'collapse':
+      obsSceneWindowCollapsed.value = true;
+      break;
+    case 'pick':
+      // The scene window asked first, as pickScene does here.
+      if (command.skipStageForPrayer) {
+        stageForPrayerSkipped.value = true;
+        void setObsScene(undefined, command.scene);
+      } else {
+        pickScene(command.scene);
+      }
+      break;
+    case 'reconnect':
+      void obsConnect();
+      break;
+    case 'toggle-recording':
+      void toggleRecording();
+      break;
+  }
+};
+
 useEventListener(globalThis, 'obsConnectFromSettings', obsSettingsConnect, {
   passive: true,
 });
@@ -487,4 +602,11 @@ watchImmediate(
     obsRecordingFolder.value = folder;
   },
 );
+
+useObsSceneWindowBridge({
+  mode: sceneWindowMode,
+  onCommand: onSceneWindowCommand,
+  onTop: sceneWindowOnTop,
+  state: sceneWindowState,
+});
 </script>

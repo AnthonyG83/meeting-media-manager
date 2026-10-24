@@ -5,6 +5,7 @@ import { installQuasarPlugin } from 'app/test/vitest/helpers/install-quasar-plug
 import { installPinia } from 'app/test/vitest/mocks/pinia';
 import { defaultSettings } from 'src/constants/settings';
 import { obsConnect } from 'src/helpers/obs';
+import { useAppSettingsStore } from 'stores/app-settings';
 import { useCongregationSettingsStore } from 'stores/congregation-settings';
 import { useCurrentStateStore } from 'stores/current-state';
 import { useObsStateStore } from 'stores/obs-state';
@@ -52,10 +53,10 @@ const CONGREGATION_ID = 'test-cong';
 // early. The waits are generous: they only matter when something is wrong.
 const WAIT_OPTIONS = { timeout: 5000 };
 
-const setupObsSettings = () => {
+const setupObsSettings = (overrides: Partial<typeof defaultSettings> = {}) => {
   const congregationSettingsStore = useCongregationSettingsStore();
   congregationSettingsStore.congregations = {
-    [CONGREGATION_ID]: { ...defaultSettings, obsEnable: true },
+    [CONGREGATION_ID]: { ...defaultSettings, obsEnable: true, ...overrides },
   };
 
   const currentState = useCurrentStateStore();
@@ -217,5 +218,52 @@ describe('ObsStatus - auto-reconnect on unexpected disconnect', () => {
     }, WAIT_OPTIONS);
 
     expect(obsConnect).not.toHaveBeenCalled();
+  });
+});
+
+describe('ObsStatus - scene window', () => {
+  afterEach(() => {
+    useAppSettingsStore().obsSceneWindowCollapsed = false;
+  });
+
+  it('collapses the scene window and brings it back, instead of opening the popup', async () => {
+    const obsState = setupObsSettings({ obsSceneWindow: true });
+    obsState.obsConnectionState = 'connected';
+    await mountObsStatus();
+    const appSettings = useAppSettingsStore();
+
+    await wrapper?.find('button').trigger('click');
+    expect(appSettings.obsSceneWindowCollapsed).toBe(true);
+    expect(wrapper?.emitted('update:modelValue')).toBeUndefined();
+    expect(wrapper?.find('.q-badge').exists()).toBe(true);
+
+    await wrapper?.find('button').trigger('click');
+    expect(appSettings.obsSceneWindowCollapsed).toBe(false);
+    expect(wrapper?.find('.q-badge').exists()).toBe(false);
+  });
+
+  it('brings the window back even while OBS Studio is disconnected', async () => {
+    const obsState = setupObsSettings({ obsSceneWindow: true });
+    obsState.obsConnectionState = 'disconnected';
+    useAppSettingsStore().obsSceneWindowCollapsed = true;
+    await mountObsStatus();
+    // Mounting connects on its own; the click itself only shows the window,
+    // which offers to reconnect.
+    vi.mocked(obsConnect).mockClear();
+
+    await wrapper?.find('button').trigger('click');
+
+    expect(useAppSettingsStore().obsSceneWindowCollapsed).toBe(false);
+    expect(obsConnect).not.toHaveBeenCalled();
+  });
+
+  it('opens the popup as before without the scene window', async () => {
+    const obsState = setupObsSettings({ obsSceneWindow: false });
+    obsState.obsConnectionState = 'connected';
+    await mountObsStatus();
+
+    await wrapper?.find('button').trigger('click');
+
+    expect(wrapper?.emitted('update:modelValue')?.[0]).toEqual([true]);
   });
 });
