@@ -324,6 +324,7 @@ export interface SettingsValues {
   shortcutMusic: null | string;
   showMediaDragHandle: boolean;
   suppressHardwareAccelerationReminder: boolean;
+  timerAdaptiveShorten: boolean;
   timerAutoOpen: boolean;
   timerBackgroundColor: string;
   timerCountdownDisplay: TimerCountdownDisplay;

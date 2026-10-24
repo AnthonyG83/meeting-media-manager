@@ -40,6 +40,18 @@
           <q-item-label caption>
             {{ getPartStatusText(part.value) }}
           </q-item-label>
+          <q-item-label v-if="adaptedPartSeconds[part.value]" caption>
+            {{
+              t('timer-adapted-length', {
+                adapted: formatMinutesSeconds(
+                  adaptedPartSeconds[part.value] ?? 0,
+                ),
+                planned: formatMinutesSeconds(
+                  getPlannedPartSeconds(part.value),
+                ),
+              })
+            }}
+          </q-item-label>
         </q-item-section>
         <q-item-section side>
           <div class="row no-wrap q-gutter-xs">
@@ -178,7 +190,7 @@
 import type { MeetingPart, MeetingPartOption } from 'src/types';
 
 import ConfirmDialog from 'components/dialog/ConfirmDialog.vue';
-import useTimer from 'src/composables/useTimer';
+import useTimer, { formatMinutesSeconds } from 'src/composables/useTimer';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -189,9 +201,11 @@ withDefaults(defineProps<{ dense?: boolean; dialogId?: string }>(), {
 const { t } = useI18n();
 
 const {
+  adaptedPartSeconds,
   adjustPartDuration,
   currentPart,
   getDuration,
+  getPlannedPartSeconds,
   getPlannedStartTime,
   getTimeString,
   meetingPartsOptions,

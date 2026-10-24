@@ -1,4 +1,4 @@
-import type { DateInfo } from 'src/types';
+import type { DateInfo, MeetingPart } from 'src/types';
 
 import { createPinia, setActivePinia } from 'pinia';
 import { defaultSettings } from 'src/constants/settings';
@@ -228,10 +228,11 @@ describe('useTimer workbook timings', () => {
 
   it('plans no counsel after the last part, in the start times that follow', () => {
     const timer = useTimer();
-    // 5 song + 1 intro + 10 + 10 + 4 reading + 1 counsel + (3 + 1) + (4 + 1)
-    // + 6 (no counsel) + 5 middle song = 51 minutes before the first LAC part
+    // 5 song + 1 intro + 10 + 10 + 1 changeover + 4 reading + 1 counsel
+    // + (3 + 1) + (4 + 1) + 6 (no counsel) + 5 middle song = 52 minutes
+    // before the first LAC part
     expect(timer.getPlannedStartTime('lac-1')).toBe(
-      new Date(2026, 9, 13, 19, 51, 0).getTime(),
+      new Date(2026, 9, 13, 19, 52, 0).getTime(),
     );
   });
 
@@ -433,5 +434,144 @@ describe('useTimer custom parts', () => {
     timer.selectPart(second.id);
 
     expect(timer.aheadBehindMinutes.value).toBe(2);
+  });
+});
+
+describe('the changeover to the auxiliary class', () => {
+  it('moves the planned start times from the Bible reading onward 1 minute later', () => {
+    const timer = useTimer();
+    const at = (part: MeetingPart) =>
+      new Date(timer.getPlannedStartTime(part) ?? 0).toTimeString().slice(0, 5);
+    // 5 song + 1 intro + 10 Treasures
+    expect(at('gems')).toBe('19:16');
+    // + 10 Gems + 1 changeover
+    expect(at('bible-reading')).toBe('19:27');
+    expect(at('lac-1')).toBe('19:52');
+    expect(at('cbs')).toBe('20:07');
+  });
+
+  it('ends the study at 20:37, where the concluding comments begin, and allows it', () => {
+    const timer = useTimer();
+    expect(timer.cbsCustomEndTime.value).toBe('20:37');
+    expect(timer.cbsEndTimeRules[1]?.('20:37')).toBe(true);
+    expect(timer.cbsEndTimeRules[1]?.('20:38')).not.toBe(true);
+    expect(timer.cbsEndTimeRules[1]?.('20:08')).toBe(true);
+    expect(timer.cbsEndTimeRules[1]?.('20:07')).not.toBe(true);
+  });
+
+  it('plans the weekend meeting to end its study at the final song', async () => {
+    await selectDay(WEEKEND);
+    const timer = useTimer();
+    expect(timer.wtCustomEndTime.value).toBe('11:40');
+    expect(timer.wtEndTimeRules[1]?.('11:40')).toBe(true);
+  });
+});
+
+describe('useTimer adaptive timing', () => {
+  const setSettings = (changes: Record<string, unknown>) => {
+    Object.assign(useCongregationSettingsStore().congregations['cong'] ?? {}, {
+      timerMode: 'countdown',
+      ...changes,
+    });
+  };
+
+  /** Treasures starts 3 minutes late and takes its 10 minutes. */
+  const runLateTreasures = (timer: ReturnType<typeof useTimer>) => {
+    vi.setSystemTime(new Date(2026, 9, 13, 19, 9, 0));
+    timer.selectPart('treasures');
+    vi.advanceTimersByTime(10 * 60_000);
+    timer.stopTimer();
+  };
+
+  it('previews nothing while the setting is off, and keeps the planned lengths', () => {
+    setSettings({ timerAdaptiveShorten: false });
+    const timer = useTimer();
+    runLateTreasures(timer);
+
+    expect(timer.adaptedPartSeconds.value).toEqual({});
+    vi.setSystemTime(new Date(2026, 9, 13, 19, 55, 0));
+    timer.selectPart('lac-1');
+    expect(timer.formattedTime.value).toBe('08:00');
+  });
+
+  it('previews the shortened Living as Christians parts and study before they start', () => {
+    setSettings({ timerAdaptiveShorten: true });
+    const timer = useTimer();
+    expect(timer.adaptedPartSeconds.value).toEqual({});
+
+    runLateTreasures(timer);
+
+    // 3 minutes behind, spread over lac-1 + lac-2 + cbs, each part starting
+    // where the shortened ones before it leave off
+    expect(timer.adaptedPartSeconds.value).toEqual({
+      cbs: 1680,
+      'lac-1': 450,
+      'lac-2': 390,
+    });
+  });
+
+  it('fixes the length when the part starts and does not move it while it runs', () => {
+    setSettings({ timerAdaptiveShorten: true });
+    const timer = useTimer();
+    runLateTreasures(timer);
+
+    vi.setSystemTime(new Date(2026, 9, 13, 19, 55, 0));
+    timer.selectPart('lac-1');
+    expect(timer.formattedTime.value).toBe('07:30');
+    expect(timer.adaptedPartSeconds.value['lac-1']).toBe(450);
+
+    // Running on past its time changes nothing already decided
+    vi.advanceTimersByTime(60_000);
+    expect(timer.formattedTime.value).toBe('06:30');
+    expect(timer.adaptedPartSeconds.value['lac-1']).toBe(450);
+  });
+
+  it('lets a length typed in while the part runs win', () => {
+    setSettings({ timerAdaptiveShorten: true });
+    const timer = useTimer();
+    runLateTreasures(timer);
+    vi.setSystemTime(new Date(2026, 9, 13, 19, 55, 0));
+    timer.selectPart('lac-1');
+
+    timer.setPartDuration('lac-1', 9);
+    expect(timer.formattedTime.value).toBe('09:00');
+  });
+
+  it('leaves a study with an end time set by hand alone', () => {
+    setSettings({ timerAdaptiveShorten: true });
+    const timer = useTimer();
+    timer.cbsCustomEndTime.value = '20:30';
+    runLateTreasures(timer);
+
+    expect(timer.adaptedPartSeconds.value.cbs).toBeUndefined();
+    expect(timer.adaptedPartSeconds.value['lac-1']).toBeDefined();
+  });
+
+  it('takes a part added to the day out of the Living as Christians parts', () => {
+    setSettings({ timerAdaptiveShorten: true });
+    const timer = useTimer();
+    vi.setSystemTime(new Date(2026, 9, 13, 19, 6, 0));
+    timer.selectPart('treasures');
+    vi.advanceTimersByTime(10 * 60_000);
+    timer.stopTimer();
+    expect(timer.adaptedPartSeconds.value).toEqual({});
+
+    const added = timer.addCustomTimerPart();
+    timer.updateCustomTimerPart(added.id, { duration: 10 });
+    expect(timer.adaptedPartSeconds.value['lac-1']).toBe(375);
+    expect(timer.adaptedPartSeconds.value.cbs).toBe(1400);
+  });
+
+  it('gives the weekend overrun to the Watchtower Study', async () => {
+    await selectDay(WEEKEND);
+    setSettings({ timerAdaptiveShorten: true });
+    const timer = useTimer();
+
+    vi.setSystemTime(new Date(2026, 9, 11, 10, 5, 0));
+    timer.selectPart('public-talk');
+    vi.advanceTimersByTime(35 * 60_000);
+    timer.stopTimer();
+
+    expect(timer.adaptedPartSeconds.value).toEqual({ wt: 3300 });
   });
 });

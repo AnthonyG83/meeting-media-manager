@@ -27,6 +27,8 @@ import {
   defaultPartCounts,
   defaultPartDurations,
   distributeSectionMinutes,
+  FINAL_SONG_OFFSET_MINUTES,
+  getAdaptedPartSeconds,
   getMeetingPartOffsetMinutes,
   getMeetingPartSequence,
   getSectionPartMinutes,
@@ -201,6 +203,9 @@ const createTimer = () => {
     () => currentSettings.value?.timerMode ?? 'countup',
   );
   const currentPart = ref<MeetingPart>('public-talk');
+  // The length the running part was shortened to when it started (adaptive
+  // timing), fixed for as long as it runs.
+  const runningAdaptedSeconds = ref<null | number>(null);
   const wtCustomEndTime = ref<string>('');
   const cbsCustomEndTime = ref('');
 
@@ -402,6 +407,8 @@ const createTimer = () => {
       ...dayState.value.timerPartDurations,
       [part]: minutes,
     };
+    // A length typed in by hand wins over the one worked out at the start
+    if (part === currentPart.value) runningAdaptedSeconds.value = null;
     refreshCountdownTarget();
   };
 
@@ -702,11 +709,14 @@ const createTimer = () => {
 
   const getWeekendCountdownTarget = (date: Date) => {
     if (currentPart.value !== 'wt') {
-      return getPartDurationSeconds(currentPart.value);
+      return getEffectivePartSeconds(currentPart.value);
     }
 
     const wtPart = isCoWeek(date) ? 'abbreviated-wt' : 'wt';
-    const wtMaxDuration = getPartDurationSeconds(wtPart);
+    const wtMaxDuration = getEffectivePartSeconds(
+      'wt',
+      getPartDurationSeconds(wtPart),
+    );
     return getTimedEndCountdownTarget(
       date,
       currentSettings.value?.weStartTime,
@@ -718,10 +728,10 @@ const createTimer = () => {
 
   const getMidweekCountdownTarget = (date: Date) => {
     if (currentPart.value !== 'cbs') {
-      return getPartDurationSeconds(currentPart.value);
+      return getEffectivePartSeconds(currentPart.value);
     }
 
-    const cbsMaxDuration = getPartDurationSeconds('cbs');
+    const cbsMaxDuration = getEffectivePartSeconds('cbs');
     return getTimedEndCountdownTarget(
       date,
       currentSettings.value?.mwStartTime,
@@ -730,6 +740,18 @@ const createTimer = () => {
       cbsMaxDuration,
     );
   };
+
+  /**
+   * How long a part may take: the length adaptive timing worked out when it
+   * started, if it did, else its planned length.
+   */
+  const getEffectivePartSeconds = (
+    part: MeetingPart,
+    plannedSeconds = getPartDurationSeconds(part),
+  ) =>
+    part === currentPart.value && runningAdaptedSeconds.value !== null
+      ? runningAdaptedSeconds.value
+      : plannedSeconds;
 
   const calculateCountdownTarget = () => {
     const date = selectedDate.value;
@@ -749,6 +771,13 @@ const createTimer = () => {
         currentPart.value = firstCustomPart.id;
       }
     }
+
+    // Worked out once, as the part starts, and not moved while it runs
+    runningAdaptedSeconds.value = getAdaptedSeconds(
+      currentPart.value,
+      Date.now(),
+      getUnstartedCustomMinutes(currentPart.value),
+    );
 
     if (timerMode.value === 'countdown') {
       countdownTarget.value = calculateCountdownTarget();
@@ -816,6 +845,7 @@ const createTimer = () => {
     timerStartTime.value = null;
     timerPausedTime.value = null;
     countdownTarget.value = 0;
+    runningAdaptedSeconds.value = null;
 
     // Log the end time for the current part
     setPartTiming(
@@ -844,7 +874,7 @@ const createTimer = () => {
 
     if (isCountup) {
       // 0 means no limit defined
-      const partMaxSeconds = getPartDurationSeconds(currentPart.value);
+      const partMaxSeconds = getEffectivePartSeconds(currentPart.value);
       isOvertime = partMaxSeconds > 0 && elapsedSeconds.value > partMaxSeconds;
 
       if (isOvertime && currentSettings.value?.timerOvertimeShowAmountOnly) {
@@ -940,7 +970,11 @@ const createTimer = () => {
       timerOvertimeShowAmountOnly:
         currentSettings.value?.timerOvertimeShowAmountOnly,
       timerOvertimeTextColor: currentSettings.value?.timerOvertimeTextColor,
-      timerPartTargetSeconds: getPartDurationSeconds(currentPart.value),
+      timerPartPlannedSeconds:
+        timerRunning.value && runningAdaptedSeconds.value !== null
+          ? getPlannedPartSeconds(currentPart.value)
+          : undefined,
+      timerPartTargetSeconds: getEffectivePartSeconds(currentPart.value),
       timerTextColor: currentSettings.value?.timerTextColor,
       timerTextSize: currentSettings.value?.timerTextSize,
       timerTimeOfDayDisplay: currentSettings.value?.timerTimeOfDayDisplay,
@@ -1087,6 +1121,172 @@ const createTimer = () => {
     return toHoursMinutes(startTime + getPartDurationSeconds(wtPart) * 1000);
   });
 
+  // --- Adaptive timing ----------------------------------------------------------
+
+  const MINUTE_MS = 60 * 1000;
+
+  // Re-evaluates the preview as time goes by, even while nothing else changes
+  const adaptiveClock = ref(Date.now());
+  useIntervalFn(() => {
+    adaptiveClock.value = Date.now();
+  }, 15 * 1000);
+
+  /** The sequence's own name for a part: CO weeks time the short study as "wt". */
+  const getSequencePart = (part: MeetingPart): MeetingPart =>
+    part === 'wt' && isCoWeek(selectedDate.value) ? 'abbreviated-wt' : part;
+
+  /** A part's planned length in seconds, under the name the sequence knows it by. */
+  const getPlannedPartSeconds = (part: MeetingPart) =>
+    getPartDurationSeconds(getSequencePart(part));
+
+  /** The user set an end time for the part, which wins over adaptive timing. */
+  const hasCustomEndTime = (part: MeetingPart) => {
+    if (part === 'cbs') {
+      return (
+        !!cbsCustomEndTime.value &&
+        cbsCustomEndTime.value !== cbsAdaptiveDefaultEndTime.value
+      );
+    }
+    if (part === 'wt' || part === 'abbreviated-wt') {
+      return (
+        !!wtCustomEndTime.value &&
+        wtCustomEndTime.value !== wtAdaptiveDefaultEndTime.value
+      );
+    }
+    return false;
+  };
+
+  /** Minutes of custom parts still to run, which the meeting has to fit. */
+  const getUnstartedCustomMinutes = (excluding?: MeetingPart) =>
+    customTimerParts.value
+      .filter(
+        (part) =>
+          part.id !== excluding && !partTimings.value[part.id]?.startTime,
+      )
+      .reduce((total, part) => total + normalizePartDuration(part.duration), 0);
+
+  /** The length a part gets if it starts at `now`, or null to keep its own. */
+  const getAdaptedSeconds = (
+    part: MeetingPart,
+    now: number,
+    extraPlannedMinutes: number,
+  ): null | number => {
+    const meetingStart = meetingStartTime.value?.getTime();
+    if (
+      !currentSettings.value?.timerAdaptiveShorten ||
+      !meetingStart ||
+      hasCustomEndTime(part)
+    ) {
+      return null;
+    }
+    return getAdaptedPartSeconds({
+      deadline: meetingStart + FINAL_SONG_OFFSET_MINUTES * MINUTE_MS,
+      extraPlannedMinutes,
+      noCounsel: noCounsel.value,
+      now,
+      part: getSequencePart(part),
+      partDurations: partDurations.value,
+      sequence: sequence.value,
+    });
+  };
+
+  /** The part the list shows for a name in the sequence (see getSequencePart). */
+  const getListedPart = (part: MeetingPart): MeetingPart =>
+    part === 'abbreviated-wt' ? 'wt' : part;
+
+  /**
+   * Where the meeting stands, for the preview: the last part of the program
+   * to have started, and when it is projected to end. Null before any part
+   * started, as there is then nothing to be behind.
+   */
+  const getPreviewReference = (now: number) => {
+    for (let index = sequence.value.length - 1; index >= 0; index--) {
+      const part = sequence.value[index] as MeetingPart;
+      const timing = partTimings.value[getListedPart(part)];
+      if (!timing?.startTime) continue;
+
+      const isRunning =
+        timerRunning.value && getListedPart(part) === currentPart.value;
+      const plannedEnd =
+        timing.startTime +
+        (isRunning && runningAdaptedSeconds.value !== null
+          ? runningAdaptedSeconds.value
+          : (partDurations.value[part] ?? 0) * 60) *
+          1000;
+      // A running part ends when it does, no earlier than now
+      const end = isRunning
+        ? Math.max(now, plannedEnd)
+        : (timing.endTime ?? Math.max(now, plannedEnd));
+      return { end, index, part };
+    }
+    return null;
+  };
+
+  /**
+   * The shortened length of each adaptable part that has not finished,
+   * worked out as if it started when the parts before it run to plan. The
+   * running part shows what it started with. Parts not listed keep their
+   * planned length.
+   */
+  const adaptedPartSeconds = computed<Partial<Record<MeetingPart, number>>>(
+    () => {
+      const adapted: Partial<Record<MeetingPart, number>> = {};
+      if (!currentSettings.value?.timerAdaptiveShorten) return adapted;
+
+      // The clock is read to be called again as time passes
+      const now = Math.max(adaptiveClock.value, Date.now());
+      const reference = getPreviewReference(now);
+      if (!reference) return adapted;
+
+      if (timerRunning.value && runningAdaptedSeconds.value !== null) {
+        adapted[currentPart.value] = runningAdaptedSeconds.value;
+      }
+
+      const referenceOffset = getMeetingPartOffsetMinutes(
+        reference.index,
+        sequence.value,
+        partDurations.value,
+        noCounsel.value,
+      );
+      const referenceMinutes = partDurations.value[reference.part] ?? 0;
+
+      // What the parts before shorten gives the ones after an earlier start
+      let savedSeconds = 0;
+      for (const option of meetingPartsOptions.value) {
+        const part = option.value;
+        if (isCustomPart(part) || !notStarted(option)) continue;
+
+        const index = sequence.value.indexOf(getSequencePart(part));
+        if (index <= reference.index) continue;
+
+        // Starts when the parts before it have run their (shortened) lengths
+        const minutesAfterReference =
+          getMeetingPartOffsetMinutes(
+            index,
+            sequence.value,
+            partDurations.value,
+            noCounsel.value,
+          ) -
+          referenceOffset -
+          referenceMinutes;
+        const startsAt =
+          reference.end +
+          minutesAfterReference * MINUTE_MS -
+          savedSeconds * 1000;
+
+        const seconds = getAdaptedSeconds(
+          part,
+          startsAt,
+          getUnstartedCustomMinutes(),
+        );
+        if (seconds === null) continue;
+        adapted[part] = seconds;
+        savedSeconds += getPlannedPartSeconds(part) - seconds;
+      }
+      return adapted;
+    },
+  );
+
   const endTimeRule =
     (minOffsetMinutes: number, maxOffsetMinutes: number) => (val: string) => {
       const parts = val.split(':');
@@ -1143,6 +1343,7 @@ const createTimer = () => {
   });
 
   return {
+    adaptedPartSeconds,
     addCustomTimerPart,
     adjustPartDuration,
     aheadBehindMinutes,
@@ -1156,6 +1357,7 @@ const createTimer = () => {
     elapsedSeconds,
     formattedTime,
     getDuration,
+    getPlannedPartSeconds,
     getPlannedStartTime,
     getTimeString,
     handleTimerWindowVisibility,

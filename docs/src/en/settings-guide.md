@@ -474,6 +474,18 @@ For the midweek meeting, M³ reads the length of each part from the meeting work
 
 **Default**: `true`
 
+### Finish the Meeting on Time {#timer-adaptive-shorten}
+
+<!-- **Setting**: `timerAdaptiveShorten` -->
+
+When the meeting runs late, M³ can shorten the last parts so that the final song still starts 100 minutes after the meeting starts, at both meetings. At the midweek meeting, the Living as Christians parts and the Congregation Bible Study share the overrun in proportion to their lengths, and the concluding comments give way last, only when no such part is left. At the weekend meeting, the Watchtower Study (or its shorter version in the circuit overseer's week) takes it. The public talk, the circuit overseer's talks, Treasures, the Spiritual Gems, the Bible reading, the Apply Yourself parts and the introduction are never shortened, and no part is ever lengthened when the meeting is ahead. A part is never cut below one minute, and nothing changes when the meeting is more than 30 minutes behind, as the start time is then more likely to be wrong than the meeting late.
+
+The new length of a part is worked out once, when it starts, and does not change while the brother is speaking. Before that, the list of parts in the timer shows the length each coming part would get if it started now, so the chairman knows in advance how much time the study will have; the timer window and the timer remote show "Adjusted from" and the planned length for a shortened part. A part you gave an end time yourself, such as the Congregation Bible Study, keeps it. A part added to the timer for the day, or longer concluding comments, are fitted in the same way, out of the Living as Christians parts. This needs the meeting start time to be set.
+
+The midweek timer also reserves a minute after the Spiritual Gems for the students to move to an auxiliary class, whether or not your congregation has one, so the default parts add up to 100 minutes. The planned start times from the Bible reading onward are therefore one minute later than before.
+
+**Default**: `false`
+
 ### Timer Window Behavior {#timer-window-behavior}
 
 <!-- **Settings**: `timerAutoOpen`, `timerMode`, `timerHourFormat`, `timerShowOnActionIsland` -->

@@ -145,6 +145,9 @@ const PAGE_JS = String.raw`(function () {
       el.label.textContent = data.timerCurrentPartLabel || '';
       el.time.textContent = data.time || '';
       el.caption.textContent = data.paused ? (text.paused || '') : (data.mode === 'countup' ? (text.elapsed || '') : (text.remaining || ''));
+      if (data.timerPartPlannedSeconds && text.adaptedFrom) {
+        el.caption.textContent += ' \u00B7 ' + text.adaptedFrom.replace('{time}', formatCountdown(data.timerPartPlannedSeconds));
+      }
     } else {
       var countdown = meetingCountdown(now);
       if (countdown !== null) {

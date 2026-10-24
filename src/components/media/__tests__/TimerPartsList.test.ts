@@ -1,8 +1,10 @@
 import type { MeetingPartOption } from 'src/types';
+import type { Ref } from 'vue';
 
 import { mount } from '@vue/test-utils';
 import { installQuasarPlugin } from 'app/test/vitest/helpers/install-quasar-plugin';
 import { installPinia } from 'app/test/vitest/mocks/pinia';
+import useTimer from 'src/composables/useTimer';
 import { describe, expect, it, vi } from 'vitest';
 
 import TimerPartsList from '../TimerPartsList.vue';
@@ -12,9 +14,11 @@ import TimerPartsList from '../TimerPartsList.vue';
 vi.mock('src/composables/useTimer', async () => {
   const { ref } = await import('vue');
   const timer = {
+    adaptedPartSeconds: ref({}),
     adjustPartDuration: vi.fn(),
     currentPart: ref(null),
     getDuration: vi.fn(),
+    getPlannedPartSeconds: vi.fn(() => 1800),
     getPlannedStartTime: vi.fn(() => null),
     getTimeString: vi.fn(),
     meetingPartsOptions: ref([]),
@@ -27,7 +31,11 @@ vi.mock('src/composables/useTimer', async () => {
     timerRunning: ref(false),
     updateCustomTimerPart: vi.fn(),
   };
-  return { default: () => timer };
+  return {
+    default: () => timer,
+    formatMinutesSeconds: (seconds: number) =>
+      `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`,
+  };
 });
 
 installQuasarPlugin();
@@ -60,5 +68,30 @@ describe('TimerPartsList edit dialog label', () => {
 
   it('has no label to edit for a built-in part', () => {
     expect(getEditLabel({ label: 'Song (5 min.)', value: 'lac-1' })).toBe('');
+  });
+});
+
+interface MockTimer {
+  adaptedPartSeconds: Ref<Record<string, number>>;
+  meetingPartsOptions: Ref<MeetingPartOption[]>;
+}
+
+describe('TimerPartsList adaptive timing preview', () => {
+  it('shows the shortened length next to the planned one, for the parts that have one', () => {
+    const timer = useTimer() as unknown as MockTimer;
+    timer.meetingPartsOptions.value = [
+      { label: 'Living as Christians 1', value: 'lac-1' },
+      { label: 'Congregation Bible Study', value: 'cbs' },
+    ];
+    timer.adaptedPartSeconds.value = { cbs: 1440 };
+
+    const wrapper = mount(TimerPartsList);
+    const items = wrapper.findAll('.q-item');
+    expect(items).toHaveLength(2);
+    expect(items[0]?.text()).not.toContain('Shortened');
+    expect(items[1]?.text()).toContain('Shortened to 24:00 (planned 30:00)');
+    wrapper.unmount();
+    timer.meetingPartsOptions.value = [];
+    timer.adaptedPartSeconds.value = {};
   });
 });

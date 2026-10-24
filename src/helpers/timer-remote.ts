@@ -9,9 +9,15 @@ import { useCurrentStateStore } from 'stores/current-state';
 // match the settings, and keeps the main process told of the page's words
 // in M3's language.
 
-const t = (key: string) => (i18n.global.t as (key: string) => string)(key);
+const t = (key: string, named?: Record<string, string>) =>
+  (i18n.global.t as (key: string, named?: Record<string, string>) => string)(
+    key,
+    named ?? {},
+  );
 
 const getPageText = (): Record<string, string> => ({
+  // The page puts the part's planned length where {time} is
+  adaptedFrom: t('timer-adapted-from', { time: '{time}' }),
   elapsed: t('elapsed'),
   lang: i18n.global.locale.value,
   meetingStartsIn: t('meeting-starts-in'),

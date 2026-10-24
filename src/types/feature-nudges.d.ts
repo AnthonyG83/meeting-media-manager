@@ -44,6 +44,7 @@ export type FeatureNudgeId =
   | 'schedule-sync'
   | 'shared-folder'
   | 'songbook-videos'
+  | 'timer-adaptive'
   | 'zoom'
   | 'zoom-window-layout';
 

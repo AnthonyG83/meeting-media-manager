@@ -12,6 +12,19 @@ export const LAC_SECTION_MINUTES = 15;
 /** Minutes of counsel after each student part (Bible reading, Apply Yourself). */
 export const COUNSEL_MINUTES = 1;
 
+/**
+ * Minutes between the Spiritual Gems and the Bible reading, so the students
+ * can move to an auxiliary class. It is always reserved, whether or not the
+ * congregation has one.
+ */
+export const AUX_CLASS_CHANGEOVER_MINUTES = 1;
+
+/**
+ * Minutes after the start of either meeting at which the final song begins.
+ * The adaptive timer works towards it, and the default parts add up to it.
+ */
+export const FINAL_SONG_OFFSET_MINUTES = 100;
+
 export const MAX_AYFM_PARTS = 5;
 export const MAX_LAC_PARTS = 3;
 
@@ -98,15 +111,18 @@ export const hasCounselAfterPart = (
 
 /**
  * The minutes between the end of a part and the start of the next one: the
- * counsel that follows a student part. Every caller that adds up the length
- * of the meeting goes through here, so they all count the same gaps.
+ * counsel that follows a student part, or the changeover to the auxiliary
+ * class after the Spiritual Gems. Every caller that adds up the length of
+ * the meeting goes through here, so they all count the same gaps.
  */
 export const getGapAfterPart = (
   part: MeetingPart,
   duration: number,
   noCounsel: readonly MeetingPart[] = [],
-): number =>
-  hasCounselAfterPart(part, duration, noCounsel) ? COUNSEL_MINUTES : 0;
+): number => {
+  if (part === 'gems' && duration > 0) return AUX_CLASS_CHANGEOVER_MINUTES;
+  return hasCounselAfterPart(part, duration, noCounsel) ? COUNSEL_MINUTES : 0;
+};
 
 export const getMeetingPartSequence = (
   date: Date | undefined,
@@ -173,6 +189,121 @@ export const getMeetingPartOffsetMinutes = (
     offset += dur + getGapAfterPart(prevPart, dur, noCounsel);
   }
   return offset;
+};
+
+/**
+ * Parts that absorb an overrun, in proportion to their planned lengths: the
+ * Living as Christians parts and the Congregation Bible Study at the
+ * midweek meeting, the Watchtower Study at the weekend meeting.
+ */
+export const ADAPTIVE_PRIMARY_PARTS: readonly MeetingPart[] = [
+  'lac-1',
+  'lac-2',
+  'lac-3',
+  'cbs',
+  'wt',
+  'abbreviated-wt',
+];
+
+/**
+ * Parts that only absorb what is left of an overrun once no primary part is
+ * left to come: the chairman's concluding comments. Every other part (the
+ * talks, Treasures, Gems, the student parts, the introduction, the songs) is
+ * never shortened.
+ */
+export const ADAPTIVE_LAST_RESORT_PARTS: readonly MeetingPart[] = [
+  'concluding-comments',
+];
+
+/** A part is never shortened below this. */
+export const ADAPTIVE_MIN_PART_SECONDS = 60;
+/** Overruns smaller than this are ignored. */
+const ADAPTIVE_TOLERANCE_SECONDS = 15;
+/** More behind than this is a wrong start time or clock, not an overrun. */
+const ADAPTIVE_MAX_DEVIATION_SECONDS = 30 * 60;
+const ADAPTIVE_ROUNDING_SECONDS = 5;
+
+export interface AdaptedPartInput {
+  /** The final song's start (the meeting's start + 100 minutes), in ms. */
+  deadline: number;
+  /** Minutes of custom parts on this day that have not been started. */
+  extraPlannedMinutes?: number;
+  noCounsel?: readonly MeetingPart[];
+  /** When the part starts, in ms: for a preview, its projected start. */
+  now: number;
+  part: MeetingPart;
+  /** The day's planned lengths in minutes, the user's changes included. */
+  partDurations: Partial<Record<MeetingPart, number>>;
+  sequence: readonly MeetingPart[];
+}
+
+/**
+ * How long a part may take for the meeting to still end on time, in seconds,
+ * or null when it keeps its planned length (nothing to shorten, the part is
+ * never shortened, or the meeting is too far behind for it to be a real
+ * overrun). Parts are only ever shortened: what the meeting gained is not
+ * given back.
+ *
+ * The deadline is the final song at meetingStart + 100 minutes. What is
+ * still required, from this part up to that song, is compared with the time
+ * left; the shortfall comes out of the primary parts to come in proportion
+ * to their lengths, or, with none left, out of the concluding comments.
+ */
+export const getAdaptedPartSeconds = ({
+  deadline,
+  extraPlannedMinutes = 0,
+  noCounsel = [],
+  now,
+  part,
+  partDurations,
+  sequence,
+}: AdaptedPartInput): null | number => {
+  const isPrimary = ADAPTIVE_PRIMARY_PARTS.includes(part);
+  if (!isPrimary && !ADAPTIVE_LAST_RESORT_PARTS.includes(part)) return null;
+
+  const index = sequence.indexOf(part);
+  const finalSongIndex = sequence.lastIndexOf('song-and-optional-prayer');
+  if (index === -1 || index >= finalSongIndex) return null;
+
+  let requiredMinutes = extraPlannedMinutes;
+  let primaryMinutes = 0;
+  for (let i = index; i < finalSongIndex; i++) {
+    const next = sequence[i];
+    if (!next) continue;
+    const minutes = partDurations[next] ?? 0;
+    requiredMinutes += minutes + getGapAfterPart(next, minutes, noCounsel);
+    if (ADAPTIVE_PRIMARY_PARTS.includes(next)) primaryMinutes += minutes;
+  }
+
+  const deviation = (deadline - now) / 1000 - requiredMinutes * 60;
+  if (
+    deviation >= -ADAPTIVE_TOLERANCE_SECONDS ||
+    deviation < -ADAPTIVE_MAX_DEVIATION_SECONDS
+  ) {
+    return null;
+  }
+
+  const plannedSeconds = (partDurations[part] ?? 0) * 60;
+  if (plannedSeconds <= 0) return null;
+
+  let shortfall: number;
+  if (isPrimary) {
+    shortfall = (deviation * plannedSeconds) / (primaryMinutes * 60);
+  } else if (primaryMinutes > 0) {
+    // The primary parts to come take it first
+    return null;
+  } else {
+    shortfall = deviation;
+  }
+
+  const adapted =
+    Math.round((plannedSeconds + shortfall) / ADAPTIVE_ROUNDING_SECONDS) *
+    ADAPTIVE_ROUNDING_SECONDS;
+  const seconds = Math.min(
+    plannedSeconds,
+    Math.max(ADAPTIVE_MIN_PART_SECONDS, adapted),
+  );
+  return seconds < plannedSeconds ? seconds : null;
 };
 
 /**

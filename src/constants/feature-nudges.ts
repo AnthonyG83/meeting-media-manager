@@ -112,6 +112,17 @@ export const FEATURE_NUDGES: FeatureNudge[] = [
   },
   {
     acceptLabel: 'feature-nudge-show-me',
+    action: { setting: 'timerAdaptiveShorten', type: 'settings' },
+    getBody: () => 'feature-nudge-timer-adaptive-body',
+    icon: 'mmm-time',
+    id: 'timer-adaptive',
+    // Builds on the timer, so only for profiles that already use it.
+    isEligible: ({ settings }) =>
+      settings.enableTimerDisplay && !settings.timerAdaptiveShorten,
+    title: 'feature-nudge-timer-adaptive-title',
+  },
+  {
+    acceptLabel: 'feature-nudge-show-me',
     action: { setting: 'enableExtraCache', type: 'settings' },
     getBody: () => 'feature-nudge-songbook-videos-body',
     icon: 'mmm-music-note',

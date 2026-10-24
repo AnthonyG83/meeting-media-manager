@@ -523,6 +523,12 @@ export const settingsDefinitions: SettingsItems = {
     subgroup: 'timerDisplay',
     type: 'toggle',
   },
+  timerAdaptiveShorten: {
+    depends: ['enableTimerDisplay'],
+    group: 'meetingTimer',
+    subgroup: 'timerDisplay',
+    type: 'toggle',
+  },
   timerBackgroundColor: {
     group: 'meetingTimer',
     rules: ['notEmpty'],
@@ -1276,6 +1282,7 @@ export const defaultSettings: SettingsValues = {
   shortcutMusic: null,
   showMediaDragHandle: true,
   suppressHardwareAccelerationReminder: false,
+  timerAdaptiveShorten: false,
   timerAutoOpen: false,
   timerBackgroundColor: '#000000',
   timerCountdownDisplay: 'digital',

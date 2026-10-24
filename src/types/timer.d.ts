@@ -81,7 +81,12 @@ export interface TimerData {
   timerOvertimeIndicator?: boolean;
   timerOvertimeShowAmountOnly?: boolean;
   timerOvertimeTextColor?: string;
-  /** The planned length of the part being timed, in both timer modes. */
+  /**
+   * The part's planned length, only when adaptive timing shortened it: the
+   * target below is then the shortened length.
+   */
+  timerPartPlannedSeconds?: number;
+  /** The length of the part being timed, in both timer modes. */
   timerPartTargetSeconds?: number;
   timerTextColor?: string;
   timerTextSize?: string;

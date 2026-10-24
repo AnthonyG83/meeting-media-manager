@@ -187,6 +187,7 @@ describe('FEATURE_NUDGES', () => {
       'zoom-window-layout',
       'shared-folder',
       'meeting-timer',
+      'timer-adaptive',
       'songbook-videos',
       'auto-start',
       'obs',
@@ -311,6 +312,22 @@ describe('FEATURE_NUDGES', () => {
       ),
     ).toBe(false);
     expect(nudge('meeting-timer').beta).toBe(true);
+  });
+
+  it('suggests adaptive timing only to profiles using the timer', () => {
+    expect(eligible('timer-adaptive', {}, { enableTimerDisplay: true })).toBe(
+      true,
+    );
+    expect(eligible('timer-adaptive', {}, { enableTimerDisplay: false })).toBe(
+      false,
+    );
+    expect(
+      eligible(
+        'timer-adaptive',
+        {},
+        { enableTimerDisplay: true, timerAdaptiveShorten: true },
+      ),
+    ).toBe(false);
   });
 
   it('suggests songbook videos only with room and bandwidth for them', () => {

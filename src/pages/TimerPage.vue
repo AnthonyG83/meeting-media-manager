@@ -29,6 +29,13 @@
           />
           {{ displayLabel }}
         </div>
+        <div
+          v-if="adaptedFromText"
+          class="timer-display__label timer-display__adapted"
+          :style="{ ...labelStyles, opacity: 0.65 }"
+        >
+          {{ adaptedFromText }}
+        </div>
 
         <div class="timer-display__main">
           <div
@@ -275,6 +282,17 @@ const displayLabel = computed(() => {
     return timerData.value?.timerCurrentPartLabel ?? '';
   }
   return '';
+});
+
+// A part shortened by adaptive timing says what it was planned at
+const adaptedFromText = computed(() => {
+  const plannedSeconds = timerData.value?.timerPartPlannedSeconds;
+  if (currentMode.value !== 'timer' || !plannedSeconds) return '';
+  const minutes = Math.floor(plannedSeconds / 60);
+  const seconds = plannedSeconds % 60;
+  return t('timer-adapted-from', {
+    time: `${minutes}:${seconds.toString().padStart(2, '0')}`,
+  });
 });
 
 // Check if timer is overtime
@@ -775,6 +793,10 @@ watch(isClockArcDisplay, (showing) => {
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.timer-display__adapted {
+  text-transform: none;
 }
 
 .timer-display__label-icon {
