@@ -67,12 +67,17 @@ export const getSectionDurationWarning = (
   prefix: 'ayfm' | 'lac',
   count: number,
   partDurations: Partial<Record<MeetingPart, number>>,
+  noCounsel: readonly MeetingPart[] = [],
 ): boolean => {
   let total = 0;
+  let withoutCounsel = 0;
   for (let i = 1; i <= count; i++) {
-    total += partDurations[`${prefix}-${i}` as MeetingPart] ?? 0;
+    const part = `${prefix}-${i}` as MeetingPart;
+    total += partDurations[part] ?? 0;
+    // A part without counsel leaves its minute to the parts
+    if (noCounsel.includes(part)) withoutCounsel++;
   }
-  return total !== getSectionPartMinutes(prefix, count);
+  return total !== getSectionPartMinutes(prefix, count, withoutCounsel);
 };
 
 export const formatMinutesSeconds = (totalSeconds: number): string => {
@@ -81,6 +86,9 @@ export const formatMinutesSeconds = (totalSeconds: number): string => {
   const seconds = safeSeconds % 60;
   return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 };
+
+/** The Treasures from God's Word talk, Spiritual Gems and Bible reading. */
+const TREASURES_PART_COUNT = 3;
 
 const isCustomPart = (part: MeetingPart): part is `custom-${string}` =>
   part.startsWith('custom-');
@@ -100,7 +108,14 @@ const t = (key: string, named?: Record<string, unknown>) =>
  */
 type TimerDayState = Pick<
   DateInfo,
-  'timerPartCounts' | 'timerPartDurations' | 'timerParts' | 'timerPartTimings'
+  | 'timerPartCounts'
+  | 'timerPartDurations'
+  | 'timerParts'
+  | 'timerPartTimings'
+  | 'timerProgramCounts'
+  | 'timerProgramDurations'
+  | 'timerProgramNoCounsel'
+  | 'timerProgramTitles'
 >;
 
 const createCustomPartId = (): `custom-${string}` =>
@@ -191,8 +206,40 @@ const createTimer = () => {
 
   // --- Part counts (per day) --------------------------------------------------
 
+  // What the midweek workbook says about this day (see
+  // importMidweekProgram in jw-media.ts), unless the profile opted out. It is
+  // kept apart from the day's own changes, which always win over it.
+  const useProgramTimings = computed(
+    () => currentSettings.value?.timerImportProgramTimings !== false,
+  );
+  const programCounts = computed(() =>
+    useProgramTimings.value ? dayState.value.timerProgramCounts : undefined,
+  );
+  const programDurations = computed(() =>
+    useProgramTimings.value ? dayState.value.timerProgramDurations : undefined,
+  );
+
   const getPartCounts = (): TimerPartCounts =>
-    dayState.value.timerPartCounts ?? { ...defaultPartCounts };
+    dayState.value.timerPartCounts ??
+    (programCounts.value && { ...programCounts.value }) ?? {
+      ...defaultPartCounts,
+    };
+
+  /**
+   * What the workbook says about a section is only true for the number of
+   * parts it lists: with another number of parts, the parts are not the
+   * workbook's any more.
+   */
+  const matchesProgramCount = (prefix: 'ayfm' | 'lac', count: number) =>
+    programCounts.value?.[prefix] === count;
+
+  /** The Apply Yourself parts the workbook gives no counsel after. */
+  const getNoCounsel = (ayfmCount = getPartCounts().ayfm): MeetingPart[] =>
+    matchesProgramCount('ayfm', ayfmCount)
+      ? (dayState.value.timerProgramNoCounsel ?? [])
+      : [];
+
+  const noCounsel = computed(() => getNoCounsel());
 
   const setPartCount = (prefix: 'ayfm' | 'lac', count: number) => {
     const maxParts = prefix === 'ayfm' ? MAX_AYFM_PARTS : MAX_LAC_PARTS;
@@ -204,7 +251,11 @@ const createTimer = () => {
     const distributed = distributeSectionMinutes(
       prefix,
       safeCount,
-      getSectionPartMinutes(prefix, safeCount),
+      getSectionPartMinutes(
+        prefix,
+        safeCount,
+        prefix === 'ayfm' ? getNoCounsel(safeCount).length : 0,
+      ),
     );
     dayState.value.timerPartDurations = {
       ...dayState.value.timerPartDurations,
@@ -319,17 +370,20 @@ const createTimer = () => {
   // --- Durations (per day) ----------------------------------------------------
 
   /**
-   * Every part's planned length in minutes: the defaults, the day's own
-   * changes over them, and the custom parts' lengths. 0 means the part is
-   * skipped (no planned length).
+   * Every part's planned length in minutes: the defaults, the workbook's
+   * lengths over them, the day's own changes over those, and the custom
+   * parts' lengths. 0 means the part is skipped (no planned length).
    */
   const partDurations = computed<Record<MeetingPart, number>>(() => {
     const durations: Record<MeetingPart, number> = { ...defaultPartDurations };
-    for (const [part, minutes] of Object.entries(
-      dayState.value.timerPartDurations ?? {},
-    )) {
-      if (typeof minutes === 'number') {
-        durations[part as MeetingPart] = minutes;
+    for (const changes of [
+      programDurations.value,
+      dayState.value.timerPartDurations,
+    ]) {
+      for (const [part, minutes] of Object.entries(changes ?? {})) {
+        if (typeof minutes === 'number') {
+          durations[part as MeetingPart] = minutes;
+        }
       }
     }
     for (const part of customTimerParts.value) {
@@ -357,6 +411,21 @@ const createTimer = () => {
 
   const getPartDurationSeconds = (part: MeetingPart) =>
     (partDurations.value[part] ?? 0) * 60;
+
+  /** The day has lengths from the workbook to go back to. */
+  const hasProgramTimings = computed(() => !!programDurations.value);
+
+  /** The day's part counts or lengths differ from what the workbook says. */
+  const hasProgramOverrides = computed(
+    () =>
+      !!dayState.value.timerPartCounts || !!dayState.value.timerPartDurations,
+  );
+
+  const resetToProgramTimings = () => {
+    dayState.value.timerPartCounts = undefined;
+    dayState.value.timerPartDurations = undefined;
+    refreshCountdownTarget();
+  };
 
   // --- Timings (per day) ------------------------------------------------------
 
@@ -462,6 +531,37 @@ const createTimer = () => {
     return options;
   };
 
+  /**
+   * "4. Starting a Conversation (3 min.)", with the workbook's own number and
+   * title, when the workbook's page was read for this day.
+   */
+  const getWorkbookPartLabel = (
+    prefix: 'ayfm' | 'lac',
+    index: number,
+  ): string | undefined => {
+    const part = `${prefix}-${index}` as MeetingPart;
+    const title = useProgramTimings.value
+      ? dayState.value.timerProgramTitles?.[part]
+      : undefined;
+    const program = programCounts.value;
+    if (
+      !title ||
+      !program ||
+      !matchesProgramCount(prefix, getPartCounts()[prefix])
+    ) {
+      return undefined;
+    }
+    // Numbered through the whole meeting: 3 Treasures parts, then the
+    // Apply Yourself parts, then the Living as Christians parts
+    const number =
+      TREASURES_PART_COUNT + (prefix === 'ayfm' ? 0 : program.ayfm) + index;
+    return t('workbook-part', {
+      duration: partDurations.value[part] ?? 0,
+      part: number,
+      title,
+    });
+  };
+
   const midweekPartOptions = (date: Date): MeetingPartOption[] => {
     const isCo = isCoWeek(date);
     const options: MeetingPartOption[] = [
@@ -494,15 +594,18 @@ const createTimer = () => {
       'ayfm',
       ayfmPartsCount.value,
       partDurations.value,
+      noCounsel.value,
     );
     for (let i = 1; i <= ayfmPartsCount.value; i++) {
       const part = `ayfm-${i}` as MeetingPart;
       options.push({
         icon: getJwIconFromKeyword('ayfm-part'),
-        label: t('ayfm-part', {
-          duration: partDurations.value[part] ?? 0,
-          part: i,
-        }),
+        label:
+          getWorkbookPartLabel('ayfm', i) ??
+          t('ayfm-part', {
+            duration: partDurations.value[part] ?? 0,
+            part: i,
+          }),
         section: 'ayfm',
         value: part,
         warning: ayfmWarning,
@@ -518,10 +621,12 @@ const createTimer = () => {
       const part = `lac-${i}` as MeetingPart;
       options.push({
         icon: getJwIconFromKeyword('lac-part'),
-        label: t('lac-part', {
-          duration: partDurations.value[part] ?? 0,
-          part: i,
-        }),
+        label:
+          getWorkbookPartLabel('lac', i) ??
+          t('lac-part', {
+            duration: partDurations.value[part] ?? 0,
+            part: i,
+          }),
         section: 'lac',
         value: part,
         warning: lacWarning,
@@ -946,6 +1051,7 @@ const createTimer = () => {
       index,
       sequence.value,
       partDurations.value,
+      noCounsel.value,
     );
     return meetingStart + offsetMinutes * 60 * 1000;
   };
@@ -1054,6 +1160,8 @@ const createTimer = () => {
     getTimeString,
     handleTimerWindowVisibility,
     hasAnyPartTimings,
+    hasProgramOverrides,
+    hasProgramTimings,
     lacPartsCount,
     meetingPartsOptions,
     moveCustomTimerPart,
@@ -1065,6 +1173,7 @@ const createTimer = () => {
     removeCustomTimerPart,
     resetAllPartTimings,
     resetPartTiming,
+    resetToProgramTimings,
     resumeTimer,
     selectPart,
     setPartDuration,

@@ -23,6 +23,7 @@ import {
   fetchJwLanguages,
   fetchLatestVersion,
   fetchMemorials,
+  fetchMidweekProgram,
   fetchPubMediaLinks,
   fetchRaw,
   fetchReleaseNotes,
@@ -62,6 +63,45 @@ describe('fetchYeartext', () => {
     const yeartext = await fetchYeartext('E', 'jw.org');
     expect(yeartext.wtlocale).toBe('E');
     expect(yeartext.yeartext).toBe(jwYeartext.content);
+  });
+});
+
+describe('fetchMidweekProgram', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("fetches a workbook week's page from WOL by its MEPS document id", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ content: '<h3>1. A</h3>', exists: true }),
+          { status: 200 },
+        ),
+      );
+    const content = await fetchMidweekProgram(202_026_258, 'S', 'jw.org');
+    expect(content).toBe('<h3>1. A</h3>');
+    const url = new URL(String(fetchSpy.mock.calls[0]?.[0]));
+    expect(url.origin + url.pathname).toBe('https://wol.jw.org/wol/finder');
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      docid: '202026258',
+      format: 'json',
+      snip: 'yes',
+      wtlocale: 'S',
+    });
+  });
+
+  it('gives null for a week that does not exist, or without a base domain', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ content: '', exists: false }), {
+        status: 200,
+      }),
+    );
+    expect(await fetchMidweekProgram(1, 'E', 'jw.org')).toBeNull();
+    fetchSpy.mockClear();
+    expect(await fetchMidweekProgram(1, 'E', '')).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
 

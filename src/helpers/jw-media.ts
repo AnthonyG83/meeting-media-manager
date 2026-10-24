@@ -49,6 +49,7 @@ import {
   getThumbnailUrl,
   registerMediaProviders,
 } from 'src/helpers/fs';
+import { parseMidweekProgram } from 'src/helpers/meeting-program';
 import { createTemporaryNotification } from 'src/helpers/notifications';
 import { LAST_USED_FILENAME, updateLastUsedDate } from 'src/helpers/usage';
 import {
@@ -59,11 +60,15 @@ import {
   isPhoneStoragePath,
   isPossiblyNetworkFolderPath,
 } from 'src/shared/filesystem-errors';
-import { NETWORK_ERROR_CODES } from 'src/shared/network-errors';
+import {
+  isFetchNetworkError,
+  NETWORK_ERROR_CODES,
+} from 'src/shared/network-errors';
 import { log, sanitizeFilename, uuid } from 'src/shared/vanilla';
 import {
   clearFetchCache,
   fetchMediaItems,
+  fetchMidweekProgram,
   fetchPubMediaLinks,
   fetchRaw,
 } from 'src/utils/api';
@@ -1943,6 +1948,57 @@ const processQueuedMeetingDay = async (day: DateInfo) => {
   replaceMissingMediaByPubMediaId(day, fetchResult.media);
   applyFetchedSectionTitles(day, fetchResult.sectionTitles);
   updateFetchedMeetingDayStatus(day, fetchResult.error);
+  // Best effort, and not waited for: the media is ready whether or not the
+  // part lengths can be had, and being offline must not slow the next days.
+  if (fetchResult.program) {
+    void importMidweekProgram(day, fetchResult.program);
+  }
+};
+
+/**
+ * Fills the day with the part lengths of the midweek workbook (for the
+ * meeting timer). Anything that goes wrong leaves the day as it was: the
+ * timer then uses its default lengths.
+ */
+export const importMidweekProgram = async (
+  day: DateInfo,
+  source: MidweekProgramSource,
+) => {
+  try {
+    if (day.timerProgramDurations) return;
+    const jwStore = useJwStore();
+    const html = await fetchMidweekProgram(
+      source.mepsDocumentId,
+      source.langwritten,
+      jwStore.urlVariables.base,
+    );
+    if (!html) return;
+
+    const program = parseMidweekProgram(html);
+    if (!program) {
+      log(
+        `The workbook's page for document ${source.mepsDocumentId} could not be read`,
+        'mwMedia',
+        'warn',
+      );
+      return;
+    }
+
+    day.timerProgramCounts = program.counts;
+    day.timerProgramDurations = program.durations;
+    day.timerProgramNoCounsel = program.noCounsel;
+    day.timerProgramTitles = program.titles;
+  } catch (error) {
+    if (isFetchNetworkError(error)) return;
+    errorCatcher(error, {
+      contexts: {
+        fn: {
+          mepsDocumentId: source.mepsDocumentId,
+          name: 'importMidweekProgram',
+        },
+      },
+    });
+  }
 };
 
 // The document title (e.g. the specific Watchtower study article) isn't
@@ -4404,8 +4460,46 @@ const mergeWeekendSongs = (
 interface MeetingMediaFetchResult {
   error: boolean;
   media: Record<string, MediaItem[]>;
+  /** Where to find the week's part lengths (midweek meeting only). */
+  program?: MidweekProgramSource;
   sectionTitles?: Partial<Record<MediaSectionIdentifier, string>>;
 }
+
+interface MidweekProgramSource {
+  langwritten: JwLangCode;
+  mepsDocumentId: number;
+}
+
+/**
+ * Where the meeting timer can read the week's part lengths: the workbook
+ * page on WOL, found by the MEPS id of the week's document. Nothing is
+ * fetched here; undefined when the timer doesn't want the lengths, or when
+ * the week is not a regular one (a CO visit has a different program).
+ */
+const getMidweekProgramSource = async (
+  db: string,
+  docId: number,
+  langwritten: '' | JwLangCode,
+  lookupDate: Date,
+): Promise<MidweekProgramSource | undefined> => {
+  if (!langwritten || isDemoModeActive() || isCoWeek(lookupDate)) return;
+  try {
+    const settings = useCurrentStateStore().currentSettings;
+    if (settings?.timerImportProgramTimings === false) return;
+
+    const mepsDocumentId = (
+      await executeQuery<{ MepsDocumentId: number }>(
+        db,
+        `SELECT MepsDocumentId FROM Document WHERE DocumentId = ${docId}`,
+      )
+    )[0]?.MepsDocumentId;
+    return mepsDocumentId ? { langwritten, mepsDocumentId } : undefined;
+  } catch (error) {
+    errorCatcher(error, {
+      contexts: { fn: { docId, name: 'getMidweekProgramSource' } },
+    });
+  }
+};
 
 export const getWeMedia = async (
   lookupDate: Date,
@@ -4700,6 +4794,12 @@ export const getMwMedia = async (
     return {
       error: errors.length > 0,
       media: groupMediaByOriginalSection(mediaForDay),
+      program: await getMidweekProgramSource(
+        db,
+        docId,
+        publication.langwritten,
+        lookupDate,
+      ),
     };
   } catch (e) {
     errorCatcher(e);

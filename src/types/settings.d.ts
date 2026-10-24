@@ -332,6 +332,7 @@ export interface SettingsValues {
   timerEnableMeetingAheadBehind: boolean;
   timerEnableMeetingCountdown: boolean;
   timerHourFormat: '12h' | '24h';
+  timerImportProgramTimings: boolean;
   timerIslandHoverControls: boolean;
   timerMeetingCountdownMinutes: number;
   timerMode: 'countdown' | 'countup';

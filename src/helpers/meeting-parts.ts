@@ -67,17 +67,46 @@ export const distributeSectionMinutes = (
   return durations;
 };
 
-/** The minutes the parts of a section may share, counsel excluded. */
-export const getSectionPartMinutes = (prefix: 'ayfm' | 'lac', count: number) =>
-  prefix === 'ayfm'
-    ? AYFM_SECTION_MINUTES - count * COUNSEL_MINUTES
-    : LAC_SECTION_MINUTES;
+/**
+ * The minutes the parts of a section may share, counsel excluded. Apply
+ * Yourself parts without counsel (see `noCounselCount`) leave their minute
+ * to the section's parts.
+ */
+export const getSectionPartMinutes = (
+  prefix: 'ayfm' | 'lac',
+  count: number,
+  noCounselCount = 0,
+) => {
+  if (prefix === 'lac') return LAC_SECTION_MINUTES;
+  const counselCount = Math.max(0, count - Math.max(0, noCounselCount));
+  return AYFM_SECTION_MINUTES - counselCount * COUNSEL_MINUTES;
+};
 
+/**
+ * Whether the chairman's counsel follows a part. Student parts get counsel,
+ * unless the workbook says otherwise (`noCounsel`): the closing discussion
+ * of an Apply Yourself section, such as "What Would You Say?", has none.
+ */
 export const hasCounselAfterPart = (
   part: MeetingPart,
   duration: number,
+  noCounsel: readonly MeetingPart[] = [],
 ): boolean =>
-  (part === 'bible-reading' || part.startsWith('ayfm-')) && duration > 0;
+  (part === 'bible-reading' || part.startsWith('ayfm-')) &&
+  duration > 0 &&
+  !noCounsel.includes(part);
+
+/**
+ * The minutes between the end of a part and the start of the next one: the
+ * counsel that follows a student part. Every caller that adds up the length
+ * of the meeting goes through here, so they all count the same gaps.
+ */
+export const getGapAfterPart = (
+  part: MeetingPart,
+  duration: number,
+  noCounsel: readonly MeetingPart[] = [],
+): number =>
+  hasCounselAfterPart(part, duration, noCounsel) ? COUNSEL_MINUTES : 0;
 
 export const getMeetingPartSequence = (
   date: Date | undefined,
@@ -134,16 +163,14 @@ export const getMeetingPartOffsetMinutes = (
   partIndex: number,
   sequence: MeetingPart[],
   partDurations: Partial<Record<MeetingPart, number>>,
+  noCounsel: readonly MeetingPart[] = [],
 ): number => {
   let offset = 0;
   for (let i = 0; i < partIndex; i++) {
     const prevPart = sequence[i];
     if (!prevPart) continue;
     const dur = partDurations[prevPart] ?? 0;
-    offset += dur;
-    if (hasCounselAfterPart(prevPart, dur)) {
-      offset += COUNSEL_MINUTES;
-    }
+    offset += dur + getGapAfterPart(prevPart, dur, noCounsel);
   }
   return offset;
 };
@@ -169,10 +196,7 @@ export const getTotalMeetingDurationMinutes = (
   let total = 0;
   for (const part of sequence) {
     const dur = defaultPartDurations[part] ?? 0;
-    total += dur;
-    if (hasCounselAfterPart(part, dur)) {
-      total += COUNSEL_MINUTES;
-    }
+    total += dur + getGapAfterPart(part, dur);
   }
   return total;
 };

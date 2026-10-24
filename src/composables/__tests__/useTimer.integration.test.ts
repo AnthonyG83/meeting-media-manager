@@ -17,7 +17,7 @@ vi.mock('boot/i18n', () => ({
       locale: { value: 'en' },
       t: (key: string, named?: Record<string, unknown>) =>
         named && 'part' in named
-          ? `${key} ${named.part} (${named.duration})`
+          ? `${key} ${named.part}${named.title ? ` ${named.title}` : ''} (${named.duration})`
           : key,
     },
   },
@@ -163,6 +163,145 @@ describe('useTimer part durations', () => {
     await selectDay(MIDWEEK);
     expect(timer.partDurations.value['public-talk']).toBe(30);
     expect(timer.lacPartsCount.value).toBe(3);
+  });
+});
+
+// The workbook's week of 2026-09-21: 3 Apply Yourself parts of 3, 4 and 6
+// minutes, the last one a discussion without counsel, and 1 Living as
+// Christians part of 15 minutes.
+const programOf = (): Partial<DateInfo> => ({
+  timerProgramCounts: { ayfm: 3, lac: 1 },
+  timerProgramDurations: {
+    'ayfm-1': 3,
+    'ayfm-2': 4,
+    'ayfm-3': 6,
+    'ayfm-4': 0,
+    'ayfm-5': 0,
+    cbs: 30,
+    'lac-1': 15,
+    'lac-2': 0,
+    'lac-3': 0,
+  },
+  timerProgramNoCounsel: ['ayfm-3'],
+  timerProgramTitles: {
+    'ayfm-1': 'Starting a Conversation',
+    'ayfm-2': 'Following Up',
+    'ayfm-3': 'What Would You Say?',
+    'lac-1': 'Remaining Neutral',
+  },
+});
+
+describe('useTimer workbook timings', () => {
+  beforeEach(() => {
+    Object.assign(day(MIDWEEK) as DateInfo, programOf());
+  });
+
+  it('uses the workbook counts and lengths until the user changes them', () => {
+    const timer = useTimer();
+    expect(timer.ayfmPartsCount.value).toBe(3);
+    expect(timer.lacPartsCount.value).toBe(1);
+    expect(timer.partDurations.value).toMatchObject({
+      'ayfm-1': 3,
+      'ayfm-2': 4,
+      'ayfm-3': 6,
+      'lac-1': 15,
+      'lac-2': 0,
+    });
+    // The workbook's values are not the user's changes
+    expect(day(MIDWEEK)?.timerPartDurations).toBeUndefined();
+
+    timer.setPartDuration('ayfm-1', 5);
+    expect(timer.partDurations.value['ayfm-1']).toBe(5);
+    expect(timer.partDurations.value['ayfm-2']).toBe(4);
+  });
+
+  it('does not warn when a discussion without counsel fills the section', () => {
+    const timer = useTimer();
+    expect(timer.meetingPartsOptions.value.some((o) => o.warning)).toBe(false);
+
+    timer.setPartDuration('ayfm-3', 5);
+    const ayfm = timer.meetingPartsOptions.value.filter(
+      (o) => o.section === 'ayfm',
+    );
+    expect(ayfm.every((o) => o.warning)).toBe(true);
+  });
+
+  it('plans no counsel after the last part, in the start times that follow', () => {
+    const timer = useTimer();
+    // 5 song + 1 intro + 10 + 10 + 4 reading + 1 counsel + (3 + 1) + (4 + 1)
+    // + 6 (no counsel) + 5 middle song = 51 minutes before the first LAC part
+    expect(timer.getPlannedStartTime('lac-1')).toBe(
+      new Date(2026, 9, 13, 19, 51, 0).getTime(),
+    );
+  });
+
+  it('labels the parts with the workbook titles, numbered through the meeting', () => {
+    const timer = useTimer();
+    const labels = Object.fromEntries(
+      timer.meetingPartsOptions.value.map((o) => [o.value, o.label]),
+    );
+    expect(labels['ayfm-1']).toBe(
+      'workbook-part 4 Starting a Conversation (3)',
+    );
+    expect(labels['ayfm-3']).toBe('workbook-part 6 What Would You Say? (6)');
+    expect(labels['lac-1']).toBe('workbook-part 7 Remaining Neutral (15)');
+  });
+
+  it('goes back to the default labels when the number of parts changes', () => {
+    const timer = useTimer();
+    timer.ayfmPartsCount.value = 2;
+    const ayfm1 = timer.meetingPartsOptions.value.find(
+      (o) => o.value === 'ayfm-1',
+    );
+    expect(ayfm1?.label).toBe('ayfm-part 1 (7)');
+    // and the counsel the workbook left out is counted again
+    expect(timer.meetingPartsOptions.value.some((o) => o.warning)).toBe(false);
+  });
+
+  it('shares a section out with the workbook counsel when its count is set back', () => {
+    const timer = useTimer();
+    timer.ayfmPartsCount.value = 2;
+    timer.ayfmPartsCount.value = 3;
+    // Back to the workbook's count, so its discussion has no counsel again
+    expect(timer.partDurations.value).toMatchObject({
+      'ayfm-1': 5,
+      'ayfm-2': 4,
+      'ayfm-3': 4,
+    });
+    expect(timer.meetingPartsOptions.value.some((o) => o.warning)).toBe(false);
+  });
+
+  it('resets the day to the workbook', () => {
+    const timer = useTimer();
+    expect(timer.hasProgramTimings.value).toBe(true);
+    expect(timer.hasProgramOverrides.value).toBe(false);
+
+    timer.setPartDuration('lac-1', 12);
+    timer.lacPartsCount.value = 2;
+    expect(timer.hasProgramOverrides.value).toBe(true);
+
+    timer.resetToProgramTimings();
+    expect(timer.hasProgramOverrides.value).toBe(false);
+    expect(timer.lacPartsCount.value).toBe(1);
+    expect(timer.partDurations.value['lac-1']).toBe(15);
+  });
+
+  it('ignores the workbook when the setting is off', () => {
+    useCongregationSettingsStore().congregations['cong'] = {
+      ...useCongregationSettingsStore().congregations['cong'],
+      timerImportProgramTimings: false,
+    } as never;
+    const timer = useTimer();
+    expect(timer.hasProgramTimings.value).toBe(false);
+    expect(timer.ayfmPartsCount.value).toBe(3);
+    expect(timer.lacPartsCount.value).toBe(2);
+    expect(timer.partDurations.value['ayfm-3']).toBe(4);
+  });
+
+  it('has nothing to reset on a day without workbook data', async () => {
+    const timer = useTimer();
+    await selectDay(WEEKEND);
+    expect(timer.hasProgramTimings.value).toBe(false);
   });
 });
 

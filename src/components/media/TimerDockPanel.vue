@@ -76,6 +76,22 @@
           @click="addCustomTimerPart"
         />
         <q-btn
+          v-if="hasProgramTimings"
+          color="primary"
+          dense
+          :disable="!hasProgramOverrides || timerRunning"
+          flat
+          icon="mmm-reset"
+          no-caps
+          round
+          size="sm"
+          @click="resetToProgramTimings"
+        >
+          <q-tooltip :delay="500">
+            {{ t('reset-to-workbook-timings') }}
+          </q-tooltip>
+        </q-btn>
+        <q-btn
           color="warning"
           dense
           :disable="!hasAnyPartTimings || timerRunning"
@@ -126,7 +142,10 @@ const {
   addCustomTimerPart,
   handleTimerWindowVisibility,
   hasAnyPartTimings,
+  hasProgramOverrides,
+  hasProgramTimings,
   resetAllPartTimings,
+  resetToProgramTimings,
   timerRunning,
 } = useTimer();
 

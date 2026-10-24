@@ -397,6 +397,32 @@ export const fetchYeartext = async (
 };
 
 /**
+ * Fetches a midweek meeting workbook week from WOL, as HTML. The MEPS
+ * document id is the same in every language.
+ * @param mepsDocumentId The MEPS document id of the week in the workbook.
+ * @param wtlocale The language to fetch the week in.
+ * @param base The base domain to fetch from.
+ * @returns The week's HTML, or null when it couldn't be fetched.
+ */
+export const fetchMidweekProgram = async (
+  mepsDocumentId: number,
+  wtlocale: JwLangCode,
+  base: string,
+): Promise<null | string> => {
+  if (!base) return null;
+  const result = await fetchJson<YeartextResult>(
+    `https://wol.${base}/wol/finder`,
+    new URLSearchParams({
+      docid: String(mepsDocumentId),
+      format: 'json',
+      snip: 'yes',
+      wtlocale,
+    }),
+  );
+  return result?.exists && result.content ? result.content : null;
+};
+
+/**
  * Fetches the announcements from the repository.
  * @returns The announcements.
  */

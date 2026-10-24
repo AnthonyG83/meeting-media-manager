@@ -517,6 +517,12 @@ export const settingsDefinitions: SettingsItems = {
     subgroup: 'timerCountdown',
     type: 'toggle',
   },
+  timerImportProgramTimings: {
+    depends: ['enableTimerDisplay'],
+    group: 'meetingTimer',
+    subgroup: 'timerDisplay',
+    type: 'toggle',
+  },
   timerBackgroundColor: {
     group: 'meetingTimer',
     rules: ['notEmpty'],
@@ -1278,6 +1284,7 @@ export const defaultSettings: SettingsValues = {
   timerEnableMeetingAheadBehind: false,
   timerEnableMeetingCountdown: false,
   timerHourFormat: '24h',
+  timerImportProgramTimings: true,
   timerIslandHoverControls: true,
   timerMeetingCountdownMinutes: 5,
   timerMode: 'countup',

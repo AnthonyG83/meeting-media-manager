@@ -4,6 +4,7 @@ import {
   defaultPartCounts,
   defaultPartDurations,
   distributeSectionMinutes,
+  getGapAfterPart,
   getMeetingPartOffsetMinutes,
   getSectionPartMinutes,
   hasCounselAfterPart,
@@ -89,5 +90,38 @@ describe('getMeetingPartOffsetMinutes', () => {
     expect(getMeetingPartOffsetMinutes(4, [...sequence], durations)).toBe(15);
     expect(hasCounselAfterPart('ayfm-2', 0)).toBe(false);
     expect(hasCounselAfterPart('ayfm-2', 2)).toBe(true);
+  });
+});
+
+describe('parts without counsel', () => {
+  it('leaves the minute of counsel to the parts of the section', () => {
+    expect(getSectionPartMinutes('ayfm', 3)).toBe(12);
+    expect(getSectionPartMinutes('ayfm', 3, 1)).toBe(13);
+    expect(getSectionPartMinutes('ayfm', 3, 3)).toBe(15);
+    expect(getSectionPartMinutes('ayfm', 3, 9)).toBe(15);
+    expect(getSectionPartMinutes('lac', 2, 1)).toBe(15);
+  });
+
+  it('gives no counsel after a part in the noCounsel list', () => {
+    expect(hasCounselAfterPart('ayfm-3', 6, ['ayfm-3'])).toBe(false);
+    expect(hasCounselAfterPart('ayfm-2', 6, ['ayfm-3'])).toBe(true);
+    expect(hasCounselAfterPart('bible-reading', 4, ['ayfm-3'])).toBe(true);
+    expect(getGapAfterPart('ayfm-3', 6, ['ayfm-3'])).toBe(0);
+    expect(getGapAfterPart('ayfm-2', 6, ['ayfm-3'])).toBe(1);
+    expect(getGapAfterPart('lac-1', 15)).toBe(0);
+  });
+
+  it('leaves out their counsel in the offsets', () => {
+    const sequence = [
+      'ayfm-1',
+      'ayfm-2',
+      'ayfm-3',
+      'song-and-optional-prayer',
+    ] as const;
+    const durations = { 'ayfm-1': 3, 'ayfm-2': 4, 'ayfm-3': 6 };
+    expect(getMeetingPartOffsetMinutes(3, [...sequence], durations)).toBe(16);
+    expect(
+      getMeetingPartOffsetMinutes(3, [...sequence], durations, ['ayfm-3']),
+    ).toBe(15);
   });
 });

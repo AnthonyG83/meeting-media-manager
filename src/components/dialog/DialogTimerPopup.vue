@@ -370,6 +370,21 @@
         @click="exportReport"
       />
       <q-btn
+        v-if="hasProgramTimings"
+        class="full-width q-mb-sm"
+        color="primary"
+        :disable="!hasProgramOverrides || timerRunning"
+        flat
+        icon="mmm-reset"
+        :label="t('reset-to-workbook-timings')"
+        no-caps
+        @click="resetToProgramTimings"
+      >
+        <q-tooltip :delay="500">
+          {{ t('reset-to-workbook-timings-explain') }}
+        </q-tooltip>
+      </q-btn>
+      <q-btn
         class="full-width"
         color="negative"
         :disable="!hasAnyPartTimings || timerRunning"
@@ -536,6 +551,8 @@ const {
   getTimeString,
   handleTimerWindowVisibility,
   hasAnyPartTimings,
+  hasProgramOverrides,
+  hasProgramTimings,
   lacPartsCount,
   meetingPartsOptions,
   moveCustomTimerPart,
@@ -543,6 +560,7 @@ const {
   partTimings,
   removeCustomTimerPart,
   resetAllPartTimings,
+  resetToProgramTimings,
   timerMode,
   timerRunning,
   updateCustomTimerPart,

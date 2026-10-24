@@ -1,6 +1,6 @@
-import type { MultimediaItem } from 'src/types';
+import type { DateInfo, MultimediaItem } from 'src/types';
 
-import { fetchRaw } from 'src/utils/api';
+import { fetchMidweekProgram, fetchRaw } from 'src/utils/api';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const errorCatcherMock = vi.fn();
@@ -119,6 +119,7 @@ vi.mock('src/shared/vanilla', () => ({
 vi.mock('src/utils/api', () => ({
   clearFetchCache: vi.fn(),
   fetchMediaItems: vi.fn(),
+  fetchMidweekProgram: vi.fn(),
   fetchPubMediaLinks: vi.fn(),
   fetchRaw: vi.fn(),
 }));
@@ -1574,6 +1575,89 @@ describe('jw-media helpers', () => {
         await getJwMepsInfo();
 
         expect(removeMock).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('importMidweekProgram', () => {
+    const source = { langwritten: 'E' as const, mepsDocumentId: 202_026_258 };
+    const workbookPage = Object.values(
+      import.meta.glob<string>(
+        './fixtures/meeting-program/oct-19-2026.en.html',
+        { eager: true, import: 'default', query: '?raw' },
+      ),
+    )[0] as string;
+
+    beforeEach(() => {
+      jwStore.urlVariables = { base: 'jw.org' };
+    });
+
+    it('stores what the workbook says on the day', async () => {
+      vi.mocked(fetchMidweekProgram).mockResolvedValue(workbookPage);
+      const { importMidweekProgram } = await import('../jw-media');
+      const day = { date: new Date(2026, 9, 21) } as DateInfo;
+
+      await importMidweekProgram(day, source);
+
+      expect(fetchMidweekProgram).toHaveBeenCalledWith(
+        202_026_258,
+        'E',
+        'jw.org',
+      );
+      expect(day.timerProgramCounts).toEqual({ ayfm: 4, lac: 1 });
+      expect(day.timerProgramDurations).toMatchObject({
+        'ayfm-4': 4,
+        cbs: 30,
+        'lac-1': 15,
+      });
+      expect(day.timerProgramNoCounsel).toEqual([]);
+      expect(day.timerProgramTitles?.['ayfm-1']).toBe(
+        'Starting a Conversation',
+      );
+    });
+
+    it("doesn't fetch again when the day already has the workbook's lengths", async () => {
+      const { importMidweekProgram } = await import('../jw-media');
+      const day = {
+        date: new Date(2026, 9, 21),
+        timerProgramDurations: { cbs: 30 },
+      } as DateInfo;
+
+      await importMidweekProgram(day, source);
+
+      expect(fetchMidweekProgram).not.toHaveBeenCalled();
+      expect(day.timerProgramDurations).toEqual({ cbs: 30 });
+    });
+
+    it('leaves the day alone when the page is not there or not readable', async () => {
+      const { importMidweekProgram } = await import('../jw-media');
+      const day = { date: new Date(2026, 9, 21) } as DateInfo;
+
+      vi.mocked(fetchMidweekProgram).mockResolvedValueOnce(null);
+      await importMidweekProgram(day, source);
+      vi.mocked(fetchMidweekProgram).mockResolvedValueOnce('<p>Oops</p>');
+      await importMidweekProgram(day, source);
+
+      expect(day.timerProgramDurations).toBeUndefined();
+      expect(errorCatcherMock).not.toHaveBeenCalled();
+    });
+
+    it("doesn't report network errors, and reports anything else", async () => {
+      const { importMidweekProgram } = await import('../jw-media');
+      const day = { date: new Date(2026, 9, 21) } as DateInfo;
+
+      vi.mocked(fetchMidweekProgram).mockRejectedValueOnce(
+        new TypeError('Failed to fetch'),
+      );
+      await importMidweekProgram(day, source);
+      expect(errorCatcherMock).not.toHaveBeenCalled();
+
+      vi.mocked(fetchMidweekProgram).mockRejectedValueOnce(new Error('boom'));
+      await importMidweekProgram(day, source);
+      expect(errorCatcherMock).toHaveBeenCalledWith(expect.any(Error), {
+        contexts: {
+          fn: { mepsDocumentId: 202_026_258, name: 'importMidweekProgram' },
+        },
       });
     });
   });

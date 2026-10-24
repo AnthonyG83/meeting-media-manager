@@ -88,6 +88,21 @@ describe('getSectionDurationWarning', () => {
     ).toBe(true);
   });
 
+  it('counts the minute of counsel a part without counsel leaves over', () => {
+    // "What Would You Say?": 3 + 4 + 6 = 13 minutes, counsel after two parts
+    const durations = { 'ayfm-1': 3, 'ayfm-2': 4, 'ayfm-3': 6 };
+    expect(getSectionDurationWarning('ayfm', 3, durations)).toBe(true);
+    expect(getSectionDurationWarning('ayfm', 3, durations, ['ayfm-3'])).toBe(
+      false,
+    );
+    // a part that is not active does not count
+    expect(
+      getSectionDurationWarning('ayfm', 2, { 'ayfm-1': 6, 'ayfm-2': 7 }, [
+        'ayfm-3',
+      ]),
+    ).toBe(false);
+  });
+
   it('only counts the active parts and treats missing ones as 0', () => {
     expect(
       getSectionDurationWarning('lac', 1, { 'lac-1': 15, 'lac-2': 99 }),

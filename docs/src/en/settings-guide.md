@@ -466,6 +466,14 @@ Enable a separate timer window for timing meeting parts. This is a beta feature 
 
 **Default**: `false`
 
+### Part Lengths from the Workbook {#timer-part-lengths}
+
+<!-- **Setting**: `timerImportProgramTimings` -->
+
+For the midweek meeting, M³ reads the length of each part from the meeting workbook when it fetches the week's media (this needs an internet connection), so the timer already has the right lengths for the Apply Yourself and Living as Christians parts, however many there are that week, and shows the workbook's part titles, such as "Starting a Conversation", in the list of parts. A discussion at the end of the Apply Yourself section, such as "What Would You Say?", has no counsel after it, and the timer plans accordingly. Whatever you change in the timer yourself, for the lengths and the number of parts, is kept; **Reset to the workbook's timings** in the timer popup brings back the workbook's values for that day. If the workbook can't be read, the timer uses its default lengths, as before.
+
+**Default**: `true`
+
 ### Timer Window Behavior {#timer-window-behavior}
 
 <!-- **Settings**: `timerAutoOpen`, `timerMode`, `timerHourFormat`, `timerShowOnActionIsland` -->
