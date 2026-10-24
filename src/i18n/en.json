@@ -1199,7 +1199,7 @@
   "zoom-setup-fix-participants": "Open the Participants panel in Zoom, then check again.",
   "zoom-setup-fix-toolbar": "Make sure the Zoom meeting window isn't hidden behind other windows, then check again.",
   "zoom-setup-hand-done": "M³ recognizes raised hands (“{phrase}”).",
-  "zoom-setup-hand-failed": "M³ couldn't raise your hand from Zoom's reactions, or didn't see it in the participants list. Make sure your meeting is open in Zoom. If your hand is still raised in Zoom, lower it, then try again.",
+  "zoom-setup-hand-failed": "M³ couldn't raise your hand in Zoom, or didn't see it in the participants list. Make sure your meeting is open in Zoom. If your hand is still raised in Zoom, lower it, then try again.",
   "zoom-setup-hand-intro": "M³ can tell you when someone raises their hand in Zoom, so you can unmute them with one click, then mute them again and lower their hand when they're done. Zoom marks raised hands in your language, so M³ needs to see one: it raises your own hand for a moment, reads how Zoom marks it, then lowers it again.",
   "zoom-setup-hand-learn": "Raise and lower my hand",
   "zoom-setup-hand-learning": "Raising your hand…",
