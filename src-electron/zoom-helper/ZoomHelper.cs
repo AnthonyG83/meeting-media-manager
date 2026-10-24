@@ -1001,6 +1001,27 @@ namespace M3.ZoomHelper
             Click(element);
         }
 
+        // Press counts a default action or a posted click as done once it's
+        // sent, and some Zoom versions ignore those on some controls (the
+        // microphone button, the Reactions panel's hand button): where the
+        // effect can be seen, it's checked after this long, and a real click
+        // follows if nothing happened, as before Press tried them.
+        const int PressCheckMs = 2000;
+
+        /// <summary>Presses a control and waits up to `timeoutMs` for `done`.
+        /// If nothing happened after PressCheckMs, clicks for real what
+        /// `again` finds (null: nothing to click, the control went away or
+        /// already changed), then waits for the rest of the time.</summary>
+        static bool PressAndWait(El element, Func<El> again, Func<bool> done, int timeoutMs)
+        {
+            Press(element);
+            if (WaitUntil(done, Math.Min(PressCheckMs, timeoutMs))) return true;
+            var target = again();
+            if (target == null) return false;
+            Click(target);
+            return WaitUntil(done, Math.Max(timeoutMs - PressCheckMs, PressCheckMs));
+        }
+
         static bool SetChecked(El checkbox, bool isChecked)
         {
             var pattern = checkbox.Raw.GetCurrentPattern(Uia.TogglePattern) as IUIAutomationTogglePattern;
@@ -1462,9 +1483,12 @@ namespace M3.ZoomHelper
             if (onTitle.Length == 0 || offTitle.Length == 0) throw new ZoomActionError(what + "-titles-not-captured");
             if (current != onTitle && current != offTitle) throw new ZoomActionError(what + "-title-unrecognized:" + current);
             if ((current == onTitle) == on) return Changed(false);
-            Press(button);
             var wanted = on ? onTitle : offTitle;
-            var done = WaitUntil(() =>
+            var done = PressAndWait(button, () =>
+            {
+                var latest = find();
+                return latest != null && FirstSegment(latest.Name) == current ? latest : null;
+            }, () =>
             {
                 var latest = find();
                 return latest != null && FirstSegment(latest.Name) == wanted;
@@ -2205,7 +2229,7 @@ namespace M3.ZoomHelper
         /// name, unless it's still named `notTitle` (what it said before the
         /// hand went up: a button that didn't turn into "Lower hand" is no
         /// hand button).</summary>
-        static string PressHandButton(El window, string reactTitle, string notTitle, out string learnedReactTitle)
+        static string PressHandButton(El window, string reactTitle, string notTitle, Func<bool> done, out string learnedReactTitle)
         {
             var panel = OpenReactionPanel(window, reactTitle, out learnedReactTitle);
             var hand = WaitFor(() => HandButton(panel), found => found != null, 2000);
@@ -2215,7 +2239,14 @@ namespace M3.ZoomHelper
                 CloseReactionPanel(panel);
                 throw new ZoomActionError("hand-button-not-found");
             }
-            Press(hand);
+            // Clicked for real only while the panel is still open and its
+            // button unchanged: Zoom ignored the press.
+            PressAndWait(hand, () =>
+            {
+                if (TopWindows(ReactionPanelClass, true).Count == 0) return null;
+                var again = HandButton(panel);
+                return again != null && FirstSegment(again.Name) == title ? again : null;
+            }, done, PressCheckMs * 2);
             CloseReactionPanel(panel);
             return title;
         }
@@ -2233,11 +2264,9 @@ namespace M3.ZoomHelper
             OpenParticipantsPanel(window);
             var before = MeetingRowDetails(window);
             if (before.Count == 0) throw new ZoomActionError("participants-not-found");
-            string learnedReactTitle;
-            var raiseTitle = PressHandButton(window, reactTitle, null, out learnedReactTitle);
             string phrase = null;
             string name = null;
-            var raised = WaitUntil(() =>
+            Func<bool> handUp = () =>
             {
                 foreach (var entry in MeetingRowDetails(window))
                 {
@@ -2253,16 +2282,20 @@ namespace M3.ZoomHelper
                     return true;
                 }
                 return false;
-            }, 5000);
+            };
+            string learnedReactTitle;
+            var raiseTitle = PressHandButton(window, reactTitle, null, handUp, out learnedReactTitle);
+            var raised = WaitUntil(handUp, 5000);
             if (!raised) throw new ZoomActionError("hand-not-raised");
 
-            string ignored;
-            PressHandButton(window, learnedReactTitle, raiseTitle, out ignored);
-            var lowered = WaitUntil(() =>
+            Func<bool> handDown = () =>
             {
                 string now;
                 return MeetingRowDetails(window).TryGetValue(name, out now) && !Segments(now).Contains(phrase);
-            }, 5000);
+            };
+            string ignored;
+            PressHandButton(window, learnedReactTitle, raiseTitle, handDown, out ignored);
+            var lowered = WaitUntil(handDown, 5000);
             if (!lowered) throw new ZoomActionError("hand-not-lowered");
 
             // The "Lower hand" button of other people's rows (the host's own
@@ -2896,9 +2929,12 @@ namespace M3.ZoomHelper
             var button = find();
             if (button == null) throw new ZoomActionError(what + "-button-not-found");
             var before = FirstSegment(button.Name);
-            Press(button);
             string after = null;
-            var changed = WaitUntil(() =>
+            var changed = PressAndWait(button, () =>
+            {
+                var latest = find();
+                return latest != null && FirstSegment(latest.Name) == before ? latest : null;
+            }, () =>
             {
                 var latest = find();
                 after = latest == null ? null : FirstSegment(latest.Name);
