@@ -16,7 +16,7 @@
             :outline="scene !== resolvedScene"
             :size="currentSettings?.obsHideIcons ? 'md' : 'sm'"
             unelevated
-            @click="setObsScene(undefined, scene)"
+            @click="pickScene(scene)"
           >
             <div class="ellipsis full-width">
               {{ getSceneLabel(scene) }}
@@ -52,12 +52,28 @@
       />
     </template>
   </ActionPopup>
+  <ConfirmDialog
+    v-model="skipStageConfirmOpen"
+    :cancel-label="t('obs-keep-stage')"
+    confirm-color="warning"
+    :confirm-label="t('obs-use-scene', { scene: pendingSceneLabel })"
+    dialog-id="obs-skip-stage-for-prayer"
+    icon="mmm-warning"
+    icon-color="warning"
+    :message="
+      t('obs-skip-stage-for-prayer-explain', { scene: pendingSceneLabel })
+    "
+    :title="t('obs-skip-stage-for-prayer')"
+    @cancel="keepStageForPrayer"
+    @confirm="confirmSkipStage"
+  />
 </template>
 
 <script setup lang="ts">
-import type { ObsSceneType } from 'src/types';
+import type { ObsMediaTransition, ObsSceneType } from 'src/types';
 
 import { useEventListener, watchImmediate } from '@vueuse/core';
+import ConfirmDialog from 'components/dialog/ConfirmDialog.vue';
 import ActionPopup from 'components/ui/ActionPopup.vue';
 import { storeToRefs } from 'pinia';
 import { errorCatcher } from 'src/helpers/error-catcher';
@@ -66,10 +82,11 @@ import {
   obsConnect,
   obsGetRecordingDirectory,
   obsGetRecordingState,
+  obsSetProgramScene,
 } from 'src/helpers/obs';
 import { log } from 'src/shared/vanilla';
 import { isUUID } from 'src/utils/general';
-import { isImage } from 'src/utils/media';
+import { isFirstOrLastMeetingSong, isImage } from 'src/utils/media';
 import { obsWebSocketInfo } from 'src/utils/obs';
 import { useCurrentStateStore } from 'stores/current-state';
 import { useObsStateStore } from 'stores/obs-state';
@@ -85,15 +102,19 @@ const {
   configuredScenesAreAllUUIDs,
   currentSettings,
   mediaPlaying,
+  selectedDateObject,
 } = storeToRefs(currentState);
 const obsState = useObsStateStore();
 const {
   currentScene,
   currentSceneType,
+  mediaTransition,
   obsConnectionState,
   obsSceneListError,
   previousScene,
   scenes,
+  stageForPrayer,
+  stageForPrayerSkipped,
 } = storeToRefs(obsState);
 const { sceneExists } = obsState;
 const obsSettingsConnect = () => {
@@ -141,9 +162,17 @@ const openObsRecordingFolder = () => {
   }
 };
 
+// The media showing is the meeting's first or last song, and M³ will go
+// back to the camera scene for the prayer when it ends.
+const stageForPrayerIsDue = () =>
+  currentSceneType.value === 'media' &&
+  stageForPrayer.value &&
+  !stageForPrayerSkipped.value;
+
 const resolvedScene = computed(() => {
   if (!currentSettings.value) return currentScene.value;
   if (currentSettings.value.obsSwitchSceneAfterMedia) {
+    if (stageForPrayerIsDue()) return currentSettings.value.obsCameraScene;
     if (currentSettings.value.obsRememberPreviouslyUsedScene) {
       return previousScene.value;
     }
@@ -166,6 +195,8 @@ const getProgramSceneFromType = (sceneType: ObsSceneType) => {
   const cameraScene = settings?.obsCameraScene || undefined; // NOSONAR: '' means not set
 
   let scene = mediaScene;
+  // Read before currentSceneType changes below.
+  const stageForPrayerDue = stageForPrayerIsDue();
 
   // Like in Settings (obsImageScene depends on obsMediaScene), the image
   // scene only applies along with a media scene.
@@ -176,12 +207,42 @@ const getProgramSceneFromType = (sceneType: ObsSceneType) => {
   currentSceneType.value = sceneType;
 
   if (sceneType === 'camera') {
-    scene = settings?.obsRememberPreviouslyUsedScene
-      ? previousScene.value || cameraScene
-      : cameraScene;
+    scene =
+      settings?.obsRememberPreviouslyUsedScene && !stageForPrayerDue
+        ? previousScene.value || cameraScene
+        : cameraScene;
   }
 
   return scene;
+};
+
+const startMediaScene = () => {
+  const settings = currentSettings.value;
+  let transition: null | ObsMediaTransition = null;
+  if (settings?.obsMediaTransitions) {
+    transition = isImage(mediaPlaying.value.url) ? 'cut' : 'fade';
+  }
+  mediaTransition.value = transition;
+  stageForPrayer.value =
+    !!settings?.obsStageAfterFirstLastSong &&
+    isFirstOrLastMeetingSong(
+      selectedDateObject.value,
+      mediaPlaying.value.uniqueId,
+    );
+  stageForPrayerSkipped.value = false;
+};
+
+const endMediaScene = () => {
+  mediaTransition.value = null;
+  stageForPrayer.value = false;
+  stageForPrayerSkipped.value = false;
+};
+
+// Showing or hiding media uses its transition (cut or fade); any other
+// switch uses OBS's own.
+const getSceneTransition = (sceneType: ObsSceneType) => {
+  if (sceneType === 'media') return mediaTransition.value;
+  return currentSceneType.value === 'media' ? mediaTransition.value : null;
 };
 
 const getSetSceneArguments = (newProgramScene: string) => {
@@ -214,9 +275,13 @@ const setObsScene = async (sceneType?: ObsSceneType, desiredScene?: string) => {
     if (!(await ensureObsConnected())) return;
 
     let newProgramScene: string | undefined = desiredScene;
+    let transition: null | ObsMediaTransition = null;
 
     if (!desiredScene && sceneType) {
+      if (sceneType === 'media') startMediaScene();
+      transition = getSceneTransition(sceneType);
       newProgramScene = getProgramSceneFromType(sceneType);
+      if (sceneType === 'camera') endMediaScene();
     } else if (
       desiredScene &&
       currentSceneType.value === 'media' &&
@@ -236,16 +301,12 @@ const setObsScene = async (sceneType?: ObsSceneType, desiredScene?: string) => {
       // store rehydration, congregation switch, or settings save),
       // getSetSceneArguments could incorrectly return { sceneName: uuid }.
       // Force the correct key when the value is unmistakably a UUID.
-      if (isUUID(newProgramScene) && 'sceneName' in args) {
-        await obsWebSocketInfo.obsWebSocket?.call('SetCurrentProgramScene', {
-          sceneUuid: newProgramScene,
-        });
-      } else {
-        await obsWebSocketInfo.obsWebSocket?.call(
-          'SetCurrentProgramScene',
-          args,
-        );
-      }
+      await obsSetProgramScene(
+        isUUID(newProgramScene) && 'sceneName' in args
+          ? { sceneUuid: newProgramScene }
+          : args,
+        transition,
+      );
     } else {
       notifySceneNotFound();
     }
@@ -256,6 +317,39 @@ const setObsScene = async (sceneType?: ObsSceneType, desiredScene?: string) => {
       },
     });
   }
+};
+
+const skipStageConfirmOpen = ref(false);
+const pendingScene = ref<null | string>(null);
+const pendingSceneLabel = computed(() =>
+  pendingScene.value ? getSceneLabel(pendingScene.value) : '',
+);
+
+// Picking another scene during the meeting's first or last song would
+// replace the camera scene for the prayer: rarely wanted, so ask first.
+const pickScene = (scene: string) => {
+  if (
+    stageForPrayerIsDue() &&
+    scene !== currentSettings.value?.obsCameraScene
+  ) {
+    pendingScene.value = scene;
+    skipStageConfirmOpen.value = true;
+    return;
+  }
+  void setObsScene(undefined, scene);
+};
+
+const keepStageForPrayer = () => {
+  skipStageConfirmOpen.value = false;
+  pendingScene.value = null;
+};
+
+const confirmSkipStage = () => {
+  const scene = pendingScene.value;
+  keepStageForPrayer();
+  if (!scene) return;
+  stageForPrayerSkipped.value = true;
+  void setObsScene(undefined, scene);
 };
 
 // setObsScene reports its own errors, so it can't reject.

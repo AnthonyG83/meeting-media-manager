@@ -1,3 +1,5 @@
+import type { ObsMediaTransition } from 'src/types';
+
 import { i18n } from 'boot/i18n';
 import { errorCatcher } from 'src/helpers/error-catcher';
 import { createTemporaryNotification } from 'src/helpers/notifications';
@@ -201,6 +203,126 @@ export const obsConnect = async (setup?: boolean) => {
   });
 
   return ongoingConnectAttempt;
+};
+
+// OBS names its transitions in its own language, so they're found by kind.
+const OBS_TRANSITION_KINDS: Record<ObsMediaTransition, string> = {
+  cut: 'cut_transition',
+  fade: 'fade_transition',
+};
+
+const OBS_MEDIA_FADE_MS = 500;
+
+// OBS's own transition is put back once the media's has run.
+const OBS_TRANSITION_RESTORE_MARGIN_MS = 250;
+
+let savedObsTransition: null | {
+  duration: null | number;
+  name: string;
+} = null;
+let restoreObsTransitionTimer: ReturnType<typeof setTimeout> | undefined;
+
+const restoreObsTransition = async () => {
+  restoreObsTransitionTimer = undefined;
+  const saved = savedObsTransition;
+  savedObsTransition = null;
+  if (!saved || !isObsWebSocketReady()) return;
+  try {
+    await obsWebSocketInfo.obsWebSocket?.call('SetCurrentSceneTransition', {
+      transitionName: saved.name,
+    });
+    if (saved.duration !== null) {
+      await obsWebSocketInfo.obsWebSocket?.call(
+        'SetCurrentSceneTransitionDuration',
+        { transitionDuration: saved.duration },
+      );
+    }
+  } catch (error) {
+    reportObsCallError(error, 'restoreObsTransition');
+  }
+};
+
+const findObsTransitionName = async (transition: ObsMediaTransition) => {
+  const list = await obsWebSocketInfo.obsWebSocket?.call(
+    'GetSceneTransitionList',
+  );
+  const match = list?.transitions.find(
+    (entry) => entry.transitionKind === OBS_TRANSITION_KINDS[transition],
+  );
+  return typeof match?.transitionName === 'string'
+    ? match.transitionName
+    : null;
+};
+
+const applyObsTransition = async (transition: ObsMediaTransition) => {
+  const name = await findObsTransitionName(transition);
+  if (!name) {
+    log(`OBS has no ${transition} transition, using its own`, 'obs', 'warn');
+    return;
+  }
+
+  // Keep the transition OBS had before M³ first changed it, even when a
+  // second switch comes before the first one's was put back.
+  clearTimeout(restoreObsTransitionTimer);
+  if (!savedObsTransition) {
+    const current = await obsWebSocketInfo.obsWebSocket?.call(
+      'GetCurrentSceneTransition',
+    );
+    if (current) {
+      savedObsTransition = {
+        duration: current.transitionFixed ? null : current.transitionDuration,
+        name: current.transitionName,
+      };
+    }
+  }
+
+  await obsWebSocketInfo.obsWebSocket?.call('SetCurrentSceneTransition', {
+    transitionName: name,
+  });
+  if (transition === 'fade') {
+    await obsWebSocketInfo.obsWebSocket?.call(
+      'SetCurrentSceneTransitionDuration',
+      { transitionDuration: OBS_MEDIA_FADE_MS },
+    );
+  }
+};
+
+/**
+ * Switches OBS's program scene, with a cut or a fade when one is given
+ * (OBS's own transition otherwise). OBS's own transition is put back right
+ * after, so switches made in OBS itself are left as they were.
+ * @param sceneArgs The scene to switch to, by name or UUID
+ * @param transition The transition to use, if not OBS's own
+ */
+export const obsSetProgramScene = async (
+  sceneArgs: { sceneName: string } | { sceneUuid: string },
+  transition?: null | ObsMediaTransition,
+) => {
+  if (transition) {
+    try {
+      await applyObsTransition(transition);
+    } catch (error) {
+      // The switch still happens, with OBS's own transition.
+      reportObsCallError(error, 'obsSetProgramScene');
+    }
+  }
+
+  try {
+    await obsWebSocketInfo.obsWebSocket?.call(
+      'SetCurrentProgramScene',
+      sceneArgs,
+    );
+  } finally {
+    if (savedObsTransition) {
+      clearTimeout(restoreObsTransitionTimer);
+      const delay =
+        (transition === 'fade' ? OBS_MEDIA_FADE_MS : 0) +
+        OBS_TRANSITION_RESTORE_MARGIN_MS;
+      restoreObsTransitionTimer = setTimeout(() => {
+        void restoreObsTransition();
+      }, delay);
+    }
+  }
 };
 
 export const obsStartRecording = async (): Promise<boolean> => {

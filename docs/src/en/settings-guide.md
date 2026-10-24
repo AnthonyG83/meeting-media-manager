@@ -634,6 +634,8 @@ Configure which OBS scenes to use for different purposes:
 - **Quick Toggle**: Enable quick on/off toggle for OBS integration
 - **Switch Scene After Media**: Automatically return to previous scene after media
 - **Remember Previous Scene**: Remember and restore the previous scene
+- **Go Back to Stage for the Prayer After the First and Last Song**: When the meeting's first or last song ends, always switch to the stage (camera) scene for the prayer, even if another scene was in use before the song. Picking another scene while one of these songs is playing asks first
+- **Cut to Images, Fade to Videos**: Cut straight to and from an image, and fade to and from a video or audio file in half a second. OBS Studio's own transition is put back right after
 - **Hide Icons**: Hide OBS-related icons in the interface
 - **Recording Controls**: Show controls that start and stop OBS recording from M³
 
