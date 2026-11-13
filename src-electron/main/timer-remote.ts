@@ -254,6 +254,7 @@ body { background: #000; color: #fff; font-family: -apple-system, "Segoe UI", Ro
 .hands__more { color: rgba(255,255,255,.55); font-size: clamp(.8rem, 2.2vh, 1.3rem); font-weight: 700; text-align: center; }
 /* The controls take the bottom of the screen: the ring shrinks to fit above them. */
 .display.focus.with-controls.is-active .dial { width: min(42vh, 100%); }
+.display.focus.with-controls.is-active .time { font-size: min(8.5vh, 13vw); }
 @media (orientation: portrait) {
   .display.focus.is-active .dial { width: min(44vh, 100%); }
   .display.focus.has-hands .face { padding: 56px 4vw 48vh; }
@@ -263,7 +264,7 @@ body { background: #000; color: #fff; font-family: -apple-system, "Segoe UI", Ro
   .hands__row { min-height: 5.2vh; }
   .hands__name { font-size: clamp(.9rem, 2.2vh, 1.6rem); }
   .display.focus.with-controls.is-active .dial { width: min(30vh, 100%); }
-  .display.focus.with-controls.is-active .time { font-size: min(7.5vh, 12vw); }
+  .display.focus.with-controls.is-active .time { font-size: min(6.5vh, 10.5vw); }
   .display.focus.has-hands.with-controls .face { padding-bottom: 2vh; }
   .display.with-controls .hands { flex: 0 1 auto; height: auto; max-height: 40%; min-height: 0; position: static; width: 100%; }
 }
