@@ -32,6 +32,7 @@ const getPageText = (): Record<string, string> => ({
   lang: i18n.global.locale.value,
   meetingStartsIn: t('meeting-starts-in'),
   minutes: t('timer-remote-minutes', { minutes: '{minutes}' }),
+  overtime: t('overtime'),
   parts: t('timer-remote-parts'),
   pause: t('pause'),
   paused: t('paused'),

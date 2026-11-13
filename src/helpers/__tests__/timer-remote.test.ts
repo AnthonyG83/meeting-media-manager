@@ -117,6 +117,8 @@ describe('syncTimerRemote', () => {
       expect.objectContaining({
         lang: 'en',
         meetingStartsIn: 'meeting-starts-in',
+        // The focus layout's label above the time in overtime
+        overtime: 'overtime',
       }),
     );
     expect(electronApi.startTimerRemote).toHaveBeenCalledWith(8787);
