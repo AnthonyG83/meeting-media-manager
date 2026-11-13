@@ -426,6 +426,68 @@ describe('jw-media helpers', () => {
       });
     });
 
+    // MMM-V2-3ND: a damaged contents file of the right size used to pass the
+    // size check and fail every read of its entries.
+    describe('reading the extracted contents', () => {
+      const eocdError = () =>
+        new Error(
+          'End of central directory record signature not found. Either not a zip file, or file is truncated.',
+        );
+
+      const mockContentsEntries = (...results: (Error | Record<string, number>)[]) => {
+        let call = 0;
+        getZipEntriesMock.mockImplementation(async (path: string) => {
+          if (path === jwpubPath) return { contents: 100 };
+          const result = results[Math.min(call++, results.length - 1)];
+          if (result instanceof Error) throw result;
+          return result;
+        });
+        statMock.mockImplementation(async (path: string) => {
+          if (path === contentsPath) return { size: 100 };
+          if (path === dbPath) return { size: 50 };
+          throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+        });
+      };
+
+      it('re-extracts a contents file that is not a readable zip', async () => {
+        mockContentsEntries(eocdError(), { 'pub.db': 50 });
+        await mockDbFound(dbPath);
+
+        await expect(unzipJwpub()).resolves.toBe('/tmp/out');
+
+        expect(removeMock).toHaveBeenCalledWith(contentsPath);
+        expect(unzipMock).toHaveBeenCalledWith(jwpubPath, '/tmp/out', {
+          includes: ['contents'],
+        });
+        expect(errorCatcherNames()).not.toContain(
+          'jwpubExtractor read contents entries',
+        );
+      });
+
+      it('reports when the re-extracted contents is still unreadable', async () => {
+        const error = eocdError();
+        mockContentsEntries(error);
+        await mockDbFound(dbPath);
+
+        await expect(unzipJwpub()).rejects.toBe(error);
+
+        expect(unzipMock).toHaveBeenCalledTimes(1);
+        expect(errorCatcherNames()).toContain(
+          'jwpubExtractor read contents entries',
+        );
+      });
+
+      it('does not re-extract contents cloud storage could not deliver', async () => {
+        mockContentsEntries(cloudError());
+        await mockDbFound(dbPath);
+
+        await expect(unzipJwpub()).rejects.toThrow('connection timed out');
+
+        expect(removeMock).not.toHaveBeenCalledWith(contentsPath);
+        expect(unzipMock).not.toHaveBeenCalled();
+      });
+    });
+
     describe('extracting the contents entry', () => {
       it('re-extracts contents of the wrong size', async () => {
         mockJwpub({ contentsSize: 60, dbSize: 50 });
@@ -1575,6 +1637,70 @@ describe('jw-media helpers', () => {
 
         expect(removeMock).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('watched .jwlplaylist import', () => {
+    const TRUNCATED_ZIP = new Error(
+      "Error invoking remote method 'unzip': Error: End of central directory record signature not found. Either not a zip file, or file is truncated.",
+    );
+
+    const mockPlaylistWatch = async () => {
+      const media = await import('src/utils/media');
+      vi.mocked(media.isVideo).mockReturnValue(false);
+      vi.mocked(media.isAudio).mockReturnValue(false);
+      vi.mocked(media.isImage).mockReturnValue(false);
+      vi.mocked(media.isJwPlaylist).mockReturnValue(true);
+      Object.assign(currentStateStore, {
+        getDatedAdditionalMediaDirectory: vi.fn(async () => '/tmp/dated'),
+      });
+    };
+
+    // MMM-V2-3F9: a playlist read mid-sync is truncated, and the next
+    // watcher tick re-reads the completed file - transient, not corrupt.
+    it('quietly skips a playlist that is still syncing instead of reporting it', async () => {
+      await mockPlaylistWatch();
+      unzipMock.mockRejectedValueOnce(TRUNCATED_ZIP);
+      const { watchedItemMapper } = await import('../jw-media');
+
+      const result = await watchedItemMapper(
+        '2026-10-31',
+        '/tmp/Visita.jwlplaylist',
+      );
+
+      expect(result).toEqual([]);
+      expect(errorCatcherMock).not.toHaveBeenCalled();
+      expect(createTemporaryNotificationMock).not.toHaveBeenCalled();
+      expect(logMock).toHaveBeenCalledWith(
+        expect.stringContaining('still syncing'),
+        'watchedFolder',
+        'warn',
+        expect.anything(),
+      );
+    });
+
+    it('still reports a genuine playlist failure to Sentry and tells the user', async () => {
+      await mockPlaylistWatch();
+      unzipMock.mockRejectedValueOnce(new Error('bad zip'));
+      const { watchedItemMapper } = await import('../jw-media');
+
+      const result = await watchedItemMapper(
+        '2026-10-31',
+        '/tmp/Visita.jwlplaylist',
+      );
+
+      expect(result).toEqual([]);
+      expect(errorCatcherMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          contexts: expect.objectContaining({
+            fn: expect.objectContaining({ name: 'getMediaFromJwPlaylist' }),
+          }),
+        }),
+      );
+      expect(createTemporaryNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({ group: 'jwPlaylistWatchedImportFailed' }),
+      );
     });
   });
 });

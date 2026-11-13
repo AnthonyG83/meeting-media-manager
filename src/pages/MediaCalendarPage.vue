@@ -279,6 +279,7 @@ import {
 } from 'src/helpers/jw-media';
 import { sendKeyboardShortcut } from 'src/helpers/keyboard-shortcuts';
 import { executeLocalShortcut } from 'src/helpers/keyboardShortcuts';
+import { checkMediaPlayback } from 'src/helpers/media-conversion';
 import {
   addSection,
   defaultAdditionalSection,
@@ -313,6 +314,7 @@ import {
   getVisibleMeetingItems,
   isArchive,
   isAudio,
+  isHeic,
   isImage,
   isImageString,
   isJwPlaylist,
@@ -1589,6 +1591,11 @@ const addMediaFileToMediaItems = async (
     sectionToAddTo.value,
     false,
   );
+  // Not awaited: it mustn't hold up the import. Says if the file can't play
+  // on this computer, offering to convert it. Uses the copy because the
+  // original may be a temp file that's about to be removed.
+  if (destPath)
+    void checkMediaPlayback(destPath, { notify: true, report: true });
 
   if (matchingMissingItem) {
     const metadata = await getMetadataFromMediaPath(destPath);
@@ -1788,6 +1795,12 @@ const processImportFile = async (
 
   filepath = await normalizeImportFilePath(file, filepath);
   filepath = await convertImageIfNeeded(filepath);
+
+  // Still a HEIC: it couldn't be converted, and Chromium can't display one.
+  if (isHeic(filepath)) {
+    notifyUnsupportedFile(filepath);
+    return;
+  }
 
   if (isImage(filepath)) {
     await addImageFileToMediaItems(filepath, mediaItemsToAdd);

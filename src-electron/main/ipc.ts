@@ -11,6 +11,7 @@ import type {
   JwSiteParams,
   MediaAccessStatus,
   NavigateWebsiteAction,
+  PlaybackConversionRequest,
   SettingsValues,
   UnzipOptions,
   UrlVariables,
@@ -62,6 +63,10 @@ import {
 import { convertHeic } from 'src-electron/main/heic';
 import { openFolder } from 'src-electron/main/open-folder';
 import { exportHtmlToPdf } from 'src-electron/main/pdf';
+import {
+  cancelPlaybackConversion,
+  convertForPlayback,
+} from 'src-electron/main/playback-conversion';
 import { getAllScreens } from 'src-electron/main/screen';
 import {
   decryptSecret,
@@ -85,6 +90,8 @@ import {
   isDbCorrupt,
 } from 'src-electron/main/sqlite';
 import {
+  setTimerRemoteCommandSink,
+  setTimerRemoteConfig,
   setTimerRemoteText,
   startTimerRemote,
   stopTimerRemote,
@@ -107,7 +114,10 @@ import {
   getChallengeHost,
   passWafChallenge,
 } from 'src-electron/main/waf-challenge';
-import { logToWindow } from 'src-electron/main/window/window-base';
+import {
+  logToWindow,
+  sendToWindow,
+} from 'src-electron/main/window/window-base';
 import {
   focusMainWindow,
   mainWindowInfo,
@@ -153,7 +163,16 @@ function handleIpcSend(
 ) {
   ipcMain.on(channel, (e, ...args) => {
     if (isSelf(e.senderFrame?.url)) {
-      logToWindow(mainWindowInfo.mainWindow, 'on', { args, channel }, 'debug');
+      logToWindow(
+        mainWindowInfo.mainWindow,
+        'on',
+        // The timer remote's PIN is a secret: never into the logs.
+        {
+          args: channel === 'timerRemoteConfig' ? ['[redacted]'] : args,
+          channel,
+        },
+        'debug',
+      );
     } else {
       logToWindow(
         mainWindowInfo.mainWindow,
@@ -394,6 +413,16 @@ handleIpcSend('stopTimerRemote', () => {
   stopTimerRemote();
 });
 
+// Commands from the timer remote page go to M3's main window, which owns the
+// timer.
+setTimerRemoteCommandSink((command) => {
+  sendToWindow(mainWindowInfo.mainWindow, 'timerRemoteCommand', command);
+});
+
+handleIpcSend('timerRemoteConfig', (_e, config: unknown) => {
+  setTimerRemoteConfig(config);
+});
+
 handleIpcSend('timerRemoteText', (_e, text: unknown) => {
   setTimerRemoteText(text);
 });
@@ -576,6 +605,20 @@ handleIpcInvoke(
   'createVideoFromNonVideo',
   async (_e, path: string, ffmpegPath: string, outputDir?: string) =>
     createVideoFromNonVideo(path, ffmpegPath, outputDir),
+);
+
+handleIpcInvoke(
+  'convertForPlayback',
+  async (event, ffmpegPath: string, request: PlaybackConversionRequest) =>
+    convertForPlayback(ffmpegPath, request, (progress) => {
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('mediaConversionProgress', progress);
+      }
+    }),
+);
+
+handleIpcInvoke('cancelPlaybackConversion', (_e, id: string) =>
+  cancelPlaybackConversion(id),
 );
 
 handleIpcInvoke('setExecutable', async (_e, path: string) =>

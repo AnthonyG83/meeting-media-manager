@@ -264,6 +264,19 @@ Vérifiez ces paramètres de langue :
 3. **Disponibilité de la langue** : Assurez-vous que la langue est disponible sur le site officiel des Témoins de Jéhovah
 4. **Langue de secours** : Essayez de définir une langue de secours
 
+### :wrench: M³ ne s'ouvre plus après une mise à jour. Que dois-je faire ? {#faq-update-interrupted}
+
+Si l'ordinateur a été éteint ou redémarré pendant que M³ installait une mise à jour, l'installation s'est peut-être arrêtée à mi-chemin, et M³ ne s'ouvre plus. Vos paramètres et vos médias sont toujours là. Pour réparer M³ :
+
+1. Téléchargez la dernière version à partir de la [page de téléchargement](download).
+2. Exécutez le programme d'installation. Il remet M³ en place et conserve vos paramètres.
+
+**Ne commencez pas par désinstaller M³** : la désinstallation supprime aussi ses paramètres.
+
+Si l'ordinateur ne peut pas se connecter à Internet, le programme d'installation que M³ avait téléchargé est généralement toujours là : appuyez sur `Win+R`, entrez `%LOCALAPPDATA%\meeting-media-manager-updater\pending`, puis exécutez le programme d'installation présent dans le dossier qui s'ouvre.
+
+Pour éviter ce problème, sous Windows, M³ installe une mise à jour téléchargée lors de sa prochaine ouverture, plutôt qu'à sa fermeture. Lorsque M³ est installé pour tous les utilisateurs de l'ordinateur, il continue d'installer les mises à jour à sa fermeture, alors patientez une minute avant d'éteindre l'ordinateur.
+
 ## Support et communauté {#support-community}
 
 ### :radioactive: Comment signaler un problème ? {#how-do-i-report-an-issue}

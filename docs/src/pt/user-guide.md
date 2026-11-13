@@ -163,7 +163,7 @@ Um botão **Alerta de mão levantada** no pop-up do temporizador mostra uma mão
 
 #### Temporizador em um tablet {#user-guide-timer-remote}
 
-O [temporizador remoto](/settings-guide#timer-remote) opcional disponibiliza uma cópia somente leitura da tela do temporizador como uma página web na sua rede local. Abra o endereço mostrado no pop-up do temporizador no navegador de um tablet ou celular na tribuna, e o orador verá o tempo restante de forma discreta, enquanto todos os controles continuam no M³.
+O [temporizador remoto](/settings-guide#timer-remote) opcional disponibiliza uma cópia somente leitura da tela do temporizador como uma página web na sua rede local. Abra o endereço mostrado no pop-up do temporizador no navegador de um tablet ou celular na tribuna, e o orador verá o tempo restante de forma discreta, enquanto todos os controles continuam no M³. Seu layout de foco opcional mostra o tempo em um anel de progresso, com os nomes dos participantes do Zoom que levantaram a mão listados ao lado. A página também mantém a tela do tablet ligada enquanto está aberta, para que ela não bloqueie no meio de uma parte.
 
 #### Acesso rápido {#user-guide-timer-quick-access}
 
@@ -418,6 +418,17 @@ Configure atalhos de teclado personalizados para trabalhar com mais eficiência:
 - Verifique se o idioma está disponível no JW.org
 - Tente um idioma secundário
 - Verifique a configuração do idioma da interface
+
+#### PIN das configurações esquecido {#user-guide-forgotten-settings-pin}
+
+Apenas alguém autorizado a alterar as configurações do M³ deve fazer isso. Depois de três tentativas erradas, o M³ oferece **Esqueceu o PIN?** em todos os lugares onde pede o PIN. Para remover o PIN:
+
+1. Selecione **Esqueceu o PIN?** e deixe aberta a janela que aparece no M³. Ela mostra uma pasta neste computador.
+2. No gerenciador de arquivos do computador, vá até essa pasta.
+3. Abra o arquivo de texto chamado `M3 settings PIN reset code.txt`, que o M³ acabou de criar ali.
+4. Digite no M³ o código de seis dígitos desse arquivo e confirme.
+
+O M³ então remove o PIN e apaga o arquivo. Para proteger as configurações novamente, defina um novo PIN em **Configurações** > **Avançado**.
 
 ### Como obter ajuda {#getting-help}
 

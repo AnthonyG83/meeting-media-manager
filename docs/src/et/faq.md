@@ -264,6 +264,19 @@ Kontrolli neid keelesätteid:
 3. **Keelte kättesaadavus**: Veendu, et meedia keel on kättesaadav Jehoova tunnistajate ametlikul veebisaidil
 4. **Varukeel**: proovi määrata varukeel
 
+### :wrench: M³ ei avane pärast uuendust. Mida peaksin tegema? {#faq-update-interrupted}
+
+Kui arvuti lülitati välja või taaskäivitati sel ajal, kui M³ uuendust installis, võis installimine poole peal katkeda ja M³ ei avane enam. Sinu seaded ja meedia on endiselt alles. M³ parandamiseks tee nii:
+
+1. Lae alla uusim versioon [alla laadimise lehelt](download).
+2. Käivita installifail. See paneb M³ tagasi paika ja säilitab sinu seaded.
+
+**Ära desinstalli M³-e enne**: desinstallimine kustutab ka selle seaded.
+
+Kui arvuti ei saa internetiga ühendust, on installifail, mille M³ oli alla laadinud, tavaliselt veel alles: vajuta `Win+R`, sisesta `%LOCALAPPDATA%\meeting-media-manager-updater\pending` ja käivita seejärel avanevas kaustas olev installifail.
+
+Sellise katkestuse vältimiseks installib M³ Windowsis alla laaditud uuenduse järgmisel avamisel, mitte sulgemisel. When M³ is installed for all users of the computer, Windows asks for permission first, so M³ waits until you choose to install the update.
+
 ## Tugi ja kogukond {#support-community}
 
 ### :radioactive: Kuidas ma saan probleemist teada anda? {#how-do-i-report-an-issue}

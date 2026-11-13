@@ -163,7 +163,7 @@ Eine Schaltfläche **Handsignal** im Timer-Popup zeigt eine große Hand auf der 
 
 #### Timer auf einem Tablet {#user-guide-timer-remote}
 
-Die optionale [Timer-Fernanzeige](/settings-guide#timer-remote) stellt die Timer-Anzeige als reine Ansicht auf einer Webseite in Ihrem lokalen Netzwerk bereit. Öffnen Sie die im Timer-Popup angezeigte Adresse im Browser eines Tablets oder Smartphones am Rednerpult, dann sieht der Redner die verbleibende Zeit für sich, während die gesamte Steuerung in M³ bleibt.
+Die optionale [Timer-Fernanzeige](/settings-guide#timer-remote) stellt die Timer-Anzeige als reine Ansicht auf einer Webseite in Ihrem lokalen Netzwerk bereit. Öffnen Sie die im Timer-Popup angezeigte Adresse im Browser eines Tablets oder Smartphones am Rednerpult, dann sieht der Redner die verbleibende Zeit für sich, während die gesamte Steuerung in M³ bleibt. Ihre optionale Fokusansicht zeigt die Zeit in einem Fortschrittsring und listet daneben die Namen der Zoom-Teilnehmer auf, die die Hand erhoben haben. Die Seite hält außerdem den Bildschirm des Tablets wach, solange sie geöffnet ist, damit er während eines Programmpunkts nicht sperrt.
 
 #### Schnellzugriff {#user-guide-timer-quick-access}
 
@@ -418,6 +418,17 @@ Konfigurieren Sie benutzerdefinierte Tastenkürzel für einen effizienten Betrie
 - Sicherstellen, dass die Sprache auf JW.org verfügbar ist
 - Ausweichsprache ausprobieren
 - Oberflächenspracheinstellung prüfen
+
+#### Einstellungs-PIN vergessen {#user-guide-forgotten-settings-pin}
+
+Nur jemand, der berechtigt ist, die Einstellungen von M³ zu ändern, sollte dies tun. Nach drei Fehlversuchen bietet M³ überall dort, wo nach der PIN gefragt wird, **PIN vergessen?** an. So entfernen Sie die PIN:
+
+1. Wählen Sie **PIN vergessen?** aus und lassen Sie das Fenster, das sich in M³ öffnet, geöffnet. Es zeigt einen Ordner auf diesem Computer an.
+2. Gehen Sie im Dateimanager Ihres Computers zu diesem Ordner.
+3. Öffnen Sie die Textdatei `M3 settings PIN reset code.txt`, die M³ gerade dort erstellt hat.
+4. Geben Sie den sechsstelligen Code aus dieser Datei in M³ ein und bestätigen Sie.
+
+M³ entfernt dann die PIN und löscht die Datei. Um die Einstellungen wieder zu schützen, legen Sie unter **Einstellungen** > **Erweitert** eine neue PIN fest.
 
 ### Hilfe erhalten {#getting-help}
 

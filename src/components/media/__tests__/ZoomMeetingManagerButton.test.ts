@@ -75,11 +75,16 @@ describe('ZoomMeetingManagerButton', () => {
     expect(button.classes()).not.toContain('island-btn--off');
   });
 
-  it('shows a spinner while the startup check runs', async () => {
+  it('sloshes, its icon still showing, while the startup check runs', async () => {
     useZoomStateStore().checkRunning = true;
     const button = await mountButton();
 
-    expect(button.find('.q-spinner').exists()).toBe(true);
+    expect(button.find('.island-liquid').exists()).toBe(true);
+    // Icons render as their name, as text, in tests.
+    const icons = button
+      .findAll('.q-icon')
+      .filter((icon) => icon.text() === 'mmm-video-meeting');
+    expect(icons).toHaveLength(2);
     expect(button.classes()).toContain('bg-white-transparent');
   });
 

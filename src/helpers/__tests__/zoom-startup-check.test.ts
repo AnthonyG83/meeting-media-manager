@@ -1,4 +1,8 @@
-import type { ZoomDiagnosis, ZoomMeetingState } from 'src/types';
+import type {
+  ZoomDiagnosis,
+  ZoomFailureSnapshot,
+  ZoomMeetingState,
+} from 'src/types';
 
 import { createPinia, setActivePinia } from 'pinia';
 import { useDialogStateStore } from 'stores/dialog-state';
@@ -26,6 +30,7 @@ const zoom = vi.hoisted(() => ({
   diagnoseZoom: vi.fn<() => Promise<null | ZoomDiagnosis>>(),
   getMeetingStartToday: vi.fn<(now?: Date) => Date | null>(),
   getZoomMeetingState: vi.fn<() => Promise<null | ZoomMeetingState>>(),
+  getZoomSnapshot: vi.fn<() => Promise<null | ZoomFailureSnapshot>>(),
   isZoomSetupNeeded: vi.fn(() => false),
   notify: vi.fn(),
   rememberZoomVersion: vi.fn(),
@@ -44,6 +49,7 @@ vi.mock('src/helpers/zoom', () => ({
   countZoomMeetingParticipants: zoom.countZoomMeetingParticipants,
   diagnoseZoom: zoom.diagnoseZoom,
   getZoomMeetingState: zoom.getZoomMeetingState,
+  getZoomSnapshot: zoom.getZoomSnapshot,
   getZoomTitlesFromSettings: () => ({
     shareButtonTitle: 'Share',
     videoOffTitle: 'Start Video',
@@ -99,6 +105,15 @@ vi.mock('src/helpers/notifications', () => ({
   createTemporaryNotification: zoom.notify,
 }));
 
+const prompt = vi.hoisted(() => ({
+  answer: vi.fn(),
+  ask: vi.fn<() => Promise<'run' | 'skip' | 'unanswered'>>(),
+}));
+vi.mock('src/helpers/zoom-check-prompt', () => ({
+  answerZoomCheckPrompt: prompt.answer,
+  askBeforeCheckingZoom: prompt.ask,
+}));
+
 const sentry = vi.hoisted(() => ({ captureMessage: vi.fn() }));
 vi.mock('@sentry/vue', () => sentry);
 
@@ -137,6 +152,7 @@ beforeEach(() => {
   zoom.getZoomMeetingState.mockResolvedValue(OPEN);
   zoom.countZoomMeetingParticipants.mockResolvedValue(1);
   zoom.diagnoseZoom.mockResolvedValue(ALL_FOUND);
+  zoom.getZoomSnapshot.mockResolvedValue(null);
   // Today's meeting, unless a test says otherwise.
   meetingStartsIn(30 * MINUTE);
   zoom.isZoomSetupNeeded.mockReturnValue(false);
@@ -148,6 +164,7 @@ beforeEach(() => {
     windowListed: true,
     windowSelected: true,
   });
+  prompt.ask.mockResolvedValue('run');
 });
 
 afterEach(() => {
@@ -171,6 +188,64 @@ describe('Zoom startup check', () => {
     expect(await runZoomStartupCheck()).toBe('skipped');
     // Asked for, it runs again.
     expect(await runZoomStartupCheck({ manual: true })).toBe('passed');
+  });
+
+  it('asks the user before an automatic check touches Zoom', async () => {
+    const { runZoomStartupCheck } = await import('../zoom-startup-check');
+
+    expect(await runZoomStartupCheck()).toBe('passed');
+    expect(prompt.ask).toHaveBeenCalledOnce();
+    expect(zoom.withZoomRun).toHaveBeenCalledOnce();
+  });
+
+  it('asks only when a check is really going to run', async () => {
+    const { runZoomStartupCheck } = await import('../zoom-startup-check');
+    meetingClosedUntilLaunched();
+    meetingStartsIn(null);
+
+    expect(await runZoomStartupCheck()).toBe('skipped');
+    expect(prompt.ask).not.toHaveBeenCalled();
+  });
+
+  it('never asks for a check the user asked for', async () => {
+    const { runZoomStartupCheck } = await import('../zoom-startup-check');
+
+    expect(await runZoomStartupCheck({ manual: true })).toBe('passed');
+    expect(prompt.ask).not.toHaveBeenCalled();
+  });
+
+  it('turns the automations off for the meeting when the user skips', async () => {
+    const { runZoomStartupCheck } = await import('../zoom-startup-check');
+    prompt.ask.mockResolvedValueOnce('skip');
+
+    expect(await runZoomStartupCheck()).toBe('declined');
+    // Zoom was left alone altogether.
+    expect(zoom.withZoomRun).not.toHaveBeenCalled();
+    expect(zoom.runZoomSelfTest).not.toHaveBeenCalled();
+    const zoomState = useZoomStateStore();
+    expect(zoomState.automationsPaused).toBe(true);
+    expect(zoomState.checkDeclined).toBe(true);
+    expect(notification()?.type).toBe('warning');
+    // And it doesn't ask again: Test again is the way back.
+    zoomState.checkedCongregations = [];
+    expect(await runZoomStartupCheck()).toBe('skipped');
+    expect(prompt.ask).toHaveBeenCalledOnce();
+  });
+
+  it('asks again later when nobody answers, leaving the automations on', async () => {
+    const { runZoomStartupCheck } = await import('../zoom-startup-check');
+    prompt.ask.mockResolvedValueOnce('unanswered');
+
+    expect(await runZoomStartupCheck()).toBe('scheduled');
+    // Zoom was left alone, and nothing was turned off for the meeting.
+    expect(zoom.withZoomRun).not.toHaveBeenCalled();
+    expect(useZoomStateStore().automationsPaused).toBe(false);
+    expect(zoom.notify).not.toHaveBeenCalled();
+
+    // Today's check is still to do, so the next one asks, and runs.
+    expect(await runZoomStartupCheck()).toBe('passed');
+    expect(prompt.ask).toHaveBeenCalledTimes(2);
+    expect(zoom.withZoomRun).toHaveBeenCalledOnce();
   });
 
   it("stays out of the setup assistant's way while it is open", async () => {
@@ -209,28 +284,6 @@ describe('Zoom startup check', () => {
     expect(zoom.withZoomRun).not.toHaveBeenCalled();
   });
 
-  it('checks again each day while M³ stays open, opening the meeting in time', async () => {
-    vi.useFakeTimers();
-    // Wednesday evening; the meeting is on Thursday at 19:30.
-    vi.setSystemTime(new Date(2026, 9, 14, 20, 0));
-    vi.resetModules();
-    const { scheduleZoomStartupCheck } = await import('../zoom-startup-check');
-    const launch = meetingClosedUntilLaunched();
-    zoom.getMeetingStartToday.mockImplementation((now = new Date()) =>
-      now.getDate() === 15 ? new Date(2026, 9, 15, 19, 30) : null,
-    );
-
-    scheduleZoomStartupCheck();
-    await vi.advanceTimersByTimeAsync(MINUTE);
-    expect(launch).not.toHaveBeenCalled();
-
-    // Thursday, 18:10: not yet (the window opens at 18:15).
-    await vi.advanceTimersByTimeAsync((22 * 60 + 9) * MINUTE);
-    expect(launch).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(10 * MINUTE);
-    expect(launch).toHaveBeenCalledWith('123 456 7890');
-  });
-
   it('goes by the calendar date, whichever day is selected', async () => {
     const { runZoomStartupCheck } = await import('../zoom-startup-check');
     meetingClosedUntilLaunched();
@@ -256,14 +309,31 @@ describe('Zoom startup check', () => {
 
     expect(await runZoomStartupCheck()).toBe('scheduled');
     expect(launch).not.toHaveBeenCalled();
+    // Today's check is still to do.
+    expect(useZoomStateStore().checkedCongregations).toEqual([]);
 
-    // 1 h 15 min before the meeting (1 h 45 min from now), M³ checks again.
-    await vi.advanceTimersByTimeAsync(104 * MINUTE);
-    expect(launch).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(2 * MINUTE);
-    expect(launch).toHaveBeenCalledWith('123 456 7890');
+    // 1 h 15 min before the meeting, the meeting day's schedule (see
+    // zoom-meeting-day.ts) checks again.
+    meetingStartsIn(75 * MINUTE);
+    const outcome = runZoomStartupCheck();
     await vi.runAllTimersAsync();
+    expect(await outcome).toBe('passed');
+    expect(launch).toHaveBeenCalledWith('123 456 7890');
     expect(zoom.runZoomSelfTest).toHaveBeenCalledOnce();
+  });
+
+  it('waits while another automation is operating Zoom', async () => {
+    const { runZoomStartupCheck } = await import('../zoom-startup-check');
+    const zoomState = useZoomStateStore();
+    zoomState.beginRun('zoom-run-post-meeting-sequence');
+
+    expect(await runZoomStartupCheck()).toBe('skipped');
+    expect(zoom.getZoomMeetingState).not.toHaveBeenCalled();
+    // Today's check is still to do.
+    expect(zoomState.checkedCongregations).toEqual([]);
+
+    zoomState.endRun();
+    expect(await runZoomStartupCheck()).toBe('passed');
   });
 
   it('opens the meeting before it starts, then tests what is automated', async () => {
@@ -303,6 +373,13 @@ describe('Zoom startup check', () => {
       found: false,
       sharing: false,
     });
+    zoom.getZoomSnapshot.mockResolvedValue({
+      dialogs: { 'SomeZoomDialog 420x240': ['Join', 'Cancel'] },
+      meeting: false,
+      sharing: false,
+      windows: ['SomeZoomDialog'],
+      zoomVersion: '7.2.5.51704',
+    });
 
     const outcome = runZoomStartupCheck();
     await vi.runAllTimersAsync();
@@ -314,6 +391,51 @@ describe('Zoom startup check', () => {
       problems: ['zoom-check-problem-meeting'],
     });
     expect(notification()?.type).toBe('negative');
+    // MMM-V2-3MW: reported with what Zoom showed instead of the meeting,
+    // where these reports used to say only that it wasn't there.
+    await vi.waitFor(() =>
+      expect(sentry.captureMessage).toHaveBeenCalledWith(
+        'Zoom check failed: automations paused',
+        expect.objectContaining({
+          extra: {
+            dialogs: { 'SomeZoomDialog 420x240': ['Join', 'Cancel'] },
+            failedActions: [],
+            failedSteps: ['meeting: not open 90 s after opening it'],
+            meeting: false,
+            namesChanged: false,
+            problems: ['zoom-check-problem-meeting'],
+            sharing: false,
+            snapshotAction: 'snapshot',
+            windows: ['SomeZoomDialog'],
+            zoomVersion: '7.2.5.51704',
+          },
+        }),
+      ),
+    );
+  });
+
+  it('says there is no meeting ID when tested again with no meeting open', async () => {
+    const { runZoomStartupCheck } = await import('../zoom-startup-check');
+    currentState.currentSettings.zoomMeetingManagerMeetingId = null;
+    zoom.getZoomMeetingState.mockResolvedValue({
+      found: false,
+      sharing: false,
+    });
+
+    expect(await runZoomStartupCheck({ manual: true })).toBe('failed');
+    await vi.waitFor(() =>
+      expect(sentry.captureMessage).toHaveBeenCalledWith(
+        'Zoom check failed: automations paused',
+        expect.objectContaining({
+          extra: expect.objectContaining({
+            failedSteps: ['meeting: none open, and no ID'],
+            problems: ['zoom-check-problem-meeting'],
+          }),
+        }),
+      ),
+    );
+    // Nothing was opened, so there's nothing to look at in Zoom.
+    expect(zoom.getZoomSnapshot).not.toHaveBeenCalled();
   });
 
   it('checks again when Zoom changed, even if today was checked already', async () => {
@@ -337,6 +459,17 @@ describe('Zoom startup check', () => {
 
     // The check ran again (and counts as today's check once more).
     await vi.waitFor(() => expect(zoom.getZoomMeetingState).toHaveBeenCalled());
+  });
+
+  it('confirms a routine pass, not only one asked for', async () => {
+    const { runZoomStartupCheck } = await import('../zoom-startup-check');
+
+    expect(await runZoomStartupCheck()).toBe('passed');
+    expect(useZoomStateStore().automationsPaused).toBe(false);
+    expect(notification()).toMatchObject({
+      group: 'zoom-check',
+      type: 'positive',
+    });
   });
 
   it('pauses the automations when a test step fails, until a new check passes', async () => {
@@ -477,6 +610,34 @@ describe('Zoom startup check', () => {
     );
   });
 
+  // MMM-V2-3NC: without the reason, these reports couldn't tell a share button
+  // that wasn't found from a share window that never came up.
+  it('reports why the share picker did not open', async () => {
+    const { runZoomStartupCheck } = await import('../zoom-startup-check');
+    zoom.countZoomMeetingParticipants.mockResolvedValue(4);
+    zoom.testZoomShareEntry.mockResolvedValueOnce({
+      opened: false,
+      pickerError: 'share-button-not-found',
+      windowListed: false,
+      windowSelected: false,
+    });
+
+    await runZoomStartupCheck();
+
+    await vi.waitFor(() =>
+      expect(sentry.captureMessage).toHaveBeenCalledWith(
+        'Zoom check failed: automations paused',
+        expect.objectContaining({
+          extra: expect.objectContaining({
+            failedSteps: [
+              'share-picker: {"opened":false,"pickerError":"share-button-not-found","windowListed":false,"windowSelected":false}',
+            ],
+          }),
+        }),
+      ),
+    );
+  });
+
   it('changes nothing when the user stops the check', async () => {
     const { runZoomStartupCheck } = await import('../zoom-startup-check');
     const zoomState = useZoomStateStore();
@@ -495,6 +656,42 @@ describe('Zoom startup check', () => {
     expect(zoomState.pause).toBeNull();
     expect(zoom.notify).not.toHaveBeenCalled();
     expect(sentry.captureMessage).not.toHaveBeenCalled();
+  });
+
+  it('waits for Zoom to stop sharing instead of checking during a share', async () => {
+    const { runZoomStartupCheck } = await import('../zoom-startup-check');
+    zoom.getZoomMeetingState.mockResolvedValue({ found: true, sharing: true });
+
+    expect(await runZoomStartupCheck()).toBe('scheduled');
+    // Nothing pressed (testing would end the share) and nothing paused.
+    expect(zoom.withZoomRun).not.toHaveBeenCalled();
+    expect(zoom.countZoomMeetingParticipants).not.toHaveBeenCalled();
+    expect(zoom.diagnoseZoom).not.toHaveBeenCalled();
+    const zoomState = useZoomStateStore();
+    expect(zoomState.pause).toBeNull();
+    expect(zoom.notify).not.toHaveBeenCalled();
+    // Today's check is still to do, and runs once the share is over.
+    expect(zoomState.checkedCongregations).toEqual([]);
+    zoom.getZoomMeetingState.mockResolvedValue(OPEN);
+    expect(await runZoomStartupCheck()).toBe('passed');
+  });
+
+  it('asks to stop sharing first when tested again during a share', async () => {
+    const { runZoomStartupCheck } = await import('../zoom-startup-check');
+    const zoomState = useZoomStateStore();
+    zoomState.pauseAutomations('cong-1', ['zoom-check-problem-meeting'], false);
+    zoom.getZoomMeetingState.mockResolvedValue({ found: true, sharing: true });
+
+    expect(await runZoomStartupCheck({ manual: true })).toBe('skipped');
+    expect(zoom.withZoomRun).not.toHaveBeenCalled();
+    expect(notification()).toMatchObject({
+      message:
+        "M³ can't check Zoom while it's sharing. Stop sharing in Zoom, then test again.",
+      type: 'warning',
+    });
+    // Still paused until a check passes, and today's check still to do.
+    expect(zoomState.automationsPaused).toBe(true);
+    expect(zoomState.checkedCongregations).toEqual([]);
   });
 
   it("doesn't show the media window to check sharing while others are in", async () => {

@@ -264,6 +264,19 @@ Verifique estas configurações de idioma:
 3. **Disponibilidade do idioma**: Certifique-se de que o idioma da mídia está disponível no site oficial das Testemunhas de Jeová
 4. **Idioma alternativo**: Tente configurar um idioma alternativo
 
+### :wrench: O M³ não abre depois de uma atualização. O que devo fazer? {#faq-update-interrupted}
+
+Se o computador foi desligado ou reiniciado enquanto o M³ instalava uma atualização, a instalação pode ter parado no meio do caminho, e o M³ não abre mais. Suas configurações e mídias continuam lá. Para reparar o M³:
+
+1. Baixe a versão mais recente na [página de Download](download).
+2. Execute o instalador. Ele restaura o M³ e mantém suas configurações.
+
+**Não desinstale o M³ antes**: a desinstalação também exclui as configurações dele.
+
+Se o computador não conseguir se conectar à internet, o instalador que o M³ tinha baixado geralmente ainda está lá: pressione `Win+R`, digite `%LOCALAPPDATA%\meeting-media-manager-updater\pending` e depois execute o instalador na pasta que for aberta.
+
+Para evitar isso, no Windows, o M³ instala uma atualização baixada na próxima vez que é aberto, em vez de quando é fechado. When M³ is installed for all users of the computer, Windows asks for permission first, so M³ waits until you choose to install the update.
+
 ## Suporte e comunidade {#support-community}
 
 ### :radioactive: Como faço para relatar um problema? {#how-do-i-report-an-issue}

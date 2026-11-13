@@ -6,6 +6,7 @@ import type {
   MeetingPartTimings,
   TimerData,
   TimerPartCounts,
+  TimerRemotePart,
 } from 'src/types';
 
 import {
@@ -429,6 +430,7 @@ const createTimer = () => {
   const customPartOptions = computed<MeetingPartOption[]>(() =>
     customTimerParts.value.map((part) => ({
       label: `${part.label} (${normalizePartDuration(part.duration)} min.)`,
+      name: part.label,
       section: 'custom-timer-parts',
       value: part.id,
     })),
@@ -503,6 +505,7 @@ const createTimer = () => {
           duration: partDurations.value[part] ?? 0,
           part: i,
         }),
+        name: t('ayfm-part-name', { part: i }),
         section: 'ayfm',
         value: part,
         warning: ayfmWarning,
@@ -522,6 +525,10 @@ const createTimer = () => {
           duration: partDurations.value[part] ?? 0,
           part: i,
         }),
+        name:
+          lacPartsCount.value === 1
+            ? t('lac')
+            : t('lac-part-name', { part: i }),
         section: 'lac',
         value: part,
         warning: lacWarning,
@@ -562,6 +569,7 @@ const createTimer = () => {
     // No meeting: only the custom parts, which need no section header.
     return customPartOptions.value.map((option) => ({
       label: option.label,
+      name: option.name,
       value: option.value,
     }));
   });
@@ -802,6 +810,21 @@ const createTimer = () => {
     }
   };
 
+  const getRemoteParts = (): TimerRemotePart[] => {
+    const nextValue = nextPart.value?.value;
+    return meetingPartsOptions.value.map((option) => {
+      const current = timerRunning.value && option.value === currentPart.value;
+      return {
+        current,
+        done: !current && !!partTimings.value[option.value]?.endTime,
+        label: option.label,
+        minutes: partDurations.value[option.value] ?? 0,
+        next: option.value === nextValue,
+        value: option.value,
+      };
+    });
+  };
+
   const updateTimerWindow = () => {
     // Send timer data to the timer window via broadcast channel
     const handAlert = useHandAlertStore();
@@ -836,6 +859,7 @@ const createTimer = () => {
         currentSettings.value?.timerOvertimeShowAmountOnly,
       timerOvertimeTextColor: currentSettings.value?.timerOvertimeTextColor,
       timerPartTargetSeconds: getPartDurationSeconds(currentPart.value),
+      timerRemoteFocusLayout: currentSettings.value?.timerRemoteFocusLayout,
       timerTextColor: currentSettings.value?.timerTextColor,
       timerTextSize: currentSettings.value?.timerTextSize,
       timerTimeOfDayDisplay: currentSettings.value?.timerTimeOfDayDisplay,
@@ -846,7 +870,11 @@ const createTimer = () => {
     safePostTimerData(timerData);
     if (currentSettings.value?.timerRemoteEnable) {
       try {
-        globalThis.electronApi.timerRemoteUpdate(timerData);
+        // Only the remote shows (and picks from) the day's list of parts.
+        globalThis.electronApi.timerRemoteUpdate({
+          ...timerData,
+          timerRemoteParts: getRemoteParts(),
+        });
       } catch (error) {
         errorCatcher(error, {
           contexts: { fn: { name: 'timerRemoteUpdate' } },

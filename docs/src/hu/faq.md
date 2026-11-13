@@ -264,6 +264,19 @@ Ellenőrizze a következő nyelvi beállításokat:
 3. **Nyelvi elérhetőség**: Győződjön meg arról, hogy a média nyelve elérhető Jehova Tanúi hivatalos honlapján
 4. **Tartalék nyelv**: Próbáljon meg beállítani egy tartalék nyelvet
 
+### :wrench: Az M³ egy frissítés után nem nyílik meg. Mit kell tennem? {#faq-update-interrupted}
+
+Ha a számítógépet kikapcsolták vagy újraindították, miközben az M³ egy frissítést telepített, a telepítés félúton megszakadhatott, és az M³ többé nem nyílik meg. A beállításai és a médiaanyagai továbbra is megvannak. Az M³ javításához:
+
+1. Töltse le a legújabb verziót a [Letöltési oldalról](download).
+2. Futtassa a telepítőt. Ez helyreállítja az M³-at, és megtartja a beállításait.
+
+**Ne távolítsa el előbb az M³-at**: az eltávolítás a beállításokat is törli.
+
+Ha a számítógép nem tud csatlakozni az internethez, az M³ által korábban letöltött telepítő általában még megvan: nyomja meg a `Win+R` billentyűkombinációt, írja be a `%LOCALAPPDATA%\meeting-media-manager-updater\pending` útvonalat, majd futtassa a megnyíló mappában található telepítőt.
+
+Az ilyen megszakadás elkerülése érdekében az M³ Windows rendszeren a letöltött frissítést a következő megnyitásakor telepíti, nem pedig a bezárásakor. When M³ is installed for all users of the computer, Windows asks for permission first, so M³ waits until you choose to install the update.
+
 ## Támogatás és közösség {#support-community}
 
 ### :radioactive: Hogyan tudok problémát jelenteni? {#how-do-i-report-an-issue}

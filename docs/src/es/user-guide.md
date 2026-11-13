@@ -163,7 +163,7 @@ El botón **Aviso de mano levantada** en la ventana emergente del cronómetro mu
 
 #### El cronómetro en una tableta {#user-guide-timer-remote}
 
-El [control remoto del cronómetro](/settings-guide#timer-remote) opcional sirve una copia de solo lectura de la pantalla del cronómetro como página web en tu red local. Abre la dirección que se muestra en la ventana emergente del cronómetro en el navegador de una tableta o teléfono en el atril, y el discursante verá el tiempo restante de forma privada mientras todos los controles permanecen en M³.
+El [control remoto del cronómetro](/settings-guide#timer-remote) opcional sirve una copia de solo lectura de la pantalla del cronómetro como página web en tu red local. Abre la dirección que se muestra en la ventana emergente del cronómetro en el navegador de una tableta o teléfono en el atril, y el discursante verá el tiempo restante de forma privada mientras todos los controles permanecen en M³. Su vista enfocada opcional muestra el tiempo en un anillo de progreso, con los nombres de los participantes de Zoom que han levantado la mano enumerados al lado. La página también mantiene encendida la pantalla de la tableta mientras está abierta, para que no se bloquee a mitad de una parte.
 
 #### Acceso rápido {#user-guide-timer-quick-access}
 
@@ -418,6 +418,17 @@ Configura atajos de teclado personalizados para trabajar con eficiencia:
 - Asegúrate de que el idioma esté disponible en JW.org
 - Prueba con un idioma alternativo
 - Revisa la configuración del idioma de la interfaz
+
+#### PIN de configuración olvidado {#user-guide-forgotten-settings-pin}
+
+Solo alguien autorizado a cambiar la configuración de M³ debería hacer esto. Tras tres intentos fallidos, M³ ofrece **¿Olvidaste el PIN?** en cualquier lugar donde pida el PIN. Para quitar el PIN:
+
+1. Selecciona **¿Olvidaste el PIN?** y deja abierta la ventana que aparece en M³. Muestra una carpeta de esta computadora.
+2. En el administrador de archivos de tu computadora, ve a esa carpeta.
+3. Abre el archivo de texto llamado `M3 settings PIN reset code.txt`, que M³ acaba de crear allí.
+4. Escribe en M³ el código de seis dígitos que aparece en ese archivo y luego confirma.
+
+Entonces M³ quita el PIN y elimina el archivo. Para volver a proteger la configuración, establece un nuevo PIN en **Configuración** > **Avanzado**.
 
 ### Obtener ayuda {#getting-help}
 

@@ -163,7 +163,7 @@ Een knop **Handsignaal** in het pop-upvenster van de timer toont een grote hand 
 
 #### Timer op een tablet {#user-guide-timer-remote}
 
-De optionele [timer op afstand](/settings-guide#timer-remote) biedt een alleen-lezen kopie van de timerweergave aan als webpagina op je lokale netwerk. Open het adres dat in het pop-upvenster van de timer staat in de browser van een tablet of telefoon bij het spreekgestoelte; de spreker ziet dan voor zichzelf hoeveel tijd er nog over is, terwijl alle bediening in M³ blijft.
+De optionele [timer op afstand](/settings-guide#timer-remote) biedt een alleen-lezen kopie van de timerweergave aan als webpagina op je lokale netwerk. Open het adres dat in het pop-upvenster van de timer staat in de browser van een tablet of telefoon bij het spreekgestoelte; de spreker ziet dan voor zichzelf hoeveel tijd er nog over is, terwijl alle bediening in M³ blijft. De optionele focusindeling toont de tijd in een voortgangsring, met de namen van Zoom-deelnemers die hun hand hebben opgestoken ernaast. De pagina houdt ook het scherm van de tablet wakker zolang hij open is, zodat het niet vergrendelt midden in een onderdeel.
 
 #### Snelle toegang {#user-guide-timer-quick-access}
 
@@ -418,6 +418,17 @@ Configureer aangepaste sneltoetsen voor een efficiënte werking:
 - Zorg ervoor dat de taal beschikbaar is op JW.org
 - Probeer een reservetaal
 - Controleer de instelling voor de interfacetaal
+
+#### Pincode van de instellingen vergeten {#user-guide-forgotten-settings-pin}
+
+Alleen iemand die bevoegd is om de instellingen van M³ te wijzigen, mag dit doen. Na drie foute pogingen biedt M³ overal waar om de pincode wordt gevraagd **Pincode vergeten?** aan. Zo verwijder je de pincode:
+
+1. Selecteer **Pincode vergeten?** en laat het venster dat in M³ opent openstaan. Er wordt een map op deze computer getoond.
+2. Ga in de bestandsbeheerder van je computer naar die map.
+3. Open het tekstbestand `M3 settings PIN reset code.txt`, dat M³ daar net heeft gemaakt.
+4. Typ de code van zes cijfers uit dat bestand in M³ en bevestig.
+
+M³ verwijdert dan de pincode en het bestand. Om de instellingen weer te beschermen, stel je een nieuwe pincode in onder **Instellingen** > **Geavanceerd**.
 
 ### Hulp krijgen {#getting-help}
 

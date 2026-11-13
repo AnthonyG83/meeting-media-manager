@@ -2,7 +2,7 @@ import { pathExists, remove } from 'fs-extra/esm';
 import { createHash } from 'node:crypto';
 import { stat } from 'node:fs/promises';
 import { getImageDimensions } from 'src-electron/main/image-size';
-import { FULL_HD } from 'src/constants/media';
+import { AUDIO_EXTENSIONS, FULL_HD } from 'src/constants/media';
 import { basename, changeExt, extname, join } from 'upath';
 
 const conversionQueue = new Map<string, Promise<string>>();
@@ -14,7 +14,7 @@ const conversionQueue = new Map<string, Promise<string>>();
  * `convertAudioToVideo`/`convertImageToVideo`) - callers cast their command
  * to this narrower shape.
  */
-interface RunnableFfmpegCommand {
+export interface RunnableFfmpegCommand {
   kill: (signal: string) => unknown;
   on: (event: string, listener: (...args: unknown[]) => void) => unknown;
   save: (output: string) => unknown;
@@ -59,7 +59,7 @@ const toDiskFullErrorIfNeeded = (error: Error) => {
  * @param command An `FfmpegCommand` with its inputs/options already set, not yet saved/run
  * @param convertedFilePath The output path to save to
  */
-const runFfmpegCommand = (
+export const runFfmpegCommand = (
   command: RunnableFfmpegCommand,
   convertedFilePath: string,
 ): Promise<void> => {
@@ -113,7 +113,9 @@ export const cleanupFfmpegConversions = () => {
  * unrelated system executable) reaching the spawn call.
  * @param ffmpegPath The path to validate
  */
-const assertValidFfmpegPath = async (ffmpegPath: string): Promise<void> => {
+export const assertValidFfmpegPath = async (
+  ffmpegPath: string,
+): Promise<void> => {
   if (!basename(ffmpegPath).toLowerCase().includes('ffmpeg')) {
     throw new Error(`Refusing to use non-FFmpeg path: ${ffmpegPath}`);
   }
@@ -257,7 +259,11 @@ export const createVideoFromNonVideo = async (
     );
 
     if (!canReuse) {
-      if (originalFile.toLowerCase().endsWith('.mp3')) {
+      // Every audio file the media list takes, not just .mp3: the others
+      // went down the image path, whose dimension check can't read audio, so
+      // their export failed.
+      const extension = extname(originalFile).slice(1).toLowerCase();
+      if (AUDIO_EXTENSIONS.includes(extension)) {
         await convertAudioToVideo(ffmpegPath, originalFile, convertedFilePath);
       } else {
         await convertImageToVideo(ffmpegPath, originalFile, convertedFilePath);

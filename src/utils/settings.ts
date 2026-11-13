@@ -10,7 +10,9 @@ import { settingsDefinitions } from 'src/constants/settings';
 import { syncMeetingScheduleManually } from 'src/helpers/congregation-schedule';
 import { errorCatcher } from 'src/helpers/error-catcher';
 import { resetFeatureNudgesForCurrentProfile } from 'src/helpers/feature-nudges';
+import { renewTimerRemotePin } from 'src/helpers/timer-remote';
 import { isZoomSetupNeeded } from 'src/helpers/zoom';
+import { isValidTimerRemotePin } from 'src/shared/timer-remote';
 import { getDateDiff, getSpecificWeekday, isInPast } from 'src/utils/date';
 
 const requiredRule: ValidationRule = (val: boolean | string) =>
@@ -24,6 +26,9 @@ export const portNumberValidator = (val: string): boolean => {
 
 const portNumberRule: ValidationRule = (val: string) =>
   portNumberValidator(val) || '';
+
+const pinCodeRule: ValidationRule = (val: string) =>
+  isValidTimerRemotePin(val) || '';
 
 const coTuesdays = (lookupDate: string) => {
   try {
@@ -119,6 +124,8 @@ export const getRules = (
               : undefined;
           } else if (rule === 'portNumber') {
             return portNumberRule;
+          } else if (rule === 'pinCode') {
+            return pinCodeRule;
           } else {
             return undefined;
           }
@@ -152,6 +159,8 @@ export const performActions = (actions: SettingsItemAction[] | undefined) => {
             detail: { step: 'layout' },
           }),
         );
+      } else if (action === 'newTimerRemotePin') {
+        renewTimerRemotePin();
       } else if (action === 'resetFeatureNudges') {
         resetFeatureNudgesForCurrentProfile();
       } else if (action === 'openZoomSetupAssistantIfNeeded') {

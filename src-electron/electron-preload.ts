@@ -79,12 +79,15 @@ const electronApi: ElectronApi = {
   askForMediaAccess: () => send('askForMediaAccess'),
   basename,
   cancelAllDownloads: () => send('cancelAllDownloads'),
+  cancelPlaybackConversion: (id) => invoke('cancelPlaybackConversion', id),
   changeExt,
   checkForUpdates: () => send('checkForUpdates'),
   closeSqliteConnection: (dbPath: string) =>
     invoke('closeSqliteConnection', dbPath),
   closeSqliteConnections: () => invoke('closeSqliteConnections'),
   closeWebsiteWindow,
+  convertForPlayback: (ffmpegPath, request) =>
+    invoke('convertForPlayback', ffmpegPath, request),
   convertHeic: (image) => invoke('convertHeic', image),
   createVideoFromNonVideo: (f, fP, oD) =>
     invoke('createVideoFromNonVideo', f, fP, oD),
@@ -150,9 +153,11 @@ const electronApi: ElectronApi = {
   onHardwareAccelerationTemporaryDisabled: (cb) =>
     listen('hardware-acceleration-temporary-disabled', cb),
   onLog: (cb) => listen('log', cb),
+  onMediaConversionProgress: (cb) => listen('mediaConversionProgress', cb),
   onMediaWindowRendererGone: (cb) => listen('media-window-renderer-gone', cb),
   onPathProbeNetworkWarning: (cb) => listen('pathProbeNetworkWarning', cb),
   onShortcut: (cb) => listen('shortcut', cb),
+  onTimerRemoteCommand: (cb) => listen('timerRemoteCommand', cb),
   onTimerWindowClosed: (cb) => listen('timerWindowClosed', cb),
   onUpdateAvailable: (cb) => listen('update-available', cb),
   onUpdateDownloaded: (cb) => listen('update-downloaded', cb),
@@ -203,6 +208,7 @@ const electronApi: ElectronApi = {
   startZoomHelper: () => invoke('startZoomHelper'),
   stopTimerRemote: () => send('stopTimerRemote'),
   stopZoomHelper: () => send('stopZoomHelper'),
+  timerRemoteConfig: (c) => send('timerRemoteConfig', c),
   timerRemoteText: (t) => send('timerRemoteText', t),
   timerRemoteUpdate: (d) => send('timerRemoteUpdate', d),
   toggleAuthorizedClose: (v) => send('authorizedClose', v),

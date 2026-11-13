@@ -5,6 +5,7 @@ import type {
 } from 'src/types';
 
 import { resetFeatureNudgesForCurrentProfile } from 'src/helpers/feature-nudges';
+import { renewTimerRemotePin } from 'src/helpers/timer-remote';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -24,6 +25,10 @@ vi.mock('src/helpers/error-catcher', () => ({
 
 vi.mock('src/helpers/feature-nudges', () => ({
   resetFeatureNudgesForCurrentProfile: vi.fn(),
+}));
+
+vi.mock('src/helpers/timer-remote', () => ({
+  renewTimerRemotePin: vi.fn(),
 }));
 
 // Mock date utilities
@@ -160,6 +165,12 @@ describe('Settings Utilities', () => {
       performActions(['resetFeatureNudges']);
 
       expect(resetFeatureNudgesForCurrentProfile).toHaveBeenCalledOnce();
+    });
+
+    it('makes a new PIN for the timer remote', () => {
+      performActions(['newTimerRemotePin']);
+
+      expect(renewTimerRemotePin).toHaveBeenCalledOnce();
     });
 
     it('should handle multiple actions', () => {

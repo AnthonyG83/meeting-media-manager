@@ -34,6 +34,7 @@
             opacity: !fileIsAvailable && !streamIsAvailable ? 0.64 : undefined,
           }"
         >
+          <MediaItemDownloadOverlay :progress="thumbnailProgress" />
           <template v-if="media.isImage">
             <!-- Panning and wheel/pinch zoom are ours, not the library's
                  (see startThumbnailPan and zoomThumbnailWithWheel): it only
@@ -88,14 +89,18 @@
                 <q-img
                   ref="mediaImage"
                   fit="contain"
-                  :no-spinner="isDemoMode"
                   :ratio="16 / 9"
-                  spinner-color="white"
-                  spinner-size="1em"
                   :src="mediaThumbnailUrl"
                   :width="thumbnailWidth"
                   @error="imageLoadingError"
                 >
+                  <template #loading>
+                    <LiquidSpinner
+                      v-if="!isDemoMode"
+                      color="white"
+                      size="40px"
+                    />
+                  </template>
                   <q-badge
                     v-if="media.duration"
                     class="q-mt-sm q-ml-sm cursor-pointer rounded-borders-sm bg-semi-black"
@@ -207,14 +212,15 @@
               v-if="!showAudioThumbnailFallback"
               ref="mediaImage"
               fit="contain"
-              :no-spinner="isDemoMode"
               :ratio="16 / 9"
-              spinner-color="white"
-              spinner-size="1em"
               :src="mediaThumbnailUrl"
               :width="thumbnailWidth"
               @error="imageLoadingError"
-            />
+            >
+              <template #loading>
+                <LiquidSpinner v-if="!isDemoMode" color="white" size="40px" />
+              </template>
+            </q-img>
             <div
               v-else
               class="media-audio-thumbnail-fallback"
@@ -476,6 +482,45 @@
               {{ t('media-item-missing-explain') }}
             </div>
             <div
+              v-else-if="isConverting"
+              class="text-caption fades-under-hover-actions"
+            >
+              {{ conversionCaption }}
+            </div>
+            <div
+              v-else-if="playbackProblem"
+              class="media-cannot-play row items-center no-wrap text-caption fades-under-hover-actions"
+            >
+              <q-icon class="q-mr-xs" color="warning" name="mmm-warning" />
+              <span class="ellipsis">
+                {{
+                  t(
+                    playbackProblem.missing === 'sound'
+                      ? 'media-no-sound-here'
+                      : 'media-cannot-play-here',
+                  )
+                }}
+              </span>
+              <q-tooltip :delay="500">
+                <div>
+                  {{
+                    t(
+                      playbackProblem.missing === 'sound'
+                        ? 'media-no-sound-here-explain'
+                        : 'media-cannot-play-here-explain',
+                    )
+                  }}
+                </div>
+                <div v-if="describeCodec(playbackProblem.codec)">
+                  {{
+                    t('media-format', {
+                      format: describeCodec(playbackProblem.codec),
+                    })
+                  }}
+                </div>
+              </q-tooltip>
+            </div>
+            <div
               class="hover-actions-overlay hover-reveal absolute-right row items-center no-wrap q-mr-sm"
             >
               <q-icon
@@ -585,10 +630,13 @@
             </div>
           </div>
         </div>
+        <!-- The slider stays on screen while it fades out, but its QSlider is
+             already unmounted: a click then would crash Quasar's handler
+             (MMM-V2-3NW), so the fading slider ignores the pointer. -->
         <transition
           appear
           enter-active-class="animated fadeIn"
-          leave-active-class="animated fadeOut"
+          leave-active-class="animated fadeOut no-pointer-events"
           mode="out-in"
           name="fade"
         >
@@ -694,8 +742,45 @@
                 </q-tooltip>
               </q-select>
 
+              <!-- No sound here: it still plays, and can be converted. -->
               <q-btn
+                v-if="canConvert && playbackProblem?.missing === 'sound'"
+                color="primary"
+                flat
+                icon="mmm-movie"
+                round
+                @click="convertMedia"
+              >
+                <q-tooltip :delay="500">
+                  {{ t('convert-media-to-play') }}
+                </q-tooltip>
+              </q-btn>
+              <!-- No picture here: playing would only show black, so converting
+                   takes the play button's place until it's done. -->
+              <q-btn
+                v-if="needsConversionToPlay"
+                color="primary"
+                :disable="isConverting"
+                icon="mmm-movie"
+                :loading="isConverting"
+                rounded
+                @click="convertMedia"
+              >
+                <template #loading>
+                  <LiquidSpinner />
+                </template>
+                <q-tooltip :delay="500">
+                  {{
+                    isConverting
+                      ? conversionCaption
+                      : t('convert-media-to-play')
+                  }}
+                </q-tooltip>
+              </q-btn>
+              <q-btn
+                v-else
                 ref="playButton"
+                :class="{ 'media-item__play--ready': playIconJustReady }"
                 :color="
                   fileIsAvailable || streamIsAvailable ? 'primary' : 'grey'
                 "
@@ -811,7 +896,7 @@
                   : stopMedia()
               "
             >
-              <q-spinner
+              <LiquidSpinner
                 v-if="!localFile && mediaPlaying.currentPosition === 0"
                 size="xs"
               />
@@ -969,6 +1054,35 @@
               <q-item-section>
                 <q-item-label>{{ t('rename') }}</q-item-label>
                 <q-item-label caption>{{ t('rename-explain') }}</q-item-label>
+              </q-item-section>
+            </q-item>
+            <q-item
+              v-if="canConvert"
+              v-close-popup
+              clickable
+              @click="convertMedia"
+            >
+              <q-item-section avatar>
+                <q-icon name="mmm-movie" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>{{ t('convert-media-to-play') }}</q-item-label>
+                <q-item-label caption>
+                  {{ t('convert-media-to-play-explain') }}
+                </q-item-label>
+              </q-item-section>
+            </q-item>
+            <q-item
+              v-if="isConverting"
+              v-close-popup
+              clickable
+              @click="cancelConversion"
+            >
+              <q-item-section avatar>
+                <q-icon name="mmm-clear" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>{{ t('cancel-media-conversion') }}</q-item-label>
               </q-item-section>
             </q-item>
             <q-item v-close-popup clickable @click="openEditTagDialog">
@@ -1349,7 +1463,12 @@
 </template>
 
 <script setup lang="ts">
-import type { MediaItem, Tag, VideoMarker } from 'src/types';
+import type {
+  DownloadProgressItem,
+  MediaItem,
+  Tag,
+  VideoMarker,
+} from 'src/types';
 
 import {
   onClickOutside,
@@ -1357,12 +1476,15 @@ import {
   useElementHover,
   useEventListener,
   useMagicKeys,
+  useTimeoutFn,
   useTimeoutPoll,
   watchImmediate,
   whenever,
 } from '@vueuse/core';
 import BaseDialog from 'components/dialog/BaseDialog.vue';
 import ConfirmDialog from 'components/dialog/ConfirmDialog.vue';
+import MediaItemDownloadOverlay from 'components/media/MediaItemDownloadOverlay.vue';
+import LiquidSpinner from 'components/ui/LiquidSpinner.vue';
 import { storeToRefs } from 'pinia';
 import { type QBtn, type QImg, type QInput, QItem, useQuasar } from 'quasar';
 import { useMediaSectionRepeat } from 'src/composables/useMediaSectionRepeat';
@@ -1375,6 +1497,12 @@ import {
   createMediaItemFromPath,
   downloadFileIfNeeded,
 } from 'src/helpers/jw-media';
+import {
+  cancelMediaConversion,
+  canConvertMediaItem,
+  checkMediaPlayback,
+  requestMediaConversion,
+} from 'src/helpers/media-conversion';
 import {
   getSectionAccentColor,
   mixWithWhite,
@@ -1394,8 +1522,9 @@ import {
 } from 'src/helpers/zoom';
 import { isExpectedNetworkPathAccessError } from 'src/shared/filesystem-errors';
 import { log, uuid } from 'src/shared/vanilla';
-import { isFileUrl } from 'src/utils/fs';
+import { getFileSizeIfExists, isFileUrl } from 'src/utils/fs';
 import {
+  describeCodec,
   getFileNameMaskFromPubMediaId,
   isAudio,
   isImage,
@@ -1406,6 +1535,10 @@ import { formatTime, timeToSeconds } from 'src/utils/time';
 import { useCurrentStateStore } from 'stores/current-state';
 import { useDemoModeStore } from 'stores/demo-mode';
 import { useJwStore } from 'stores/jw';
+import {
+  isActiveConversion,
+  useMediaConversionStore,
+} from 'stores/media-conversion';
 import { useObsStateStore } from 'stores/obs-state';
 import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -1626,7 +1759,7 @@ const failedThumbnailUrl = ref('');
 const { basename, dirname, fileUrlToPath, fs, openFileDialog } =
   globalThis.electronApi;
 
-const { pathExists, stat } = fs;
+const { pathExists } = fs;
 const PATH_ACCESS_WARNING_THROTTLE_MS = 30_000;
 
 let lastPathAccessWarningAt = 0;
@@ -2060,14 +2193,12 @@ const notifyPathAccessWarning = () => {
 const fileIsLocal = async () => {
   const filePath = fileUrlToPath(props.media.fileUrl);
   try {
-    const fileExists = await pathExists(filePath);
-    const remoteSizeKnown = props.media.filesize !== undefined;
-    const localSize = fileExists ? (await stat(filePath)).size : 0;
-
-    if (!fileExists) return false;
-    if (!remoteSizeKnown) return true;
-    if (localSize !== props.media.filesize) return false;
-    return true;
+    const localSize = await getFileSizeIfExists(filePath);
+    if (localSize === null) return false;
+    // A remote file of known size is only local once all of it is there.
+    return (
+      props.media.filesize === undefined || localSize === props.media.filesize
+    );
   } catch (error) {
     if (
       isExpectedNetworkPathAccessError(error, filePath, getRendererPlatform())
@@ -2209,6 +2340,14 @@ const updateLocalFile = async () => {
   if (checkId === localFileCheckId) {
     const wasLocal = localFile.value;
     localFile.value = isLocal;
+    // Whether it plays depends on this computer: checked once a session.
+    if (
+      isLocal &&
+      props.media.fileUrl &&
+      (props.media.isVideo || props.media.isAudio)
+    ) {
+      void checkMediaPlayback(props.media.fileUrl, { notify: true });
+    }
     // Catch-all for a file reappearing regardless of how: our own
     // auto-redownload, a manual locateMissingFile relink, or a completely
     // separate flow like dropping a same-named replacement onto the media
@@ -2786,6 +2925,78 @@ const playButtonIcon = computed(() => {
   return localFile.value ? 'mmm-play' : 'mmm-stream-play';
 });
 
+// This item's own download, while there is one (or was, this session).
+const currentDownload = computed(() => {
+  const { fileUrl } = props.media;
+  if (!fileUrl || !isFileUrl(fileUrl)) return undefined;
+  return currentState.downloadsByFilename.get(basename(fileUrlToPath(fileUrl)));
+});
+
+// A file this computer can't play (see helpers/media-conversion), and its
+// conversion into one it can.
+const conversionStore = useMediaConversionStore();
+const playbackProblem = computed(() =>
+  props.media.fileUrl && isFileUrl(props.media.fileUrl)
+    ? conversionStore.problemFor(fileUrlToPath(props.media.fileUrl))
+    : null,
+);
+const conversionJob = computed(() =>
+  conversionStore.jobForItem(props.media.uniqueId),
+);
+const isConverting = computed(() => isActiveConversion(conversionJob.value));
+const canConvert = computed(
+  () =>
+    !!playbackProblem.value &&
+    !isConverting.value &&
+    canConvertMediaItem(props.media),
+);
+// Its picture can't show here: it gets a Convert button instead of Play.
+const needsConversionToPlay = computed(
+  () =>
+    playbackProblem.value?.missing === 'picture' &&
+    canConvertMediaItem(props.media),
+);
+const convertMedia = () => {
+  requestMediaConversion([props.media]);
+};
+const cancelConversion = () => {
+  if (conversionJob.value) void cancelMediaConversion(conversionJob.value.id);
+};
+// Shown over the thumbnail like a download: sloshing until there's a
+// percentage, then filling up, then a moment of green once it plays here.
+const thumbnailProgress = computed<DownloadProgressItem | undefined>(() => {
+  const job = conversionJob.value;
+  if (!job || !(isConverting.value || job.status === 'done')) {
+    return currentDownload.value;
+  }
+  const percent = job.status === 'converting' ? job.percent : null;
+  return {
+    complete: job.status === 'done',
+    filename: job.title,
+    loaded: percent ?? 0,
+    total: percent === null ? 0 : 100,
+  };
+});
+const conversionCaption = computed(() => {
+  const percent = conversionJob.value?.percent;
+  if (conversionJob.value?.status === 'queued') {
+    return t('media-conversion-queued');
+  }
+  return percent === null || percent === undefined
+    ? t('media-converting')
+    : t('media-converting-percent', { percent: Math.floor(percent) });
+});
+
+// The play button pops a little when its file has just finished arriving.
+const playIconJustReady = ref(false);
+const { start: settlePlayIcon } = useTimeoutFn(
+  () => {
+    playIconJustReady.value = false;
+  },
+  600,
+  { immediate: false },
+);
+
 const playButtonTooltip = computed(() => {
   if (isSlideshowLinkedAudio.value) return t('linked-slideshow-audio');
   if (!fileIsAvailable.value && streamIsAvailable.value) {
@@ -3187,6 +3398,12 @@ const mediaElapsed = computed({
   set: (val) => seekTo(val),
 });
 
+watch(playButtonIcon, (icon, previousIcon) => {
+  if (icon !== 'mmm-play' || previousIcon !== 'mmm-stream-play') return;
+  playIconJustReady.value = true;
+  settlePlayIcon();
+});
+
 watch(
   () => [mediaZoom.value, mediaPan.value.x, mediaPan.value.y],
   () => {
@@ -3321,6 +3538,16 @@ watch(
 </script>
 
 <style lang="scss" scoped>
+.media-item__play--ready :deep(.q-icon) {
+  animation: mmm-pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .media-item__play--ready :deep(.q-icon) {
+    animation: none;
+  }
+}
+
 // The tag-type toggle's 3 segments now each carry both an icon and a label,
 // spread to fill the card evenly - without a floor on the card's own width,
 // a longer-locale label (e.g. German "Absatz") has less room to breathe
@@ -3335,6 +3562,12 @@ watch(
 
 .media-filter-current-match {
   animation: media-filter-bounce 360ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .media-filter-current-match {
+    animation: none;
+  }
 }
 
 .media-thumbnail-container,

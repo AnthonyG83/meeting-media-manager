@@ -296,3 +296,54 @@ describe('useTimer custom parts', () => {
     expect(timer.aheadBehindMinutes.value).toBe(2);
   });
 });
+
+describe('useTimer for the timer remote', () => {
+  interface SentPart {
+    current: boolean;
+    done: boolean;
+    minutes: number;
+    next: boolean;
+    value: string;
+  }
+
+  const remoteUpdate = () => {
+    const timerRemoteUpdate = vi.fn();
+    vi.stubGlobal('electronApi', {
+      ...globalThis.electronApi,
+      timerRemoteUpdate,
+    });
+    return timerRemoteUpdate;
+  };
+
+  it("sends the day's parts to the remote, with the done, current and next ones marked", () => {
+    const settings = useCurrentStateStore().currentSettings;
+    if (settings) settings.timerRemoteEnable = true;
+    const timerRemoteUpdate = remoteUpdate();
+    const timer = useTimer();
+
+    timer.selectPart('treasures');
+    timer.stopTimer();
+    timer.selectPart('gems');
+
+    const parts: SentPart[] =
+      timerRemoteUpdate.mock.calls.at(-1)?.[0].timerRemoteParts;
+    expect(parts.find((p) => p.value === 'treasures')).toMatchObject({
+      current: false,
+      done: true,
+      minutes: 10,
+      next: false,
+    });
+    expect(parts.find((p) => p.value === 'gems')).toMatchObject({
+      current: true,
+      done: false,
+    });
+    expect(parts.filter((p) => p.next)).toHaveLength(1);
+    expect(parts.find((p) => p.next)?.value).toBe(timer.nextPart.value?.value);
+  });
+
+  it('sends nothing to the remote while it is off', () => {
+    const timerRemoteUpdate = remoteUpdate();
+    useTimer().startTimer();
+    expect(timerRemoteUpdate).not.toHaveBeenCalled();
+  });
+});

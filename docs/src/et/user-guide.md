@@ -163,7 +163,7 @@ Taimeri hüpikakna nupp **Käetõstmise märguanne** näitab taimeri ekraanil su
 
 #### Taimer tahvelarvutis {#user-guide-timer-remote}
 
-Valikuline [taimeri kaugkuva](/settings-guide#timer-remote) pakub kohalikus võrgus veebilehena taimeri kuva koopiat, mida saab ainult vaadata. Ava taimeri hüpikaknas näidatud aadress kõnepuldi juures oleva tahvelarvuti või telefoni brauseris – nii näeb kõneleja järelejäänud aega privaatselt, kuid kõik juhtnupud jäävad M³-sse.
+Valikuline [taimeri kaugkuva](/settings-guide#timer-remote) pakub kohalikus võrgus veebilehena taimeri kuva koopiat, mida saab ainult vaadata. Ava taimeri hüpikaknas näidatud aadress kõnepuldi juures oleva tahvelarvuti või telefoni brauseris – nii näeb kõneleja järelejäänud aega privaatselt, kuid kõik juhtnupud jäävad M³-sse. Selle valikuline fookusvaade kuvab aega edenemisrõngana ja loetleb selle kõrval Zoomi osalejate nimed, kes on käe tõstnud. Leht hoiab avatud olles ka tahvelarvuti ekraani ärkvel, et see programmi keskel lukku ei läheks.
 
 #### Kiirjuurdepääs {#user-guide-timer-quick-access}
 
@@ -417,6 +417,17 @@ Loo endale sobivad kiirklahvid sujuvaks kasutuseks:
 - Veendu, et keel on JW.org-is saadaval
 - Proovi varukeelt
 - Kontrolli kasutajaliidese keelt
+
+#### Seadete PIN-kood ununes {#user-guide-forgotten-settings-pin}
+
+Seda tohib teha ainult see, kellel on õigus M³-e seadeid muuta. Pärast kolme valet katset pakub M³ valikut **Unustasid PIN-koodi?** igal pool, kus ta PIN-koodi küsib. PIN-koodi eemaldamiseks tee nii:
+
+1. Vali **Unustasid PIN-koodi?** ja jäta M³-s avanev aken avatuks. Selles on näidatud kaust selles arvutis.
+2. Mine arvuti failihalduris sellesse kausta.
+3. Ava tekstifail nimega `M3 settings PIN reset code.txt`, mille M³ just sinna lõi.
+4. Sisesta M³-s selles failis olev kuuekohaline kood ja kinnita.
+
+Seejärel eemaldab M³ PIN-koodi ja kustutab faili. Seadete uuesti kaitsmiseks määra uus PIN-kood jaotises **Seaded** > **Lisavalikud**.
 
 ### Abi ja tugi {#getting-help}
 

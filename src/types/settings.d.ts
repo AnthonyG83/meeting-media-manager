@@ -154,6 +154,7 @@ export interface SettingsItem {
 }
 
 export type SettingsItemAction =
+  | 'newTimerRemotePin'
   | 'obsConnect'
   | 'openCongregationLookup'
   | 'openZoomSetupAssistant'
@@ -179,7 +180,8 @@ export type SettingsItemListKey =
 
 export type SettingsItemOption = 'coTuesdays' | 'futureDate' | 'meetingTime';
 
-export type SettingsItemRule = 'notEmpty' | 'portNumber' | 'regular';
+export type SettingsItemRule =
+  'notEmpty' | 'pinCode' | 'portNumber' | 'regular';
 
 export type SettingsItems = Record<keyof SettingsValues, SettingsItem>;
 
@@ -280,6 +282,7 @@ export interface SettingsValues {
   localDateFormat: string;
   maxRes: MaxRes;
   mediaAutoExportFolder: string;
+  meetingQuickActionsAllowDismiss: boolean;
   meetingQuickActionsCategoriesAfter: MeetingChecklistCategory[];
   meetingQuickActionsCategoriesBefore: MeetingChecklistCategory[];
   meetingQuickActionsChecklistAfter: MeetingChecklistItem[];
@@ -316,6 +319,7 @@ export interface SettingsValues {
   relinkCongregationButton: boolean;
   resetFeatureSuggestions: null;
   reSyncMeetingScheduleButton: boolean;
+  settingsPin: null | string;
   shortcutMediaNext: null | string;
   shortcutMediaPauseResume: null | string;
   shortcutMediaPrevious: null | string;
@@ -340,9 +344,14 @@ export interface SettingsValues {
   timerOvertimeIndicator: boolean;
   timerOvertimeShowAmountOnly: boolean;
   timerOvertimeTextColor: string;
+  timerRemoteAllowControl: boolean;
   timerRemoteEnable: boolean;
+  timerRemoteFocusLayout: boolean;
+  timerRemoteNewPin: null;
+  timerRemotePin: string;
   timerRemotePort: null | string;
   timerShowOnActionIsland: boolean;
+  timerShowPlannedStartTimes: boolean;
   timerTextColor: string;
   timerTextSize: string;
   timerTimeOfDayDisplay: TimerTimeOfDayDisplay;
@@ -352,6 +361,8 @@ export interface SettingsValues {
   zoomAutoFocusMediaWindow: boolean;
   zoomCancelAutomationShortcut: null | string;
   zoomEnable: boolean;
+  /** Zoom's plain Raise hand button, on accounts where reactions are off. */
+  zoomHandButtonTitle: null | string;
   zoomHandRaisedPhrase: null | string;
   zoomJoinAudioTitle: null | string;
   /** Zoom's version when the learned names last passed a check. */
@@ -363,6 +374,7 @@ export interface SettingsValues {
   zoomMeetingManagerAutomatePostMeetingAudioSettings: boolean;
   zoomMeetingManagerEnable: boolean;
   zoomMeetingManagerHandAlert: boolean;
+  zoomMeetingManagerHandAlertNotifyOnly: boolean;
   zoomMeetingManagerMeetingId: null | string;
   zoomMeetingManagerPostMeetingAskToUnmute: boolean;
   /** No value: the setting is the button opening the setup assistant. */

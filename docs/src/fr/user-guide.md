@@ -163,7 +163,7 @@ Dans la fenêtre contextuelle du minuteur, le bouton **Alerte main levée** fait
 
 #### Minuteur sur tablette {#user-guide-timer-remote}
 
-Le [minuteur à distance](/settings-guide#timer-remote), une fonction facultative, diffuse une copie en lecture seule de l'affichage du minuteur sous forme de page web sur votre réseau local. Ouvrez, dans le navigateur d'une tablette ou d'un téléphone placé au pupitre, l'adresse indiquée dans la fenêtre contextuelle du minuteur : l'orateur voit alors le temps restant en toute discrétion, tandis que toutes les commandes restent dans M³.
+Le [minuteur à distance](/settings-guide#timer-remote), une fonction facultative, diffuse une copie en lecture seule de l'affichage du minuteur sous forme de page web sur votre réseau local. Ouvrez, dans le navigateur d'une tablette ou d'un téléphone placé au pupitre, l'adresse indiquée dans la fenêtre contextuelle du minuteur : l'orateur voit alors le temps restant en toute discrétion, tandis que toutes les commandes restent dans M³. Son affichage ciblé facultatif montre le temps dans un anneau de progression, avec les noms des participants Zoom qui ont levé la main listés à côté. La page garde aussi l'écran de la tablette allumé tant qu'elle est ouverte, afin qu'il ne se verrouille pas en pleine partie.
 
 #### Accès rapide {#user-guide-timer-quick-access}
 
@@ -418,6 +418,17 @@ Configurez des raccourcis clavier personnalisés pour une utilisation efficace :
 - Assurez-vous que la langue est disponible sur JW.org
 - Essayez une langue secondaire
 - Vérifiez le paramètre de langue de l'interface
+
+#### Code PIN des paramètres oublié {#user-guide-forgotten-settings-pin}
+
+Seule une personne autorisée à modifier les paramètres de M³ devrait effectuer cette opération. Après trois essais infructueux, M³ propose **Code PIN oublié ?** partout où il demande le code PIN. Pour supprimer le code PIN :
+
+1. Sélectionnez **Code PIN oublié ?** et laissez ouverte la fenêtre qui s'affiche dans M³. Elle indique un dossier sur cet ordinateur.
+2. Dans le gestionnaire de fichiers de votre ordinateur, allez dans ce dossier.
+3. Ouvrez le fichier texte nommé `M3 settings PIN reset code.txt`, que M³ vient d'y créer.
+4. Entrez dans M³ le code à six chiffres indiqué dans ce fichier, puis confirmez.
+
+M³ supprime alors le code PIN et efface le fichier. Pour protéger à nouveau les paramètres, définissez un nouveau code PIN sous **Paramètres** > **Avancé**.
 
 ### Obtenir de l'aide {#getting-help}
 

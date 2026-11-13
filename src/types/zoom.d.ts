@@ -31,6 +31,12 @@ export interface ZoomCommandResult {
   entries?: string[];
   /** A short machine-readable reason, e.g. `meeting-not-found`. */
   error?: string;
+  /**
+   * `learn-hand-raised`: Zoom's plain Raise hand button's name (in the
+   * toolbar or its "More" menu), on accounts where reactions are turned off
+   * and Zoom shows that button instead of its React button.
+   */
+  handButtonTitle?: null | string;
   /** `test-mute-all-entry`: whether the entry picked asked to confirm muting everyone. */
   isMuteAll?: boolean;
   /** `window-layout`: where Zoom's meeting windows are. */
@@ -48,6 +54,8 @@ export interface ZoomCommandResult {
   participants?: ZoomParticipantRow[];
   /** `learn-hand-raised`: how Zoom marks a raised hand, in its language. */
   phrase?: null | string;
+  /** `test-share-picker`: why Zoom's share picker didn't open. */
+  pickerError?: string;
   /** `place-windows`: where each window ended up. */
   placed?: ZoomPlacedWindows;
   /** `set-participant-mic`: whether the button was pressed at all. */
@@ -56,7 +64,10 @@ export interface ZoomCommandResult {
   raisedHands?: string[];
   /** `learn-hand-raised`: the Reactions button's name, when seen. */
   reactButtonTitle?: null | string;
-  /** On failure: what Zoom showed, for error reports (nothing personal). */
+  /**
+   * On failure, and from the `snapshot` command: what Zoom showed, for error
+   * reports (nothing personal).
+   */
   snapshot?: ZoomFailureSnapshot;
   /** `test-stop-share-entry`: whether the entry picked stopped sharing. */
   stopped?: boolean;
@@ -87,9 +98,10 @@ export interface ZoomDiagnosis {
 }
 
 /**
- * What the helper saw in Zoom when an action failed, attached to error
- * reports so breakage in any Zoom version or language can be understood.
- * Zoom's own labels only: no window titles, no participant names.
+ * What the helper saw in Zoom when an action failed (or when asked, with the
+ * `snapshot` command), attached to error reports so breakage in any Zoom
+ * version or language can be understood. Zoom's own labels only: no window
+ * titles, no participant names.
  */
 export interface ZoomFailureSnapshot {
   /**
@@ -287,7 +299,9 @@ export type ZoomTestParticipantAction =
   | 'accept-unmute-requests'
   | 'ignore-unmute-requests'
   | 'leave'
+  | 'lower-hand'
   | 'mute'
+  | 'raise-hand'
   | 'reset-events'
   | 'try-unmute';
 
@@ -295,6 +309,8 @@ export interface ZoomTestParticipantEvent {
   at: number;
   type:
     | 'audio-rejoined'
+    | 'hand-lowered'
+    | 'hand-raised'
     | 'unmute-blocked'
     | 'unmute-request-accepted'
     | 'unmute-requested';
@@ -348,6 +364,15 @@ export interface ZoomWindowState {
 }
 
 type ZoomCommandBody =
+  | {
+      /**
+       * Zoom's plain Raise hand button's name, once learned (accounts without
+       * reactions, where Zoom shows that button instead of React).
+       */
+      handRaiseTitle: null | string;
+      reactButtonTitle: null | string;
+      type: 'learn-hand-raised';
+    }
   | {
       /** The "Ask to unmute" button name once learned. */
       askToUnmuteTitle: null | string;
@@ -407,7 +432,6 @@ type ZoomCommandBody =
       type: 'set-video';
     }
   | { phrase: null | string; type: 'raised-hands' }
-  | { reactButtonTitle: null | string; type: 'learn-hand-raised' }
   | { reveal?: boolean; type: 'meeting' }
   | {
       shareButtonTitle: null | string;
@@ -436,6 +460,7 @@ type ZoomCommandBody =
   | { type: 'share-entries' }
   | { type: 'share-participants' }
   | { type: 'share-toolbar-entries' }
+  | { type: 'snapshot' }
   | { type: 'stop-share' }
   | { type: 'toggle-video' }
   | { type: 'video-title' }

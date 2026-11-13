@@ -49,6 +49,7 @@ import {
   getThumbnailUrl,
   registerMediaProviders,
 } from 'src/helpers/fs';
+import { findWatchedConversion } from 'src/helpers/media-conversion';
 import { createTemporaryNotification } from 'src/helpers/notifications';
 import { LAST_USED_FILENAME, updateLastUsedDate } from 'src/helpers/usage';
 import {
@@ -461,6 +462,18 @@ const isPermissionError = (error: unknown) => {
 };
 
 /**
+ * A `.jwlplaylist` read from a live cloud-sync folder (Dropbox, OneDrive)
+ * can race the sync client: the watcher fires while the file is still
+ * being written, so yauzl sees a truncated zip (MMM-V2-3F9). The next
+ * watcher tick re-reads the completed file, so this is transient - not a
+ * corrupt playlist and not worth a Sentry report or an error toast.
+ */
+const isTruncatedZipError = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  return /end of central directory|truncated|not a zip file/i.test(message);
+};
+
+/**
  * Stops using the custom cache folder for the rest of the session when a
  * real read/write against it just failed with a permission error.
  */
@@ -846,6 +859,15 @@ const getMediaFromJwPlaylist = async (
     );
     return mappedPlaylistMediaItems;
   } catch (error) {
+    if (isTruncatedZipError(error)) {
+      log(
+        `Playlist file still syncing, will retry on next watch tick: ${jwPlaylistPath}`,
+        'watchedFolder',
+        'warn',
+        error,
+      );
+      return [];
+    }
     errorCatcher(error, {
       contexts: {
         fn: {
@@ -991,6 +1013,39 @@ export async function identifyJwpub(jwpubPath: string) {
   }
 }
 
+const unzipContentsFromJwpub = async (
+  jwpubPath: string,
+  outputPath: string,
+) => {
+  try {
+    await unzip(jwpubPath, outputPath, {
+      includes: ['contents'],
+    });
+  } catch (error) {
+    warnCloudJwpubUnavailable(jwpubPath, error);
+    invalidateCacheOnPermissionError(error);
+    // If unzipping the JWPUB fails, it's likely corrupted.
+    // Remove it to force a re-download on next attempt unless cloud storage may still
+    // be hydrating the file, or the folder is just temporarily inaccessible.
+    if (isCloudStorageReadError(error) || isPermissionError(error)) throw error;
+
+    await remove(jwpubPath).catch((removeError) =>
+      errorCatcher(removeError, {
+        contexts: {
+          fn: {
+            args: {
+              jwpubPath,
+              outputPath,
+            },
+            name: 'jwpubExtractor remove corrupt jwpub',
+          },
+        },
+      }),
+    );
+    throw error;
+  }
+};
+
 const extractContentsFromJwpub = async (
   jwpubPath: string,
   outputPath: string,
@@ -1042,34 +1097,7 @@ const extractContentsFromJwpub = async (
         'warn',
       );
     }
-    try {
-      await unzip(jwpubPath, outputPath, {
-        includes: ['contents'],
-      });
-    } catch (error) {
-      warnCloudJwpubUnavailable(jwpubPath, error);
-      invalidateCacheOnPermissionError(error);
-      // If unzipping the JWPUB fails, it's likely corrupted.
-      // Remove it to force a re-download on next attempt unless cloud storage may still
-      // be hydrating the file, or the folder is just temporarily inaccessible.
-      if (isCloudStorageReadError(error) || isPermissionError(error))
-        throw error;
-
-      await remove(jwpubPath).catch((removeError) =>
-        errorCatcher(removeError, {
-          contexts: {
-            fn: {
-              args: {
-                jwpubPath,
-                outputPath,
-              },
-              name: 'jwpubExtractor remove corrupt jwpub',
-            },
-          },
-        }),
-      );
-      throw error;
-    }
+    await unzipContentsFromJwpub(jwpubPath, outputPath);
   }
 };
 
@@ -1086,6 +1114,36 @@ const findDbEntry = (contentsEntries: Record<string, number>) => {
   return { expectedDbName: '', expectedDbSize: 0 };
 };
 
+/**
+ * Reads the entries of the extracted 'contents' zip. The size check in
+ * extractContentsFromJwpub can't tell a damaged 'contents' file of the right
+ * size apart from a good one (MMM-V2-3ND), so when the file isn't a readable
+ * zip, it is removed and re-extracted once from the parent JWPUB before giving up.
+ */
+const readContentsEntries = async (
+  contentsPath: string,
+  jwpubPath: string,
+  outputPath: string,
+) => {
+  try {
+    return await getZipEntries(contentsPath);
+  } catch (error) {
+    // Cloud placeholders and permission errors mean the file is temporarily
+    // inaccessible, not corrupt - don't delete or re-extract it.
+    if (isCloudStorageReadError(error) || isPermissionError(error)) throw error;
+
+    log(
+      `[jwpubExtractor] Extracted contents at ${contentsPath} is not a readable zip. Re-extracting it from ${jwpubPath}.`,
+      'mediaPlayback',
+      'warn',
+      error,
+    );
+    await remove(contentsPath);
+    await unzipContentsFromJwpub(jwpubPath, outputPath);
+    return await getZipEntries(contentsPath);
+  }
+};
+
 const extractDbFromContents = async (outputPath: string, jwpubPath: string) => {
   // Then, extract 'contents' into the output directory if needed
   // We check if the database exists and has the correct size to determine if we need to unzip
@@ -1094,7 +1152,11 @@ const extractDbFromContents = async (outputPath: string, jwpubPath: string) => {
   let contentsEntries: Record<string, number>;
 
   try {
-    contentsEntries = await getZipEntries(contentsPath);
+    contentsEntries = await readContentsEntries(
+      contentsPath,
+      jwpubPath,
+      outputPath,
+    );
   } catch (error) {
     await reportContentsExtractionError(
       error,
@@ -3861,11 +3923,17 @@ export const watchedItemMapper: (
 
     const dateString = parentDate.replaceAll('-', '');
 
-    const fileUrl = pathToFileURL(watchedItemPath);
-
     const video = isVideo(watchedItemPath);
     const audio = isAudio(watchedItemPath);
     const image = isImage(watchedItemPath);
+
+    // A file this computer can't play plays its converted copy, if it was
+    // converted here; the item stays the watched file's (its id, title and
+    // place in the list).
+    const playablePath =
+      ((video || audio) && (await findWatchedConversion(watchedItemPath))) ||
+      watchedItemPath;
+    const fileUrl = pathToFileURL(playablePath);
 
     if (!(video || audio || image)) {
       if (isJwPlaylist(watchedItemPath)) {
@@ -3887,9 +3955,9 @@ export const watchedItemMapper: (
     const title = metadata?.common.title || basename(watchedItemPath); // NOSONAR: empty title uses the file name
 
     const uniqueId = sanitizeId(
-      formatDate(parentDate, 'YYYYMMDD') + '-' + fileUrl,
+      formatDate(parentDate, 'YYYYMMDD') + '-' + pathToFileURL(watchedItemPath),
     );
-    const thumbnailUrl = await getThumbnailUrl(watchedItemPath);
+    const thumbnailUrl = await getThumbnailUrl(playablePath);
 
     // Parse section information and order from filename or section order file
     const filename = basename(watchedItemPath);
