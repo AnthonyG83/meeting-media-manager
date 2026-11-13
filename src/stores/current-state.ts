@@ -1,5 +1,6 @@
 import type {
   DateInfo,
+  DownloadProgressItem,
   DownloadProgressItems,
   JwLanguage,
   JwSite,
@@ -25,6 +26,7 @@ import { getRendererPlatform } from 'src/helpers/fs';
 import { dismissAllTemporaryNotifications } from 'src/helpers/notifications';
 import { log } from 'src/shared/vanilla';
 import { datesAreSame, formatDate } from 'src/utils/date';
+import { downloadsByFilename } from 'src/utils/download-progress';
 import {
   getAdditionalMediaPath,
   getCachedUserDataPath,
@@ -132,6 +134,10 @@ interface Store {
   pendingSectionImports: MediaSectionIdentifier[];
   pinyinActive: boolean;
   selectedDate: string;
+  /** Wrong settings PINs entered per profile, since M³ started. */
+  settingsPinFailedAttempts: Record<string, number>;
+  /** The settings PIN was entered; never persisted, so it locks on restart. */
+  settingsUnlocked: boolean;
   /** Where the timer remote page can be opened, while it's served. */
   timerRemoteUrls: string[];
   timerWindowVisible: boolean;
@@ -343,6 +349,24 @@ export const useCurrentStateStore = defineStore('current-state', {
     setCongregation: async function (value: number | string) {
       if (!value) return false;
 
+      // FE-17 (full-audit-2026-09-05.md): captured locally rather than
+      // re-read from this.currentCongregation after the await below - a
+      // second overlapping setCongregation call (e.g. a rapid double
+      // switch) can reassign currentCongregation in between, which would
+      // otherwise make this call resolve invalid-settings for whichever
+      // congregation happens to be current when it wakes up, not the one
+      // it was actually asked to switch to.
+      const newCongregation = value.toString();
+
+      // Picking the profile that's already active changes nothing, and
+      // nothing would refetch its media: MediaCalendarPage stays mounted
+      // and only refetches when currentCongregation changes. Resetting
+      // anyway cancelled its downloads and left mediaRefreshPending set
+      // for good, so every meeting day showed a loading skeleton.
+      if (newCongregation === this.currentCongregation) {
+        return this.getInvalidSettings(newCongregation).length > 0;
+      }
+
       // Cancel all pending downloads from the previous congregation
       cancelAllDownloads();
       this.downloadProgress = {};
@@ -361,14 +385,6 @@ export const useCurrentStateStore = defineStore('current-state', {
       // Dismiss all active notifications when changing congregation
       dismissAllTemporaryNotifications();
 
-      // FE-17 (full-audit-2026-09-05.md): captured locally rather than
-      // re-read from this.currentCongregation after the await below - a
-      // second overlapping setCongregation call (e.g. a rapid double
-      // switch) can reassign currentCongregation in between, which would
-      // otherwise make this call resolve invalid-settings for whichever
-      // congregation happens to be current when it wakes up, not the one
-      // it was actually asked to switch to.
-      const newCongregation = value.toString();
       this.currentCongregation = newCongregation;
       await getCachedUserDataPath();
 
@@ -484,13 +500,13 @@ export const useCurrentStateStore = defineStore('current-state', {
 
       return count;
     },
-
     currentLangObject(): JwLanguage | undefined {
       const jwStore = useJwStore();
       return jwStore.jwLanguages.list.find(
         (l) => l.langcode === this.currentSettings?.lang,
       );
     },
+
     currentSettings: (state) => {
       const congregationSettingsStore = useCongregationSettingsStore();
       return Object.keys(congregationSettingsStore.congregations).length > 0
@@ -532,6 +548,12 @@ export const useCurrentStateStore = defineStore('current-state', {
       const currentLanguage = this.currentSettings?.lang;
       if (!currentLanguage) return [];
       return jwStore.jwSongs[currentLanguage]?.list || [];
+    },
+    // How a media item finds its own download (see downloadsByFilename).
+    // Only rebuilt when a download starts, ends or fails: the bytes that
+    // arrive in between don't change which download is which.
+    downloadsByFilename(): Map<string, DownloadProgressItem> {
+      return downloadsByFilename(Object.values(this.downloadProgress));
     },
     // Extracted so BE-8's periodic low-disk-space check (MainLayout.vue) can
     // gate on "downloads specifically" without also polling while only a
@@ -637,6 +659,9 @@ export const useCurrentStateStore = defineStore('current-state', {
         return null;
       }
     },
+    settingsLocked(): boolean {
+      return !!this.currentSettings?.settingsPin && !this.settingsUnlocked;
+    },
     someItemsHiddenForSelectedDate(): boolean {
       if (!this.selectedDateObject?.mediaSections) return false;
 
@@ -706,6 +731,8 @@ export const useCurrentStateStore = defineStore('current-state', {
       pendingSectionImports: [],
       pinyinActive: false,
       selectedDate: formatDate(new Date(), 'YYYY/MM/DD'),
+      settingsPinFailedAttempts: {},
+      settingsUnlocked: false,
       timerRemoteUrls: [],
       timerWindowVisible: false,
       websiteSelection: undefined,

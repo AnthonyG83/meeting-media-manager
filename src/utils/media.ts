@@ -1,5 +1,10 @@
 import type { IAudioMetadata } from 'music-metadata';
-import type { DateInfo, MediaItem, MultimediaItem } from 'src/types';
+import type {
+  DateInfo,
+  MediaItem,
+  MultimediaItem,
+  PlaybackProblem,
+} from 'src/types';
 
 import {
   AUDIO_EXTENSIONS,
@@ -9,6 +14,8 @@ import {
   PDF_EXTENSIONS,
   PURE_IMG_EXTENSIONS,
   SVG_EXTENSIONS,
+  UNPLAYABLE_AUDIO_CODEC_PATTERN,
+  UNPLAYABLE_VIDEO_CONTAINERS,
   VIDEO_EXTENSIONS,
   ZIP_EXTENSIONS,
 } from 'src/constants/media';
@@ -414,6 +421,39 @@ const isTruncatedMediaError = (error: unknown) => {
 };
 
 /**
+ * Whether a media element failed in its (hardware) video decoder rather
+ * than on the file: Chromium reports MEDIA_ERR_DECODE (code 3) as
+ * PIPELINE_ERROR_DISCONNECTED when the decoder drops mid-playback, or
+ * PIPELINE_ERROR_DECODE for a stream it chokes on (MMM-V2-3MH). The file
+ * played fine up to that point, so disabling hardware acceleration
+ * (software decoding) is what helps - not re-downloading the file.
+ *
+ * Not DECODER_ERROR_NOT_SUPPORTED: this machine has no decoder for the
+ * format at all, such as HEVC on a graphics card that can't decode it
+ * (MMM-V2-3NV). Chromium only decodes HEVC in hardware, so disabling
+ * hardware acceleration would take away the only decoder there is.
+ */
+export const isGpuDecodeError = (
+  error: null | undefined | { code?: number; message?: string },
+) => {
+  if (!error) return false;
+  if (isNoDecoderError(error)) return false;
+  return (
+    error.code === 3 ||
+    /decode|pipeline_error_disconnected/i.test(error.message ?? '')
+  );
+};
+
+/**
+ * Whether a media element failed because this computer has no decoder for
+ * the file's format (DECODER_ERROR_NOT_SUPPORTED), such as HEVC on a graphics
+ * card that can't decode it (MMM-V2-3NV): converting the file is what helps.
+ */
+export const isNoDecoderError = (
+  error: null | undefined | { message?: string },
+) => /decoder_error_not_supported/i.test(error?.message ?? '');
+
+/**
  * How long a hidden media element may take to read what's needed from a
  * file (its duration, or a frame for its thumbnail) before that's given up
  * on. A file that never loads and never errors - a cloud placeholder that
@@ -463,6 +503,184 @@ export const withMediaElementTimeout = async <T>(
   } finally {
     clearTimeout(timer);
   }
+};
+
+/**
+ * Whether Chromium can show a picture for a file that has a video track. With
+ * no decoder for that track it either drops it and carries on without an
+ * error event, leaving videoWidth at 0, or fails with
+ * DECODER_ERROR_NOT_SUPPORTED when it has a decoder that can't take this
+ * stream (MMM-V2-3NV). Checked on the element rather than against a list of
+ * codecs because the answer depends on the machine: HEVC only decodes in
+ * hardware.
+ * @param filepath The path to the video file.
+ * @returns 'unknown' for a file that won't load for any other reason.
+ */
+const checkPicture = async (filepath: string) => {
+  const video = document.createElement('video');
+  const loading = new Promise<'missing' | 'ok' | 'unknown'>((resolve) => {
+    video.onloadedmetadata = () =>
+      resolve(video.videoWidth > 0 ? 'ok' : 'missing');
+    // A file that won't load for another reason is reported by the
+    // thumbnail step.
+    video.onerror = () =>
+      resolve(isNoDecoderError(video.error) ? 'missing' : 'unknown');
+  });
+  video.preload = 'metadata';
+  video.src = pathToFileURL(filepath);
+  video.load();
+  try {
+    return await withMediaElementTimeout(loading, video, filepath);
+  } finally {
+    video.onerror = null;
+    video.onloadedmetadata = null;
+    video.removeAttribute('src');
+    video.load();
+  }
+};
+
+// A fixed locale, so the fingerprint is the same on every machine.
+const joinCodecNames = (codecNames: string[]) =>
+  [...new Set(codecNames)]
+    .toSorted((a, b) => a.localeCompare(b, 'en'))
+    .join('+');
+
+const reportUnplayableTrack = (
+  filepath: string,
+  missing: 'picture' | 'sound',
+  codecNames: string[],
+) => {
+  const codec = joinCodecNames(codecNames);
+  const extension = parse(filepath).ext.toLowerCase().slice(1);
+  // No file name: this only counts how often each combination turns up.
+  errorCatcher(
+    new Error(`Imported .${extension} has no ${missing}: ${codec}`),
+    {
+      contexts: {
+        fn: { codec, extension, missing, name: 'reportUnplayableMediaTracks' },
+      },
+      fingerprint: ['media-unplayable-track', missing, extension, codec],
+      level: 'warning',
+      tags: {
+        'media.codec': codec,
+        'media.extension': extension,
+        'media.missing': missing,
+      },
+    },
+  );
+};
+
+/**
+ * The codecs of the tracks this computer can't play: its picture, if it has
+ * one that won't show, and its sound, if none of its sound tracks plays (one
+ * playable language is enough).
+ */
+const findUnplayableTracks = async (
+  filepath: string,
+): Promise<{ picture?: string[]; sound?: string[] }> => {
+  const extension = parse(filepath).ext.toLowerCase().slice(1);
+  // Chromium won't open the container, and the parser can't read it either.
+  if (UNPLAYABLE_VIDEO_CONTAINERS.includes(extension)) {
+    return { picture: [extension.toUpperCase()] };
+  }
+
+  const { trackInfo } = (await parseMediaFile(filepath, { skipCovers: true }))
+    .format;
+  const found: { picture?: string[]; sound?: string[] } = {};
+
+  const audioCodecs = trackInfo
+    .filter((track) => track.audio)
+    .map((track) => track.codecName ?? 'unknown');
+  if (
+    audioCodecs.length &&
+    audioCodecs.every((codec) => UNPLAYABLE_AUDIO_CODEC_PATTERN.test(codec))
+  ) {
+    found.sound = audioCodecs;
+  }
+
+  const videoCodecs = trackInfo
+    .filter((track) => track.video)
+    .map((track) => track.codecName ?? 'unknown');
+  if (videoCodecs.length && (await checkPicture(filepath)) === 'missing') {
+    found.picture = videoCodecs;
+  }
+  return found;
+};
+
+/**
+ * What keeps an audio or video file from playing on this computer: Chromium
+ * accepts these files but plays them without a picture or without sound,
+ * with no error to show for it. Null when nothing does, or when it can't be
+ * told (a file that won't load at all is reported by the thumbnail step).
+ * Never throws.
+ * @param filepath The path to the file.
+ * @param options.report Also tell Sentry, without the file name, so it
+ * shows how often each extension/codec combination occurs.
+ */
+export const findPlaybackProblem = async (
+  filepath: string,
+  { report = false } = {},
+): Promise<null | PlaybackProblem> => {
+  try {
+    const { picture, sound } = await findUnplayableTracks(filepath);
+    if (report) {
+      if (sound) reportUnplayableTrack(filepath, 'sound', sound);
+      if (picture) reportUnplayableTrack(filepath, 'picture', picture);
+    }
+    // Converting for the picture converts the sound too.
+    if (picture) return { codec: joinCodecNames(picture), missing: 'picture' };
+    if (sound) return { codec: joinCodecNames(sound), missing: 'sound' };
+    return null;
+  } catch (error) {
+    // A file the parser can't read is reported by getMetadataFromMediaPath.
+    log('Could not check media tracks', 'mediaProcessing', 'warn', error);
+    return null;
+  }
+};
+
+// What music-metadata calls a codec (often an MP4 four-character code), as
+// people know it. E-AC-3 before AC-3, which it contains.
+const CODEC_NAMES: [RegExp, string][] = [
+  [/^<?(?:hvc1|hev1)>?$|hevc|h\.?265/i, 'HEVC (H.265)'],
+  [
+    /^<?(?:mp4v|xvid|divx|dx50)>?$|mpeg-?4 ?(?:part ?2|visual)/i,
+    'MPEG-4 Part 2',
+  ],
+  [/^<?(?:apch|apcn|apcs|apco|ap4h|ap4x)>?$|prores/i, 'ProRes'],
+  [/^<?(?:mjpa|mjpb|jpeg)>?$|mjpe?g/i, 'Motion JPEG'],
+  [/e-?ac-?3|ec-?3/i, 'E-AC-3'],
+  [/ac-?3/i, 'AC-3'],
+  [/dts/i, 'DTS'],
+  [/alac/i, 'ALAC'],
+  [/adpcm/i, 'ADPCM'],
+];
+
+/**
+ * A PlaybackProblem's codec as people know it ("HEVC (H.265)", not "<hvc1>"),
+ * or '' when it isn't known.
+ */
+export const describeCodec = (codec: string) =>
+  [
+    ...new Set(
+      codec
+        .split('+')
+        .filter((name) => name && name !== 'unknown')
+        .map(
+          (name) =>
+            CODEC_NAMES.find(([pattern]) => pattern.test(name))?.[1] ??
+            name.replace(/^<(.+)>$/, '$1'),
+        ),
+    ),
+  ].join(', ');
+
+/**
+ * Reports an imported file that Chromium will accept but can't fully play
+ * (see findPlaybackProblem). Purely diagnostic: never throws, and is safe to
+ * leave running in the background.
+ * @param filepath The path to the imported audio or video file.
+ */
+export const reportUnplayableMediaTracks = async (filepath: string) => {
+  await findPlaybackProblem(filepath, { report: true });
 };
 
 /**
@@ -517,7 +735,7 @@ export const getMetadataFromMediaPath = async (
           video.remove();
           resolve();
         };
-        video.onerror = (event) => {
+        video.onerror = () => {
           video.remove();
           const rejectionError = new Error(
             `Failed to load video: ${mediaPath}`,
@@ -525,7 +743,10 @@ export const getMetadataFromMediaPath = async (
           errorCatcher(rejectionError, {
             contexts: {
               fn: {
-                event: JSON.stringify(event, Object.getOwnPropertyNames(event)),
+                // The 'error' event itself is empty ({"isTrusted":true}):
+                // Chromium's reason is on the element's own MediaError.
+                code: video.error?.code,
+                mediaError: video.error?.message,
                 mediaPath,
                 name: 'getMetadataFromMediaPath',
               },
@@ -540,6 +761,15 @@ export const getMetadataFromMediaPath = async (
     return metadata;
   } catch (error) {
     if (error instanceof Event || isTruncatedMediaError(error)) {
+      return defaultMetadata;
+    }
+    // The video element's own onerror handler above already reported this
+    // failure with the MediaError attached (MMM-V2-3N6) - reporting the
+    // same error again here would only file a duplicate.
+    if (
+      error instanceof Error &&
+      error.message.startsWith('Failed to load video:')
+    ) {
       return defaultMetadata;
     }
     // Environmental (a file that never loads), not a bug: no report.

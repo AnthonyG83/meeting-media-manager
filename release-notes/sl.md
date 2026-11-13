@@ -8,6 +8,25 @@ Za celoten seznam sprememb med različicami si oglejte našo datoteko CHANGELOG.
 
 ### ✨ Nove funkcije
 
+- ✨ **Multimedija, ki je tvoj računalnik ne more predvajati**: Nekateri videoposnetki se na določenih računalnikih predvajajo brez slike ali brez zvoka: videoposnetek HEVC na grafični kartici, ki ga ne zna dekodirati, star videoposnetek AVI ali MPEG-4 ali film z zvokom AC-3 ali DTS. M³ te zdaj opozori takoj, ko najde takšen videoposnetek, in sicer pri multimedijski datoteki in v obvestilu, plošča pred shodom pa te na to spomni, tako da lahko težavo odpraviš pravočasno, še preden ga potrebuješ. Za takšen videoposnetek tudi ne predlaga več, da onemogočiš strojno pospeševanje, kar bi stanje le še poslabšalo. »Pretvori« ustvari kopijo, ki jo je mogoče predvajati na vsakem računalniku, in pri tem po možnosti uporabi tvojo grafično kartico, da M³ in shod tečeta gladko. Napredek je prikazan pri multimedijski datoteki in v pojavnem oknu za sinhronizacijo multimedijske vsebine, kjer lahko pretvorbo tudi prekličeš. Uvoženo datoteko nadomesti njena pretvorjena kopija; datoteka iz mape v skupni rabi ostane nespremenjena, M³ pa predvaja pretvorjeno kopijo, shranjeno na tem računalniku.
+
+## v26.11.2
+
+### ✨ Nove funkcije
+
+- ✨ **Koda PIN za nastavitve**: Nastavitve profila je zdaj mogoče zaščititi s kodo PIN, da se po nesreči ne bi nič spremenilo. Nastaviš jo lahko v Nastavitve > Napredno. Potrebna je tudi za brisanje profila. Če jo kdo pozabi, jo lahko nekdo, ki ima dovoljenje za spreminjanje nastavitev, odstrani po korakih iz uporabniškega priročnika.
+
+## v26.11.0
+
+### ✨ Nove funkcije
+
+- ✨ **Oddaljeni časovnik**: Stran s časovnikom za tablico na govorniškem pultu ima izbirni osrednji prikaz, ki ga vklopiš v Nastavitvah. Čas prikazuje v velikem krogu napredka, ki v zadnji minuti postane rumen, nato pa rdeč s časom prekoračitve (+02:18), ob njem pa našteje udeležence Zooma, ki so dvignili roko, po vrstnem redu, kot so jo dvignili: prve štiri po imenu, ostale pa s štvilko. Vsaka nova roka za tri sekunde utripne »Roka dvignjena«, seznam pa se posodablja, ko se roke dvigujejo in spuščajo. Trenutni prikaz ostane privzeti.
+- ✨ **Upravljalnik Zoom shodov (beta, Windows)**: Dvignjene roke je zdaj mogoče samo spremljati, brez upravljanja udeležencev. Ko je vključena možnost »Samo obvesti me o dvignjenih rokah« (v nastavitvah pod pomočnikom za dvignjene roke), M³ še vedno zazna, kdo je dvignil roko, v svojih obvestilih in na prikazu časovnika za predsedujočega, vendar ne prikaže gumbov za vklop mikrofona udeležencu ali za spuščanje njegove roke; to mora narediti avdio/video operater v Zoomu. To je koristno tam, kjer Zoom ne prikazuje kontrolnikov za udeležence, ki jih potrebuje M³, ali kjer želi operater sam ohraniti nadzor.
+
+## v26.10.2
+
+### ✨ Nove funkcije
+
 - ✨ **Predlogi funkcij**: M³ občasno predlaga funkcijo, ki je profil še ne uporablja, v kratkem oknu »Ali veš?«, ki pojasni, kaj funkcija počne. Ob vsakem odprtju profila pokaže največ en predlog, nikoli od 15 minut pred shodom do njegovega konca, in si zapomni vsak odgovor: »Opomni me kasneje« predlog premakne na konec vrste, »Ne, hvala« ga trajno skrije, »Ne predlagaj več funkcij« pa za ta profil izklopi vse predloge. Upošteva se tudi odgovor »Ne« v čarovniku za nastavitev, odgovore pa lahko ponastaviš v Nastavitvah, v razdelku Napredno.
 - ✨ **Upravitelj Zoom shoda (beta, Windows)**: M³ lahko zdaj na tvojih zaslonih razporedi svoje okno in okno Zoom shoda. Dva nova koraka v Zoomovem pomočniku za nastavitev vprašata, kam naj gre Zoom shod. Na zemljevidu svojih zaslonov izbereš zaslon za Zoom (nikoli tistega, ki ga zapolnjuje multimedijsko okno) in ali je Zoom na njem sam ali si ga deli z M³. Nato na risbi tega zaslona v njegovi resnični obliki povlečeš ločilnik, da zaslon razdeliš med obe okni; ločilnik se zaskoči pri običajnih razmerjih. Takoj ko se shod odpre, M³ odpre Zoomov seznam udeležencev, če si to želel, nato obe okni postavi na njuno mesto in od takrat drži Zoom tam: ko Zoom sam od sebe premakne svoje okno ali mu spremeni velikost (po deljenju zaslona ali ko se njegov seznam udeležencev odpre ali zapre), ga M³ vrne na mesto, okno, ki ga premakneš sam, pa ostane tam, kamor si ga postavil, do naslednjega shoda. Vsakič ko M³ sam od sebe premakne Zoom, te o tem obvesti obvestilo, ki ti omogoča, da to takoj ustaviš, do ponovnega zagona M³ ali za vedno. Medtem ko Zoom deli multimedijsko okno, kar skrije okno Zoom shoda, M³ na njegovem mestu odpre Zoomov seznam udeležencev, da še naprej vidiš, kdo dviguje roko za komentar. Ko je v Zoomu nastavitev »Meeting window view« nastavljena na »Dual window« (v starejših različicah Zooma »Use dual monitors«), se drugo okno Zooma prikaže čez cel zaslon za multimedijskim oknom, zato ga vidiš, ko skriješ multimedijsko okno. M³ lahko obe okni tudi pripne drugo ob drugo z Windowsovim lastnim pripenjanjem, tako da vlečenje meje med njima spremeni velikost obeh. Gumb »Razporedi okna« v Zoomovem pojavnem oknu kadar koli vse vrne na mesto, postavitev pa lahko pozneje spremeniš v Nastavitvah, pod Upravitelj Zoom shoda. Shranjena je za vsak računalnik posebej, saj je odvisna od njegovih zaslonov.
 

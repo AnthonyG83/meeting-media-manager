@@ -153,6 +153,21 @@ export const getCachedUserDataPath = async (): Promise<string> => {
 
 export const isFileUrl = (path?: string) => path?.startsWith('file://');
 
+/**
+ * The size of the file at `path`, or null when there's nothing there. One
+ * stat, not an existence check and then a stat: a file removed in between
+ * (a cache clean-up, a sync client, antivirus) made that stat fail with
+ * ENOENT (MMM-V2-3NT). Any other error is thrown.
+ */
+export const getFileSizeIfExists = async (path: string) => {
+  try {
+    return (await fs.stat(path)).size;
+  } catch (error) {
+    if (getFilesystemErrorCode(error) === 'ENOENT') return null;
+    throw error;
+  }
+};
+
 // Paths
 
 const PUBLICATION_FOLDER = 'Publications';
@@ -245,6 +260,12 @@ export const getTempPath = () =>
   getCachePath('Temp', true, { bypassCustomPath: true });
 export const getPublicationsPath = () =>
   getCachePath(PUBLICATION_FOLDER, false);
+// Converted copies of watched-folder files this computer can't play, in a
+// folder per meeting date (cleaned up like the watched folder's own). Kept on
+// this computer: another one may play the originals, so syncing them through
+// a custom cache folder would only spread them around.
+export const getConvertedMediaPath = () =>
+  getCachePath('Converted Media', true, { bypassCustomPath: true });
 export const getAdditionalMediaPath = () =>
   getCachePath('Additional Media', false);
 

@@ -1,6 +1,6 @@
 <template>
   <q-btn
-    class="super-rounded"
+    class="download-status liquid-host super-rounded"
     :class="classes"
     :color="color"
     rounded
@@ -8,11 +8,22 @@
     unelevated
     @click="downloadPopup = !downloadPopup"
   >
-    <q-spinner v-if="busy" size="sm" />
-    <q-icon
-      v-else
-      :name="someHaveError ? 'mmm-cloud-error' : 'mmm-cloud-done'"
-    />
+    <!-- While the meeting dates are checked, the button's liquid sloshes;
+         downloads with a known size then fill it like a glass, and so do
+         files being converted to play on this computer, when nothing is
+         downloading. When it's all done, it fills up and turns green for a
+         moment, then fades. -->
+    <IslandButtonLiquid
+      :done="isFinished"
+      :open="downloadPopup"
+      :percent="showsConversion ? (conversionPercent ?? 0) : batchPercent"
+      :restart-key="batchNumber"
+      :showing="showsLiquid"
+      :sloshing="showsConversion ? conversionPercent === null : !batchIsActive"
+    >
+      <q-icon :class="{ 'mmm-pop-in': isFinished }" :name="iconName" />
+    </IslandButtonLiquid>
+    <q-icon :class="{ 'mmm-pop-in': isFinished }" :name="iconName" />
     <q-tooltip
       v-if="!downloadPopup"
       anchor="bottom left"
@@ -29,16 +40,21 @@
 <script setup lang="ts">
 import type { DownloadProgressItem } from 'src/types';
 
-import { useIntervalFn } from '@vueuse/core';
+import { useIntervalFn, useTimeoutFn } from '@vueuse/core';
+import IslandButtonLiquid from 'components/ui/IslandButtonLiquid.vue';
 import { storeToRefs } from 'pinia';
+import { useDownloadBatch } from 'src/composables/useDownloadBatch';
 import {
   type IslandButtonStatus,
   useIslandButton,
 } from 'src/composables/useIslandButton';
+import { useMotionMode } from 'src/composables/useMotionMode';
 import { errorCatcher } from 'src/helpers/error-catcher';
 import { getDateDiff } from 'src/utils/date';
+import { LIQUID_DONE_HOLD_MS } from 'src/utils/liquid-motion';
 import { useCurrentStateStore } from 'stores/current-state';
-import { computed, onMounted } from 'vue';
+import { useMediaConversionStore } from 'stores/media-conversion';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const { isOnline } = globalThis.electronApi;
@@ -81,7 +97,13 @@ const someHaveError = computed(() => {
   );
 });
 
-const someAreLoading = computed(() => currentState.hasActiveMediaWork);
+const conversionStore = useMediaConversionStore();
+const { isBusy: isConverting, percent: conversionPercent } =
+  storeToRefs(conversionStore);
+
+const someAreLoading = computed(
+  () => currentState.hasActiveMediaWork || isConverting.value,
+);
 
 const failedCount = computed(
   () =>
@@ -103,11 +125,58 @@ const statusLine = computed(() => {
     return t('n-items-failed', failedCount.value);
   }
   if (status.value === 'attention') return t('download-status-offline');
+  const converting = conversionStore.activeJobs.length;
+  if (converting)
+    return t('converting-files', { count: converting }, converting);
   return '';
 });
 
-const { busy, classes, color, textColor } = useIslandButton(
-  status,
-  downloadPopup,
+const { classes, color, textColor } = useIslandButton(status, downloadPopup);
+
+const {
+  batchNumber,
+  isActive: batchIsActive,
+  isFinished: batchFinished,
+  percent: batchPercent,
+} = useDownloadBatch();
+
+// Checking the meeting dates finishes too when there was nothing new to
+// download: the button fills up and turns green for a moment, as it does
+// after a batch of downloads, instead of its sloshing just vanishing.
+const motion = useMotionMode();
+const checkFinished = ref(false);
+const { start: holdCheckFinished, stop: stopHoldingCheck } = useTimeoutFn(
+  () => {
+    checkFinished.value = false;
+  },
+  LIQUID_DONE_HOLD_MS,
+  { immediate: false },
 );
+
+const isFinished = computed(() => batchFinished.value || checkFinished.value);
+// Downloads have the liquid while there are any.
+const showsConversion = computed(
+  () => isConverting.value && !batchIsActive.value,
+);
+const showsLiquid = computed(() => status.value === 'busy' || isFinished.value);
+
+const iconName = computed(() => {
+  if (someHaveError.value) return 'mmm-cloud-error';
+  return showsLiquid.value && !isFinished.value
+    ? 'mmm-cloud'
+    : 'mmm-cloud-done';
+});
+
+watch(status, (now, before) => {
+  if (now === 'busy') {
+    stopHoldingCheck();
+    checkFinished.value = false;
+    return;
+  }
+  // Failing (or going offline) isn't finishing, and a batch shows its own.
+  if (before !== 'busy' || now !== 'normal' || batchIsActive.value) return;
+  if (motion.value === 'still') return;
+  checkFinished.value = true;
+  holdCheckFinished();
+});
 </script>

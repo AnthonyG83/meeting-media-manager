@@ -264,6 +264,19 @@ Preveri naslednje jezikovne nastavitve:
 3. **Razpoložljivost jezika**: preveri, ali je izbrani jezik multimedijske vsebine na voljo na uradnem spletnem mestu Jehovovih prič
 4. **Nadomestni jezik**: poskusi nastaviti nadomestni jezik
 
+### :wrench: M³ se po posodobitvi ne odpre. Kaj naj storim? {#faq-update-interrupted}
+
+Če je bil računalnik izklopljen ali znova zagnan, medtem ko je M³ nameščal posodobitev, se je namestitev morda ustavila na pol poti in M³ se ne odpre več. Tvoje nastavitve in multimedijska vsebina so še vedno shranjene. M³ popraviš takole:
+
+1. Najnovejšo različico prenesi s [strani za prenos](download).
+2. Zaženi namestitveni program. Ta obnovi M³ in ohrani tvoje nastavitve.
+
+**Pred tem ne odstranjuj M³**: z odstranitvijo se izbrišejo tudi njegove nastavitve.
+
+Če se računalnik ne more povezati z internetom, je namestitveni program, ki ga je M³ že prenesel, običajno še vedno tam: pritisni `Win+R`, vnesi `%LOCALAPPDATA%\meeting-media-manager-updater\pending` in nato zaženi namestitveni program v mapi, ki se odpre.
+
+Da se namestitev ne bi tako ustavila na pol poti, M³ v sistemu Windows preneseno posodobitev namesti ob naslednjem zagonu namesto ob zaprtju. Ko je M³ nameščen za vse uporabnike računalnika, Windows najprej zahteva dovoljenje, zato M³ počaka, da izbereš namestitev posodobitve.
+
 ## Podpora in skupnost {#support-community}
 
 ### :radioactive: Kako prijavim težavo? {#how-do-i-report-an-issue}

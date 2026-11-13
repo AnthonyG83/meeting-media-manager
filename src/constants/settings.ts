@@ -459,8 +459,20 @@ export const settingsDefinitions: SettingsItems = {
     subgroup: 'timerDisplay',
     type: 'toggle',
   },
+  timerShowPlannedStartTimes: {
+    depends: 'enableTimerDisplay',
+    group: 'meetingTimer',
+    subgroup: 'timerDisplay',
+    type: 'toggle',
+  },
   timerRemoteEnable: {
     depends: 'enableTimerDisplay',
+    group: 'meetingTimer',
+    subgroup: 'timerDisplay',
+    type: 'toggle',
+  },
+  timerRemoteFocusLayout: {
+    depends: ['enableTimerDisplay', 'timerRemoteEnable'],
     group: 'meetingTimer',
     subgroup: 'timerDisplay',
     type: 'toggle',
@@ -762,6 +774,26 @@ export const settingsDefinitions: SettingsItems = {
     platforms: ['win32'],
     subgroup: 'zoomMeetingManager',
     type: 'toggle',
+  },
+  // For congregations that would rather keep participant controls in Zoom:
+  // raised hands are still reported, but M³ offers no buttons that act on
+  // them.
+  zoomMeetingManagerHandAlertNotifyOnly: {
+    depends: 'zoomMeetingManagerHandAlert',
+    group: 'integrations',
+    platforms: ['win32'],
+    subgroup: 'zoomMeetingManager',
+    type: 'toggle',
+  },
+  // Zoom's plain Raise hand button, on accounts where reactions are turned
+  // off and Zoom shows that button instead of its React one.
+  zoomHandButtonTitle: {
+    depends: 'zoomMeetingManagerEnable',
+    group: 'integrations',
+    hidden: true,
+    platforms: ['win32'],
+    subgroup: 'zoomMeetingManager',
+    type: 'text',
   },
   zoomHandRaisedPhrase: {
     depends: 'zoomMeetingManagerEnable',
@@ -1078,8 +1110,21 @@ export const settingsDefinitions: SettingsItems = {
     subgroup: 'quickActions',
     type: 'text',
   },
+  meetingQuickActionsAllowDismiss: {
+    group: 'interfaceShortcuts',
+    hidden: true,
+    subgroup: 'quickActions',
+    type: 'toggle',
+  },
 
   // Advanced
+  // Rendered by SettingsPinCard.vue, and a hash rather than the PIN itself.
+  settingsPin: {
+    group: 'advanced',
+    hidden: true,
+    subgroup: 'dangerZone',
+    type: 'text',
+  },
   resetFeatureSuggestions: {
     actions: ['resetFeatureNudges'],
     buttonLabel: 'reset',
@@ -1168,6 +1213,7 @@ export const defaultSettings: SettingsValues = {
   localDateFormat: 'D MMMM YYYY',
   maxRes: '720p',
   mediaAutoExportFolder: '',
+  meetingQuickActionsAllowDismiss: true,
   meetingQuickActionsCategoriesAfter: [
     {
       enabled: true,
@@ -1291,6 +1337,7 @@ export const defaultSettings: SettingsValues = {
   relinkCongregationButton: false,
   resetFeatureSuggestions: null,
   reSyncMeetingScheduleButton: false,
+  settingsPin: null,
   shortcutMediaNext: null,
   shortcutMediaPauseResume: null,
   shortcutMediaPrevious: null,
@@ -1317,10 +1364,12 @@ export const defaultSettings: SettingsValues = {
   timerOvertimeTextColor: '#ff0000',
   timerRemoteAllowControl: false,
   timerRemoteEnable: false,
+  timerRemoteFocusLayout: false,
   timerRemoteNewPin: null,
   timerRemotePin: '',
   timerRemotePort: '8787',
   timerShowOnActionIsland: false,
+  timerShowPlannedStartTimes: true,
   timerTextColor: '#ffffff',
   timerTextSize: '10vw',
   timerTimeOfDayDisplay: 'digital',
@@ -1330,6 +1379,7 @@ export const defaultSettings: SettingsValues = {
   zoomAutoFocusMediaWindow: false,
   zoomCancelAutomationShortcut: 'Ctrl+Alt+Escape',
   zoomEnable: false,
+  zoomHandButtonTitle: null,
   zoomHandRaisedPhrase: null,
   zoomJoinAudioTitle: null,
   zoomLearnedVersion: null,
@@ -1340,6 +1390,7 @@ export const defaultSettings: SettingsValues = {
   zoomMeetingManagerAutomatePostMeetingAudioSettings: false,
   zoomMeetingManagerEnable: false,
   zoomMeetingManagerHandAlert: false,
+  zoomMeetingManagerHandAlertNotifyOnly: false,
   zoomMeetingManagerMeetingId: null,
   zoomMeetingManagerPostMeetingAskToUnmute: true,
   zoomMeetingManagerSetupAssistant: null,

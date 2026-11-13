@@ -264,6 +264,19 @@ Controleer deze taalinstellingen:
 3. **Taalbeschikbaarheid**: Zorg ervoor dat de mediataal beschikbaar is op de officiële website van Jehovah's Getuigen
 4. **Reservetaal**: Probeer een reservetaal in te stellen
 
+### :wrench: M³ opent niet meer na een update. Wat moet ik doen? {#faq-update-interrupted}
+
+Als de computer werd uitgezet of opnieuw opgestart terwijl M³ een update aan het installeren was, is de installatie misschien halverwege gestopt en opent M³ niet meer. Je instellingen en media zijn er nog. Zo herstel je M³:
+
+1. Download de nieuwste versie van de [downloadpagina](download).
+2. Voer het installatieprogramma uit. Het herstelt M³ en behoudt je instellingen.
+
+**Verwijder M³ niet eerst**: als je het verwijdert, worden ook de instellingen ervan gewist.
+
+Als de computer geen verbinding met internet kan maken, is het installatieprogramma dat M³ had gedownload meestal nog aanwezig: druk op `Win+R`, typ `%LOCALAPPDATA%\meeting-media-manager-updater\pending` en voer daarna het installatieprogramma uit in de map die wordt geopend.
+
+Om te voorkomen dat een installatie zo halverwege stopt, installeert M³ op Windows een gedownloade update de volgende keer dat het wordt geopend, in plaats van wanneer het wordt afgesloten. When M³ is installed for all users of the computer, Windows asks for permission first, so M³ waits until you choose to install the update.
+
 ## Ondersteuning en community {#support-community}
 
 ### :radioactive: Hoe meld ik een probleem? {#how-do-i-report-an-issue}

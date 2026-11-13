@@ -163,7 +163,7 @@ A **Hand alert** button in the timer popup shows a large hand on the timer displ
 
 #### Timer on a Tablet {#user-guide-timer-remote}
 
-The optional [timer remote](/settings-guide#timer-remote) serves a read-only copy of the timer display as a web page on your local network. Open the address shown in the timer popup in the browser of a tablet or phone at the lectern, and the speaker sees the remaining time privately, while all the controls stay in M³.
+The optional [timer remote](/settings-guide#timer-remote) serves a read-only copy of the timer display as a web page on your local network. Open the address shown in the timer popup in the browser of a tablet or phone at the lectern, and the speaker sees the remaining time privately, while all the controls stay in M³. Its optional focus layout shows the time in a progress ring, with the names of Zoom participants who raised their hand listed beside it. The page also keeps the tablet's screen awake while it's open, so it doesn't lock mid-part.
 
 #### Quick Access {#user-guide-timer-quick-access}
 
@@ -418,6 +418,17 @@ Configure custom keyboard shortcuts for efficient operation:
 - Ensure language is available on JW.org
 - Try a fallback language
 - Verify interface language setting
+
+#### Forgotten Settings PIN {#user-guide-forgotten-settings-pin}
+
+Only someone authorized to change M³'s settings should do this. After three wrong tries, M³ offers **Forgot the PIN?** wherever it asks for the PIN. To remove the PIN:
+
+1. Select **Forgot the PIN?** and leave the window that opens in M³. It shows a folder on this computer.
+2. In your computer's file manager, go to that folder.
+3. Open the text file named `M3 settings PIN reset code.txt`, which M³ has just created there.
+4. Type the six-digit code from that file into M³, then confirm.
+
+M³ then removes the PIN and deletes the file. To protect the settings again, set a new PIN under **Settings** > **Advanced**.
 
 ### Getting Help {#getting-help}
 

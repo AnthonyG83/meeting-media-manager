@@ -10,12 +10,28 @@ const toggleAuthorizedCloseMock = vi.fn();
 // used by the other tests below ('26.6.2', '26.6.3'), so they stay ordinary
 // upgrades (isDowngrade: false) and aren't affected by this addition.
 const getVersionMock = vi.fn(() => '26.6.0');
+const powerMonitorOnMock = vi.fn();
+const isMachineWideInstallationMock = vi.fn(() => false);
+const constants = { IS_TEST: false, PLATFORM: 'linux' as NodeJS.Platform };
+const pendingUpdate = {
+  clearPendingUpdate: vi.fn(),
+  countPendingUpdateInstallAttempt: vi.fn(),
+  readPendingUpdate: vi.fn(
+    (): null | { installAttempts: number; version: string } => null,
+  ),
+  rememberPendingUpdate: vi.fn(),
+};
 
 vi.mock('electron', () => ({
   app: {
     getVersion: getVersionMock,
   },
+  powerMonitor: { on: powerMonitorOnMock },
 }));
+
+vi.mock('src-electron/constants', () => constants);
+
+vi.mock('src-electron/main/pending-update', () => pendingUpdate);
 
 vi.mock('electron-updater', () => ({
   default: {
@@ -53,6 +69,7 @@ vi.mock('src-electron/main/fs', () => ({
 vi.mock('src-electron/main/utils', () => ({
   captureElectronError: vi.fn(),
   isIgnoredUpdateError: vi.fn(() => false),
+  isMachineWideInstallation: isMachineWideInstallationMock,
   isUpdaterFullDownloadFallbackError: vi.fn(() => false),
   markUpdaterFullDownloadFallback: vi.fn(),
 }));
@@ -80,6 +97,12 @@ describe('updater install flow', () => {
     // "installed version" baseline unless it deliberately overrides it.
     getVersionMock.mockReturnValue('26.6.0');
     pathExistsMock.mockResolvedValue(false);
+    // Linux installs on quit, as every platform used to: the tests for
+    // Windows, which never does, switch to it themselves.
+    constants.PLATFORM = 'linux';
+    isMachineWideInstallationMock.mockReturnValue(false);
+    pendingUpdate.readPendingUpdate.mockReturnValue(null);
+    pendingUpdate.rememberPendingUpdate.mockImplementation(() => undefined);
   });
 
   it('checks for updates', async () => {
@@ -181,7 +204,12 @@ describe('updater install flow', () => {
     expect(getUpdaterState()).toEqual({
       phase: 'downloading',
       progress: null,
-      versionInfo: { isDowngrade: false, version: '26.6.2' },
+      versionInfo: {
+        asksPermission: false,
+        installOnLaunch: false,
+        isDowngrade: false,
+        version: '26.6.2',
+      },
     });
 
     const progress = {
@@ -195,14 +223,24 @@ describe('updater install flow', () => {
     expect(getUpdaterState()).toEqual({
       phase: 'downloading',
       progress,
-      versionInfo: { isDowngrade: false, version: '26.6.2' },
+      versionInfo: {
+        asksPermission: false,
+        installOnLaunch: false,
+        isDowngrade: false,
+        version: '26.6.2',
+      },
     });
 
     handlers.get('update-downloaded')?.({ version: '26.6.2' });
     expect(getUpdaterState()).toEqual({
       phase: 'downloaded',
       progress,
-      versionInfo: { isDowngrade: false, version: '26.6.2' },
+      versionInfo: {
+        asksPermission: false,
+        installOnLaunch: false,
+        isDowngrade: false,
+        version: '26.6.2',
+      },
     });
   });
 
@@ -214,7 +252,12 @@ describe('updater install flow', () => {
     expect(getUpdaterState()).toEqual({
       phase: 'downloading',
       progress: null,
-      versionInfo: { isDowngrade: false, version: '26.6.2' },
+      versionInfo: {
+        asksPermission: false,
+        installOnLaunch: false,
+        isDowngrade: false,
+        version: '26.6.2',
+      },
     });
 
     handlers.get('error')?.(new Error('network error'), 'network error');
@@ -240,6 +283,8 @@ describe('updater install flow', () => {
       handlers.get('update-available')?.({ version: '26.5.9' });
 
       expect(getUpdaterState().versionInfo).toEqual({
+        asksPermission: false,
+        installOnLaunch: false,
         isDowngrade: true,
         version: '26.5.9',
       });
@@ -252,6 +297,8 @@ describe('updater install flow', () => {
       handlers.get('update-downloaded')?.({ version: '26.5.9' });
 
       expect(getUpdaterState().versionInfo).toEqual({
+        asksPermission: false,
+        installOnLaunch: false,
         isDowngrade: true,
         version: '26.5.9',
       });
@@ -294,6 +341,8 @@ describe('updater install flow', () => {
       handlers.get('update-available')?.({ version: updateVersion });
 
       expect(getUpdaterState().versionInfo).toEqual({
+        asksPermission: false,
+        installOnLaunch: false,
         isDowngrade,
         version: updateVersion,
       });
@@ -378,6 +427,242 @@ describe('updater install flow', () => {
       null,
       'update-download-progress',
       progress,
+    );
+  });
+
+  const getAutoUpdater = async () =>
+    (await import('electron-updater')).default.autoUpdater;
+
+  // electron-builder#7807: installing on quit runs the installer just as the
+  // computer gets turned off, which kills it halfway and leaves an app that
+  // no longer opens.
+  describe('installing on the next launch (Windows, installed for one user)', () => {
+    beforeEach(() => {
+      constants.PLATFORM = 'win32';
+    });
+
+    it('does not install on quit, and remembers the downloaded update', async () => {
+      const { getUpdaterState, initUpdater } = await import('../updater');
+
+      await initUpdater();
+      handlers.get('update-downloaded')?.({ version: '26.6.2' });
+
+      expect((await getAutoUpdater()).autoInstallOnAppQuit).toBe(false);
+      expect(pendingUpdate.rememberPendingUpdate).toHaveBeenCalledWith(
+        '26.6.2',
+      );
+      expect(getUpdaterState().versionInfo?.installOnLaunch).toBe(false);
+    });
+
+    it('installs an update that waited since an earlier session', async () => {
+      pendingUpdate.readPendingUpdate.mockReturnValue({
+        installAttempts: 1,
+        version: '26.6.2',
+      });
+      const { sendToWindow } =
+        await import('src-electron/main/window/window-base');
+      const { getUpdaterState, initUpdater } = await import('../updater');
+
+      await initUpdater();
+      handlers.get('update-downloaded')?.({ version: '26.6.2' });
+
+      const versionInfo = {
+        asksPermission: false,
+        installOnLaunch: true,
+        isDowngrade: false,
+        version: '26.6.2',
+      };
+      expect(getUpdaterState().versionInfo).toEqual(versionInfo);
+      expect(sendToWindow).toHaveBeenCalledWith(
+        null,
+        'update-downloaded',
+        versionInfo,
+      );
+    });
+
+    it.each([
+      {
+        downloaded: '26.6.3',
+        pending: { installAttempts: 0, version: '26.6.2' },
+        title: 'a newer update than the one that waited',
+      },
+      {
+        downloaded: '26.6.2',
+        pending: { installAttempts: 2, version: '26.6.2' },
+        title: 'an update whose install already failed twice',
+      },
+    ])(
+      'does not install $title right away',
+      async ({ downloaded, pending }) => {
+        pendingUpdate.readPendingUpdate.mockReturnValue(pending);
+        const { getUpdaterState, initUpdater } = await import('../updater');
+
+        await initUpdater();
+        handlers.get('update-downloaded')?.({ version: downloaded });
+
+        expect(getUpdaterState().versionInfo?.installOnLaunch).toBe(false);
+      },
+    );
+
+    it('forgets the pending update once it is the running version', async () => {
+      getVersionMock.mockReturnValue('26.6.2');
+      pendingUpdate.readPendingUpdate.mockReturnValue({
+        installAttempts: 1,
+        version: '26.6.2',
+      });
+      const { initUpdater } = await import('../updater');
+
+      await initUpdater();
+
+      expect(pendingUpdate.clearPendingUpdate).toHaveBeenCalledOnce();
+    });
+
+    it('counts the install attempt before the app quits for the installer', async () => {
+      const { initUpdater, quitAndInstallUpdate } = await import('../updater');
+
+      await initUpdater();
+      handlers.get('update-downloaded')?.({ version: '26.6.2' });
+      quitAndInstallUpdate();
+
+      const { countPendingUpdateInstallAttempt } = pendingUpdate;
+      expect(countPendingUpdateInstallAttempt).toHaveBeenCalledWith('26.6.2');
+      expect(
+        countPendingUpdateInstallAttempt.mock.invocationCallOrder[0],
+      ).toBeLessThan(quitAndInstallMock.mock.invocationCallOrder[0] as number);
+    });
+
+    it.each([
+      {
+        isSilent: true,
+        pending: { installAttempts: 0, version: '26.6.2' },
+        when: 'on launch',
+      },
+      { isSilent: false, pending: null, when: 'after its download' },
+    ])(
+      'runs the installer silently only $when',
+      async ({ isSilent, pending }) => {
+        pendingUpdate.readPendingUpdate.mockReturnValue(pending);
+        const { initUpdater, quitAndInstallUpdate } =
+          await import('../updater');
+
+        await initUpdater();
+        handlers.get('update-downloaded')?.({ version: '26.6.2' });
+        quitAndInstallUpdate();
+
+        // Silent, the installer starts the app again by itself.
+        expect(quitAndInstallMock).toHaveBeenCalledWith(isSilent, true);
+      },
+    );
+
+    it('reports a pending update that cannot be saved, unless the disk is full', async () => {
+      const { captureElectronError } = await import('src-electron/main/utils');
+      const { initUpdater } = await import('../updater');
+      await initUpdater();
+
+      pendingUpdate.rememberPendingUpdate.mockImplementationOnce(() => {
+        throw Object.assign(new Error('no space left'), { code: 'ENOSPC' });
+      });
+      handlers.get('update-downloaded')?.({ version: '26.6.2' });
+      expect(captureElectronError).not.toHaveBeenCalled();
+
+      const error = Object.assign(new Error('denied'), { code: 'EPERM' });
+      pendingUpdate.rememberPendingUpdate.mockImplementationOnce(() => {
+        throw error;
+      });
+      handlers.get('update-downloaded')?.({ version: '26.6.2' });
+      expect(captureElectronError).toHaveBeenCalledWith(error, {
+        contexts: { fn: { name: 'rememberDownloadedUpdate' } },
+      });
+    });
+  });
+
+  // The installer of an installation for all users asks for administrator
+  // permission with a UAC prompt, also when it runs silently.
+  describe('Windows, installed for all users', () => {
+    beforeEach(() => {
+      constants.PLATFORM = 'win32';
+      isMachineWideInstallationMock.mockReturnValue(true);
+    });
+
+    it('never installs by itself: not on quit, not on the next launch', async () => {
+      const { getUpdaterState, initUpdater } = await import('../updater');
+
+      await initUpdater();
+      handlers.get('update-downloaded')?.({ version: '26.6.2' });
+
+      expect((await getAutoUpdater()).autoInstallOnAppQuit).toBe(false);
+      expect(getUpdaterState().versionInfo).toEqual({
+        asksPermission: true,
+        installOnLaunch: false,
+        isDowngrade: false,
+        version: '26.6.2',
+      });
+      expect(pendingUpdate.readPendingUpdate).not.toHaveBeenCalled();
+      expect(pendingUpdate.rememberPendingUpdate).not.toHaveBeenCalled();
+    });
+
+    it('runs the visible installer once the user chooses to install', async () => {
+      const { initUpdater, quitAndInstallUpdate } = await import('../updater');
+
+      await initUpdater();
+      handlers.get('update-downloaded')?.({ version: '26.6.2' });
+      quitAndInstallUpdate();
+
+      expect(quitAndInstallMock).toHaveBeenCalledWith(false, true);
+      expect(
+        pendingUpdate.countPendingUpdateInstallAttempt,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('also flags the update while it downloads', async () => {
+      const { getUpdaterState, initUpdater } = await import('../updater');
+
+      await initUpdater();
+      handlers.get('update-available')?.({ version: '26.6.2' });
+
+      expect(getUpdaterState().versionInfo?.asksPermission).toBe(true);
+    });
+  });
+
+  describe('install on quit while the system shuts down', () => {
+    it('is skipped once Linux shuts down', async () => {
+      const { initUpdater } = await import('../updater');
+      const autoUpdater = await getAutoUpdater();
+
+      await initUpdater();
+      const [, onShutdown] =
+        powerMonitorOnMock.mock.calls.find(([name]) => name === 'shutdown') ??
+        [];
+      (onShutdown as () => void)();
+
+      expect(autoUpdater.autoInstallOnAppQuit).toBe(false);
+    });
+
+    it('is left to Squirrel.Mac on macOS', async () => {
+      constants.PLATFORM = 'darwin';
+      const { initUpdater } = await import('../updater');
+
+      await initUpdater();
+
+      expect((await getAutoUpdater()).autoInstallOnAppQuit).toBe(true);
+      expect(powerMonitorOnMock).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { isMachineWide: false, title: 'for one user' },
+      { isMachineWide: true, title: 'for all users' },
+    ])(
+      'is not watched on Windows installed $title, which never installs on quit',
+      async ({ isMachineWide }) => {
+        constants.PLATFORM = 'win32';
+        isMachineWideInstallationMock.mockReturnValue(isMachineWide);
+        const { initUpdater } = await import('../updater');
+
+        await initUpdater();
+
+        expect((await getAutoUpdater()).autoInstallOnAppQuit).toBe(false);
+        expect(powerMonitorOnMock).not.toHaveBeenCalled();
+      },
     );
   });
 });

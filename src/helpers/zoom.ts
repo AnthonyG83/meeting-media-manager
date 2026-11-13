@@ -56,7 +56,10 @@ export interface ZoomTitles {
 
 const getSettings = () => useCurrentStateStore().currentSettings;
 
-const saveSetting = (settingKey: keyof SettingsValues, value: string) => {
+const saveSetting = (
+  settingKey: keyof SettingsValues,
+  value: null | string,
+) => {
   const settings = getSettings();
   if (!settings) return;
   (settings as Record<keyof SettingsValues, unknown>)[settingKey] = value;
@@ -86,6 +89,7 @@ const SILENT_COMMANDS = new Set<ZoomCommandType>([
   // Presses one share toolbar button while M³'s media is being shared: the
   // overlay would cover M³ just then.
   'share-participants',
+  'snapshot',
   'window-layout',
 ]);
 
@@ -378,6 +382,18 @@ export const getZoomMeetingState = async (
   return meeting;
 };
 
+/**
+ * What Zoom shows (its version, windows and dialogs' buttons, without
+ * changing anything), for an error report about something that didn't
+ * happen rather than an action that failed, such as a meeting that never
+ * opened. Null if the helper couldn't tell.
+ */
+export const getZoomSnapshot =
+  async (): Promise<null | ZoomFailureSnapshot> => {
+    const result = await runCommand({ type: 'snapshot' });
+    return result.ok ? (result.snapshot ?? null) : null;
+  };
+
 // --- Noticing that Zoom changed ---------------------------------------------
 
 /** Dispatched on `globalThis` when Zoom looks different from what M³ learned. */
@@ -567,34 +583,40 @@ export const askAllZoomParticipantsToUnmute = async () => {
 
 /**
  * Learns how Zoom marks a raised hand in the user's language, by raising
- * and lowering the host's own hand from Zoom's Reactions panel, and saves it
- * to Settings (for the setup assistant, which reports the outcome itself).
- * The Reactions button's name is remembered too: it's how the button is
- * found once Zoom moves it into its "More" menu. `reactButtonTitle` is the
- * React entry to try, the remembered one by default; when M³ can't find it,
- * the result says so (see isZoomReactButtonMissing) and the assistant asks
- * the user to pick it.
+ * and lowering the host's own hand, and saves it to Settings (for the setup
+ * assistant, which reports the outcome itself). Zoom raises hands from its
+ * Reactions panel, or through a plain Raise hand button (in the toolbar or
+ * in "More") where reactions are turned off for the account; both names are
+ * remembered. `reactButtonTitle` is the React entry to try, the remembered
+ * one by default; when M³ can't find it, the result says so (see
+ * isZoomReactButtonMissing) and the assistant asks the user to pick it.
  */
 export const learnZoomHandRaisedPhrase = async (
   reactButtonTitle = getSettings()?.zoomReactButtonTitle ?? null,
 ) => {
   const result = await runCommand({
+    handRaiseTitle: getSettings()?.zoomHandButtonTitle ?? null,
     reactButtonTitle,
     type: 'learn-hand-raised',
   });
-  if (
-    result.reactButtonTitle &&
-    getSettings()?.zoomReactButtonTitle !== result.reactButtonTitle
-  ) {
-    saveSetting('zoomReactButtonTitle', result.reactButtonTitle);
-  }
-  if (result.ok && result.phrase) {
-    saveSetting('zoomHandRaisedPhrase', result.phrase);
+  if (result.ok) {
+    // Which one raised the hand: the other reads as null, so a button that
+    // Zoom no longer offers is no longer looked for.
+    if (result.handButtonTitle !== undefined) {
+      saveSetting('zoomHandButtonTitle', result.handButtonTitle ?? null);
+    }
+    if (result.reactButtonTitle !== undefined) {
+      saveSetting('zoomReactButtonTitle', result.reactButtonTitle ?? null);
+    }
+    if (result.phrase) saveSetting('zoomHandRaisedPhrase', result.phrase);
   }
   return result;
 };
 
-/** M³ couldn't find Zoom's React button, so the user should pick it. */
+/**
+ * M³ couldn't find Zoom's React button, nor its plain Raise hand button, so
+ * the user should pick whichever raises their hand.
+ */
 export const isZoomReactButtonMissing = (result: ZoomCommandResult) =>
   result.error === 'react-button-not-found';
 
@@ -864,7 +886,8 @@ export const runZoomPostMeetingSequence = (
 
 /**
  * Applies the in-meeting Zoom settings, if enabled.
- * (Triggered when background music stops just before a meeting.)
+ * (Triggered just before each meeting, when background music stops: see
+ * zoom-meeting-day.ts.)
  */
 export const automateZoomMeetingSettings = async () => {
   if (!getSettings()?.zoomMeetingManagerAutomateMeetingAudioSettings) return;
@@ -874,7 +897,8 @@ export const automateZoomMeetingSettings = async () => {
 
 /**
  * Applies the before/after-meeting Zoom settings, if enabled.
- * (Triggered when background music starts.)
+ * (Triggered before each meeting, right after the startup check, and after
+ * it when background music starts: see zoom-meeting-day.ts.)
  */
 export const automateZoomPostMeetingSettings = async () => {
   if (!getSettings()?.zoomMeetingManagerAutomatePostMeetingAudioSettings) {
@@ -886,22 +910,29 @@ export const automateZoomPostMeetingSettings = async () => {
   await runZoomPostMeetingSequence();
 };
 
-export const autoLaunchZoomMeetingIfNeeded = async (
-  timeUntilMeetingSeconds?: number,
-) => {
+/**
+ * Background music started: applies the before/after-meeting settings,
+ * unless today's meeting is still to come. Before it, the meeting's own
+ * schedule applies them, right after the startup check (see
+ * zoom-meeting-day.ts).
+ */
+export const automateZoomSettingsOnMusicStart = async (now = new Date()) => {
+  const start = getMeetingStartToday(now);
+  if (start && now < start) return;
+  await automateZoomPostMeetingSettings();
+};
+
+/**
+ * Launches the congregation's Zoom meeting, if enabled and no meeting is
+ * open yet. (Triggered before each meeting: see zoom-meeting-day.ts.)
+ */
+export const autoLaunchZoomMeetingIfNeeded = async () => {
   const settings = getSettings();
   if (!settings?.zoomMeetingManagerEnable) return;
   if (!settings.zoomMeetingManagerAutoLaunchMeeting) return;
 
   const meetingId = settings.zoomMeetingManagerMeetingId?.trim();
   if (!meetingId) return;
-
-  if (
-    typeof timeUntilMeetingSeconds === 'number' &&
-    timeUntilMeetingSeconds <= 0
-  ) {
-    return;
-  }
 
   if (!(await zoomAutomationsAllowed('Zoom meeting auto-launch'))) return;
 
@@ -910,7 +941,6 @@ export const autoLaunchZoomMeetingIfNeeded = async (
 
   log('Auto-launching Zoom meeting before meeting start', 'zoom', 'info', {
     meetingId,
-    timeUntilMeetingSeconds,
   });
   globalThis.electronApi.launchZoomMeeting(meetingId);
 };
@@ -1270,6 +1300,7 @@ export const testZoomShareEntry = async (shareButtonTitle: null | string) => {
   return {
     error: result.error,
     opened: !!result.opened,
+    pickerError: result.pickerError,
     windowListed: !!result.windowListed,
     windowSelected: !!result.windowSelected,
   };

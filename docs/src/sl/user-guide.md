@@ -163,7 +163,7 @@ Gumb **Opozorilo glede dvignjene roke** v pojavnem oknu časovnika prikaže veli
 
 #### Časovnik na tablici {#user-guide-timer-remote}
 
-Neobvezni [oddaljeni časovnik](/settings-guide#timer-remote) streže kopijo prikaza časovnika kot spletno stran v vašem lokalnem omrežju. Odpri naslov, prikazan v pojavnem oknu časovnika, v brskalniku tablice ali telefona na govorniškem pultu, in govornik bo preostali čas videl zasebno, medtem ko vse kontrole ostanejo v M³.
+Neobvezni [oddaljeni časovnik](/settings-guide#timer-remote) streže kopijo prikaza časovnika kot spletno stran v vašem lokalnem omrežju. Odpri naslov, prikazan v pojavnem oknu časovnika, v brskalniku tablice ali telefona na govorniškem pultu, in govornik bo preostali čas videl zasebno, medtem ko vse kontrole ostanejo v M³. Njegov izbirni osrednji prikaz prikazuje čas v krogu napredka, ob njem pa so našteta imena udeležencev Zooma, ki so dvignili roko. Stran tudi ohranja zaslon tablice buden, dokler je odprta, da se med delom ne zaklene.
 
 #### Hiter dostop {#user-guide-timer-quick-access}
 
@@ -419,6 +419,17 @@ Nastavi lastne bližnjice na tipkovnici za učinkovitejše upravljanje:
 - Preveri, ali je jezik na voljo na jw.org
 - Poskusi z nadomestnim jezikom
 - Preveri nastavitev jezika vmesnika
+
+#### Pozabljena koda PIN za nastavitve {#user-guide-forgotten-settings-pin}
+
+To naj stori samo nekdo, ki ima dovoljenje za spreminjanje nastavitev M³. Po treh napačnih poskusih M³ povsod, kjer zahteva kodo PIN, ponudi možnost **Pozabljena koda PIN?** Kodo PIN odstraniš takole:
+
+1. Izberi **Pozabljena koda PIN?** in pusti odprto okno, ki se odpre v M³. Prikazuje mapo na tem računalniku.
+2. V upravitelju datotek na računalniku pojdi v to mapo.
+3. Odpri besedilno datoteko z imenom `M3 settings PIN reset code.txt`, ki jo je M³ pravkar ustvaril tam.
+4. V M³ vnesi šestmestno kodo iz te datoteke in potrdi.
+
+M³ nato odstrani kodo PIN in izbriše datoteko. Če želiš nastavitve znova zaščititi, nastavi novo kodo PIN v **Nastavitve** > **Napredno**.
 
 ### Pomoč {#getting-help}
 

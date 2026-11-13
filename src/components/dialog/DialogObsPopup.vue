@@ -35,7 +35,11 @@
         :loading="togglePending"
         unelevated
         @click="toggleRecording()"
-      />
+      >
+        <template #loading>
+          <LiquidSpinner />
+        </template>
+      </q-btn>
     </template>
     <template
       v-if="currentSettings?.obsEnableRecordingControls && obsRecordingFolder"
@@ -59,10 +63,12 @@ import type { ObsSceneType } from 'src/types';
 
 import { useEventListener, watchImmediate } from '@vueuse/core';
 import ActionPopup from 'components/ui/ActionPopup.vue';
+import LiquidSpinner from 'components/ui/LiquidSpinner.vue';
 import { storeToRefs } from 'pinia';
 import { errorCatcher } from 'src/helpers/error-catcher';
 import { createTemporaryNotification } from 'src/helpers/notifications';
 import {
+  isTransientObsError,
   obsConnect,
   obsGetRecordingDirectory,
   obsGetRecordingState,
@@ -250,6 +256,17 @@ const setObsScene = async (sceneType?: ObsSceneType, desiredScene?: string) => {
       notifySceneNotFound();
     }
   } catch (error) {
+    // OBS answers "not ready" while it loads or switches its scene
+    // collection or shuts down, and the socket can drop mid-request: the
+    // next scene change goes through (MMM-V2-3HB).
+    if (isTransientObsError(error)) {
+      log('setObsScene: OBS not ready, scene not changed', 'obs', 'warn', {
+        desiredScene,
+        error,
+        sceneType,
+      });
+      return;
+    }
     errorCatcher(error, {
       contexts: {
         fn: { desiredScene, name: 'setObsScene', sceneType },

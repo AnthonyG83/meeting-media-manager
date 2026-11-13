@@ -2,8 +2,22 @@
   <q-card
     bordered
     class="meeting-quick-actions-panel meeting-quick-actions-panel--before"
+    :class="{
+      'liquid-host': hourglassPercent !== null,
+      'meeting-quick-actions-panel--last-minute': isLastMinute,
+    }"
     flat
   >
+    <!-- An hourglass for the last few minutes: always calm, since the room
+         is filling up while it drains. -->
+    <LiquidFill
+      v-if="hourglassPercent !== null"
+      axis="y"
+      gentle
+      no-bubbles
+      :percent="hourglassPercent"
+      steady
+    />
     <q-card-section class="meeting-quick-actions-panel__header">
       <div>
         <div class="meeting-quick-actions-panel__eyebrow">
@@ -32,6 +46,25 @@
       </template>
     </q-card-section>
 
+    <!-- Today's files this computer can't play: time to convert them, or to
+         know before pressing play. -->
+    <q-card-section
+      v-if="unplayableItems.length"
+      class="row items-center no-wrap q-py-none"
+    >
+      <q-icon class="q-mr-sm" color="warning" name="mmm-warning" size="sm" />
+      <div class="col">
+        {{ t('quick-actions-media-cannot-play', unplayableItems.length) }}
+      </div>
+      <q-btn
+        color="primary"
+        flat
+        :label="t('convert-media')"
+        no-caps
+        @click="requestMediaConversion(unplayableItems)"
+      />
+    </q-card-section>
+
     <q-card-section class="meeting-quick-actions-panel__actions">
       <q-btn
         v-if="
@@ -49,7 +82,7 @@
         unelevated
         @click="onMusicClick"
       >
-        <q-spinner v-if="musicIsBusy" size="24px" />
+        <LiquidSpinner v-if="musicIsBusy" size="24px" />
         <q-icon
           v-else
           :name="musicPlaying ? 'mmm-stop' : 'mmm-music-note'"
@@ -81,13 +114,20 @@
         :loading="togglePending"
         unelevated
         @click="toggleRecording"
-      />
+      >
+        <template #loading>
+          <LiquidSpinner />
+        </template>
+      </q-btn>
     </q-card-section>
 
     <q-card-section>
       <MeetingQuickActionsChecklist mode="before" />
     </q-card-section>
-    <q-card-actions align="right">
+    <q-card-actions
+      v-if="currentSettings?.meetingQuickActionsAllowDismiss !== false"
+      align="right"
+    >
       <q-btn
         flat
         :label="t('quick-actions-dismiss')"
@@ -110,12 +150,24 @@
 </template>
 
 <script setup lang="ts">
+import type { MediaItem } from 'src/types';
+
 import ConfirmDialog from 'components/dialog/ConfirmDialog.vue';
 import MeetingQuickActionsChecklist from 'components/media/MeetingQuickActionsChecklist.vue';
+import LiquidFill from 'components/ui/LiquidFill.vue';
+import LiquidSpinner from 'components/ui/LiquidSpinner.vue';
 import { storeToRefs } from 'pinia';
 import { getTodaysMeetingStartDateTime } from 'src/helpers/date';
+import {
+  canConvertMediaItem,
+  requestMediaConversion,
+} from 'src/helpers/media-conversion';
 import { formatTime } from 'src/utils/time';
 import { useCurrentStateStore } from 'stores/current-state';
+import {
+  isActiveConversion,
+  useMediaConversionStore,
+} from 'stores/media-conversion';
 import { useMeetingQuickActionsStore } from 'stores/meeting-quick-actions';
 import { useMusicStore } from 'stores/music';
 import { useRecordingStore } from 'stores/recording-state';
@@ -166,6 +218,24 @@ const countdown = computed(() =>
     ? formatTime(Math.max(0, (meetingStart.value.getTime() - props.now) / 1000))
     : '00:00',
 );
+
+// The hourglass only shows for the last ten minutes, and turns orange for
+// the last one, like the timer's countdown warning.
+const HOURGLASS_SECONDS = 600;
+const LAST_MINUTE_SECONDS = 60;
+const secondsUntilStart = computed(() =>
+  meetingStart.value ? (meetingStart.value.getTime() - props.now) / 1000 : 0,
+);
+const hourglassPercent = computed(() => {
+  const seconds = secondsUntilStart.value;
+  if (seconds <= 0 || seconds > HOURGLASS_SECONDS) return null;
+  return (seconds / HOURGLASS_SECONDS) * 100;
+});
+const isLastMinute = computed(
+  () =>
+    hourglassPercent.value !== null &&
+    secondsUntilStart.value <= LAST_MINUTE_SECONDS,
+);
 // Same final-approach window the music store auto-stops in (see
 // shouldAutoStop in stores/music.ts) - starting music here would just get
 // immediately auto-stopped again, so hide the Start action entirely rather
@@ -174,9 +244,10 @@ const countdown = computed(() =>
 // available regardless of this window.
 const isInFinalProtectedWindow = computed(() => {
   if (!meetingStart.value) return false;
-  const secondsUntilStart = (meetingStart.value.getTime() - props.now) / 1000;
   const bufferSeconds = currentSettings.value?.meetingStopBufferSeconds ?? 60;
-  return secondsUntilStart > 0 && secondsUntilStart <= bufferSeconds;
+  return (
+    secondsUntilStart.value > 0 && secondsUntilStart.value <= bufferSeconds
+  );
 });
 const recordingEnabled = computed(
   () =>
@@ -199,6 +270,31 @@ const musicButtonLabel = computed(() => {
     : t('quick-actions-play-music');
 });
 
+const conversionStore = useMediaConversionStore();
+const { fileUrlToPath } = globalThis.electronApi;
+
+const unplayableItems = computed(() => {
+  const found: MediaItem[] = [];
+  const visit = (items?: MediaItem[]) => {
+    for (const item of items ?? []) {
+      if (
+        !item.hidden &&
+        item.fileUrl &&
+        canConvertMediaItem(item) &&
+        conversionStore.problemFor(fileUrlToPath(item.fileUrl)) &&
+        !isActiveConversion(conversionStore.jobForItem(item.uniqueId))
+      ) {
+        found.push(item);
+      }
+      visit(item.children);
+    }
+  };
+  for (const section of currentState.selectedDateObject?.mediaSections ?? []) {
+    visit(section.items);
+  }
+  return found;
+});
+
 const onMusicClick = () => {
   if (musicPlaying.value) {
     stopMusic(true);
@@ -216,6 +312,16 @@ const onMusicClick = () => {
 
 .meeting-quick-actions-panel--before {
   border-color: color-mix(in srgb, var(--q-primary) 35%, transparent);
+}
+
+.meeting-quick-actions-panel--before.liquid-host {
+  --liquid-back: color-mix(in srgb, var(--q-primary) 6%, transparent);
+  --liquid-front: color-mix(in srgb, var(--q-primary) 12%, transparent);
+}
+
+.meeting-quick-actions-panel--last-minute.liquid-host {
+  --liquid-back: color-mix(in srgb, var(--q-warning) 9%, transparent);
+  --liquid-front: color-mix(in srgb, var(--q-warning) 18%, transparent);
 }
 
 .meeting-quick-actions-panel__header {

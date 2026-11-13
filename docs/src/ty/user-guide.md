@@ -163,7 +163,7 @@ E fa’aite te pitopito **Tapao rima** i roto i te ha’amāramarama iti o te fa
 
 #### Te fa’atere-hora i ni’a i te hō’ē tablet {#user-guide-timer-remote}
 
-Tē hōro’a te [Haapa'oraa taime mai te ātea](/settings-guide#timer-remote), ’ia hina’arohia, i te hō’ē hōho’a ta’io-noa o te tapura hora mai te hō’ē ’api itenati i ni’a i tō ’oe reni itenati nō te fare. ’A ’iriti i te vāhi e fa’aitehia i roto i te ha’amāramarama iti o te fa’atere-hora i roto i te porotarama itenati o te hō’ē tablet ’aore rā te hō’ē niuniu i te ’amura’i ’ōrero, ’e e ’ite te ’ōrero ana’e i te taime e toe ra, ’area te mau fa’aterera’a ato’a e vai noa i roto ia M³.
+Tē hōro’a te [Haapa'oraa taime mai te ātea](/settings-guide#timer-remote), ’ia hina’arohia, i te hō’ē hōho’a ta’io-noa o te tapura hora mai te hō’ē ’api itenati i ni’a i tō ’oe reni itenati nō te fare. ’A ’iriti i te vāhi e fa’aitehia i roto i te ha’amāramarama iti o te fa’atere-hora i roto i te porotarama itenati o te hō’ē tablet ’aore rā te hō’ē niuniu i te ’amura’i ’ōrero, ’e e ’ite te ’ōrero ana’e i te taime e toe ra, ’area te mau fa’aterera’a ato’a e vai noa i roto ia M³. E fa’aite tōna fa’anahora’a fa’atāpū i te taime i roto i te hō’ē tāpura o te haere mua, ’e e fa’aite i te mau i’oa o te mau ta’ata o Zoom i fa’ateitei i tō rātou rima i te taha. E fa’aara ato’a te ’api i te paruai o te tablet ’ia matara ana, ’ia ’ore ai e tāpū i roto i te hō’ē tuha’a.
 
 #### Fa’a’ohipara’a vitiviti {#user-guide-timer-quick-access}
 
@@ -418,6 +418,17 @@ Te fa’anahora’a i te mau rāve’a pāpa’i-’āpee ta’a ’ē nō te �
 - ’A ha’apāpū ē, te vai ra te reo i roto i te pae nō te JW.org
 - ’A tamata i te tahi atu reo
 - ’A hi’o i te fa’anahora’a reo nō te interface
+
+#### PIN o te mau fa’anahora’a i mo’ehia {#user-guide-forgotten-settings-pin}
+
+Te ta’ata ana’e i fa’ati’ahia ’ia taui i te mau fa’anahora’a o M³ te ti’a ’ia rave i teie ’ohipa. I muri a’e e toru tāmatara’a hape, e pūpū mai M³ i **’Ua mo’ehia te PIN?** i te mau vāhi ato’a e ani ai ’oia i te PIN. Nō te tāmā i te PIN:
+
+1. ’A mā’iti i **’Ua mo’ehia te PIN?** ’e ’a vaiiho i te ha’amāramarama e matara mai i roto ia M³. Te fa’a’ite ra te reira i te hō’ē fā’ari parau i ni’a i teie roro uira.
+2. ’A haere i taua fā’ari parau ra nā roto i te porotarama fa’aterera’a putu’ite o tā ’oe roro uira.
+3. ’A matara i te putu’ite papa’ira’a i pi’ihia `M3 settings PIN reset code.txt`, tā M³ i hāmani iho nei i reira.
+4. ’A pāpa’i i roto ia M³ i te nūmera e ono tāpa’o o taua putu’ite ra, ’e ’a ha’apāpū.
+
+I muri iho, e tāmā M³ i te PIN ’e e tū’ino i te putu’ite. Nō te pāruru fa’ahou i te mau fa’anahora’a, ’a fa’ata’a i te hō’ē PIN ’āpī i raro a’e i **Te mau fa’anahora’a** > **Mode Tā’āto’a**.
 
 ### Te anira’a tauturu {#getting-help}
 

@@ -8,6 +8,25 @@ Täielik nimekiri versioonide vahelistest muudatustest on esitatud failis CHANGE
 
 ### ✨ Uued funktsioonid
 
+- ✨ **Meedia, mida sinu arvuti ei suuda esitada**: Mõnes arvutis esitatakse osa videoid ilma pildita või ilma helita: HEVC-video graafikakaardil, mis ei suuda seda dekodeerida, vana AVI- või MPEG-4-video või AC-3- või DTS-heliga film. M³ annab nüüd kohe teada, kui leiab sellise faili, nii meediaelemendil kui ka teavituses, ja koosolekueelne paneel tuletab seda meelde, nii et saad probleemi lahendada aegsasti enne, kui faili vaja läheb. Samuti ei soovita M³ sellise video puhul enam riistvaralist kiirendust keelata, mis teeks olukorra ainult hullemaks. „Teisenda” teeb koopia, mida saab esitada igas arvutis, ja kasutab võimaluse korral sinu graafikakaarti, et M³ ja koosolek kulgeksid sujuvalt. Edenemist näeb meediaelemendil ja meediafailide sünkroniseerimise hüpikaknas, kus saad teisendamise ka tühistada. Sinu imporditud fail asendatakse selle teisendatud koopiaga; jagatud kaustast pärit fail jääb muutmata ja M³ esitab selles arvutis hoitavat teisendatud koopiat.
+
+## v26.11.2
+
+### ✨ Uued funktsioonid
+
+- ✨ **Seadete PIN-kood**: Profiili seadeid saab nüüd kaitsta PIN-koodiga, et midagi kogemata ei muutuks. Määra see jaotises Seaded > Lisavalikud. Seda on vaja ka profiili kustutamiseks. Kui see ununeb, saab see, kellel on õigus seadeid muuta, selle eemaldada kasutusjuhendis toodud sammude järgi.
+
+## v26.11.0
+
+### ✨ Uued funktsioonid
+
+- ✨ **Taimeri kaugkuva**: Kõnepuldi tahvelarvuti taimerilehel on valikuline fookusvaade, mille saad sisse lülitada seadetes. See näitab aega suures edenemisrõngas, mis muutub viimasel minutil kollaseks ja seejärel üleaja korral punaseks koos üleaja näiduga (+02:18), ning loetleb selle kõrval Zoomi osalejad, kes on käe tõstnud, selles järjekorras, nagu nad seda tegid: esimesed neli nimepidi, ülejäänud arvuna. Iga uus käsi vilgub kolm sekundit tekstiga „Käsi tõstetud” ja loend uueneb, kui käed tõusevad ja langevad. Praegune vaade jääb vaikeväärtuseks.
+- ✨ **Zoom Meeting Manager (beeta, Windows)**: Nüüd on võimalik tõstetud käsi märkida ilma osalejate üle kontrolli omamata. Kui valik „Näita ainult käe tõstmisi” on sisse lülitatud (seadete jaotises „Käe tõstmise abivahend”), märkab M³ endiselt, kes tõstab käe – nii teavituses kui ka juhatajale mõeldud ajamõõturi ekraanil –, kuid ei näita nuppe, millega osaleja mikrofoni sisse lülitada või käsi alla lasta: need ülesanded jäävad Zoomis endas audio-video operaatori ülesandeks. See on kasulik juhul, kui Zoom ei kuva M³-le vajalikke osalejate juhtnuppe või kui operaator eelistab ise juhtimist enda käes hoida.
+
+## v26.10.2
+
+### ✨ Uued funktsioonid
+
 - ✨ **Funktsioonisoovitused**: Aeg-ajalt soovitab M³ lühikeses aknas „Kas teadsid?” mõnda funktsiooni, mida profiil veel ei kasuta, ja selgitab, mida see teeb. See näitab iga kord, kui profiil avatakse, kõige rohkem ühte soovitust, mitte kunagi ajavahemikus 15 minutit enne koosolekut kuni selle lõpuni, ning jätab iga vastuse meelde: „Tuleta mulle hiljem meelde” viib soovituse järjekorra lõppu, „Ei, aitäh” peidab selle jäädavalt ja „Lõpeta funktsioonide soovitamine” lülitab profiili jaoks kõik soovitused välja. Arvesse läheb ka seadistusviisardis antud vastus „Ei” ning vastused saab lähtestada seadetes jaotises „Lisavalikud”.
 - ✨ **Zoomi koosolekuhaldur (beeta, Windows)**: M³ saab nüüd sinu ekraanidel paigutada oma akna ja Zoomi koosolekuakna. Zoomi seadistusabilise kaks uut sammu küsivad, kuhu Zoomi koosolek peaks minema. Oma ekraanide kaardil valid Zoomi ekraani (mitte kunagi seda, mida täidab meediaaken) ja selle, kas Zoom on sellel üksi või jagab seda M³-ga. Seejärel lohistad selle ekraani tegelikku kuju näitaval joonisel eraldajat, et jagada ekraan kahe akna vahel; eraldaja kinnitub tavapärastele suhetele. Kohe kui koosolek avaneb, avab M³ Zoomi osalejate loendi, kui seda palusid, paneb seejärel mõlemad aknad paika ja hoiab sellest hetkest Zoomi seal: kui Zoom ise oma akent liigutab või selle suurust muudab (pärast ekraani jagamist või kui osalejate loend avaneb või sulgub), paneb M³ selle tagasi, samas kui aken, mida liigutad ise, jääb kuni järgmise koosolekuni sinna, kuhu selle panid. Iga kord, kui M³ Zoomi omal algatusel liigutab, annab teavitus sellest teada ja laseb sul selle kohe peatada, kuni M³ taaskäivitumiseni või jäädavalt. Kui Zoom jagab meediaakent, mis peidab Zoomi koosolekuakna, avab M³ selle asemel Zoomi osalejate loendi, et näeksid ikka, kes tõstab kommenteerimiseks käe. Kui Zoomi seade „Meeting window view” on väärtusel „Dual window” (Zoomi vanemates versioonides „Use dual monitors”), läheb Zoomi teine aken täisekraanil meediaakna taha, seega näed seda, kui meediaakna peidad. M³ saab ka kaks akent Windowsi enda kinnitamisfunktsiooniga kõrvuti paigutada, nii et nendevahelise piiri lohistamine muudab mõlema suurust. Zoomi hüpikakna nupp „Paiguta aknad” paneb igal ajal kõik tagasi paika ja paigutust saab hiljem muuta seadetes jaotises Zoomi koosolekuhaldur. See salvestatakse iga arvuti jaoks eraldi, kuna see sõltub selle ekraanidest.
 

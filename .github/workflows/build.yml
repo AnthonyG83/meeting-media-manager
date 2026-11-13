@@ -10,6 +10,14 @@ on:
         description: 'Publish build artifacts to GitHub Releases via electron-builder'
         type: boolean
         default: false
+      quality-only:
+        description: 'Run only the lint and unit-test checks, without packaging the app'
+        type: boolean
+        default: false
+      ref:
+        description: 'With checkout-latest, the commit to build instead of the latest master'
+        type: string
+        default: ''
     secrets:
       APPLE_APP_SPECIFIC_PASSWORD:
         required: true
@@ -34,6 +42,9 @@ jobs:
   sonarqube:
     name: SonarQube
     runs-on: ubuntu-latest
+    # Nothing new to scan in quality-only mode, and this job cannot gate a
+    # merge anyway (continue-on-error below), so it stays out of that mode.
+    if: ${{ !inputs.quality-only }}
     continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -62,7 +73,7 @@ jobs:
         run: yarn quasar prepare
       - name: SonarQube Scan
         id: scan
-        uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9
+        uses: SonarSource/sonarqube-scan-action@e805d875275f728fac1885b413934be6d7c63f65
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       # CI-2: the job-level continue-on-error above means a broken SonarQube
@@ -86,7 +97,7 @@ jobs:
         if: ${{ inputs.checkout-latest == true }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: master
+          ref: ${{ inputs.ref || 'master' }}
       - name: Check out Git repository
         if: ${{ inputs.checkout-latest == false }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -120,6 +131,10 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     needs: [quality]
+    # Callers that only need the checks turn the packaging off: the version
+    # bump branch (whose content the release build rebuilds minutes later) is
+    # the case this exists for. Everything else keeps the full matrix.
+    if: ${{ !inputs.quality-only }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
@@ -128,7 +143,7 @@ jobs:
         if: ${{ inputs.checkout-latest == true }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: master
+          ref: ${{ inputs.ref || 'master' }}
       - name: Check out Git repository
         if: ${{ inputs.checkout-latest == false }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -193,6 +208,16 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Ubuntu 26.04's gcc 15 compiles C as C23 by default, where an
+          # implicit function declaration is an error: robotjs 0.9.1's
+          # src/xdisplay.c calls strdup() and includes only <stdio.h> and
+          # <stdlib.h>, so the forced rebuild of the module failed there.
+          # Preinclude <string.h> so strdup gets its real declaration - the
+          # same include the file is missing, without editing it. Turning the
+          # diagnostic off instead would build strdup as returning int and
+          # truncate the pointer it returns on 64-bit. Linux only: MSVC and
+          # clang spell preincludes differently, and only gcc 15 needs it.
+          CFLAGS: ${{ runner.os == 'Linux' && '-include string.h' || '' }}
           GITHUB_TOKEN: ${{ github.token }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}

@@ -50,7 +50,9 @@ const ACTIONS = new Set([
   'accept-unmute-requests', // future "please unmute" prompts are accepted
   'ignore-unmute-requests', // ...or left unanswered
   'leave',
+  'lower-hand', // for M³ to lower someone else's hand
   'mute',
+  'raise-hand', // so M³ has a raised hand to find in the list
   'reset-events',
   'try-unmute', // the participant tries to unmute themselves
 ]);
@@ -153,6 +155,22 @@ const clickButton = async (page, pattern) => {
   return true;
 };
 
+// Zoom asks to confirm leaving, with a "Leave Meeting" menu item (a button
+// with role="menuitem", so not one by its role). Closing the browser without
+// confirming only drops the connection, and the host's Zoom then keeps
+// listing the participant for 3 more minutes.
+const confirmLeave = async (page) => {
+  const confirm = page
+    .locator('button', { hasText: /^\s*leave meeting\s*$/i })
+    .first();
+  await confirm.waitFor({ state: 'attached', timeout: 3000 });
+  await confirm.evaluate((el) => el.click(), undefined, { timeout: 2000 });
+  // Out of the meeting once the web client leaves the meeting's page.
+  await page.waitForURL((url) => !url.pathname.endsWith('/join'), {
+    timeout: 5000,
+  });
+};
+
 const readPageInfo = async (page) => ({
   labels: await buttonLabels(page),
   text: await page.evaluate(() => document.body.innerText),
@@ -249,6 +267,31 @@ const readState = async (participant) => {
   }
 };
 
+// Raises or lowers the participant's own hand. The web client builds its
+// footer a few seconds after joining, keeps the hand button in its Reactions
+// panel, or shows it straight in the footer where reactions are turned off
+// for the account: it is looked for for a while, and the panel opened once if
+// it isn't there.
+const setHand = async (page, raising) => {
+  const pattern = raising ? /^raise hand$/i : /^lower hand$/i;
+  const deadline = Date.now() + 20_000;
+  // One look at the footer, then another after a pause until the deadline.
+  // Recursion rather than a loop: each look is awaited before the next one
+  // starts, which is the whole point of polling a UI.
+  const look = async (openedPanel) => {
+    if (Date.now() >= deadline) return false;
+    if (await clickButton(page, pattern)) return true;
+    if (!openedPanel && (await clickButton(page, /^reactions$/i))) {
+      // The panel is a portal of its own: give it a moment to render.
+      await sleep(600);
+      return look(true);
+    }
+    await sleep(1000);
+    return look(openedPanel);
+  };
+  return look(false);
+};
+
 const runAction = async (participant, action) => {
   const { page } = participant;
   if (!page && action !== 'leave') return false;
@@ -264,9 +307,17 @@ const runAction = async (participant, action) => {
       participant.phase = 'left';
       if (!page) return true;
       await clickButton(page, /^leave$/i).catch(() => false);
-      await sleep(500);
+      await confirmLeave(page).catch(() => undefined);
       await participant.context.close();
       return true;
+    case 'lower-hand':
+    case 'raise-hand': {
+      const raising = action === 'raise-hand';
+      const pressed = await setHand(page, raising);
+      if (pressed)
+        addEvent(participant, raising ? 'hand-raised' : 'hand-lowered');
+      return pressed;
+    }
     case 'mute':
       return clickButton(page, /^mute my microphone$/i);
     case 'reset-events':

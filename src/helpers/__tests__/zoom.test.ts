@@ -4,6 +4,7 @@ import { MEDIA_WINDOW_TITLE } from 'src/constants/zoom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const currentSettings = {
+  zoomHandButtonTitle: null as null | string,
   zoomHandRaisedPhrase: null as null | string,
   zoomJoinAudioTitle: null as null | string,
   zoomLearnedVersion: null as null | string,
@@ -251,6 +252,29 @@ describe('Zoom meeting automation', () => {
 
     expect(zoomCommandMock).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ['after the meeting has started', -60, true],
+    ['on a day without a meeting', null, true],
+    // Its own schedule applies them then, after the startup check.
+    ['before the meeting', 60, false],
+  ])(
+    'music starting %s (meeting in %s min) applies the before/after-meeting settings: %s',
+    async (_when, minutesToStart, applied) => {
+      currentSettings.zoomMeetingManagerAutomatePostMeetingAudioSettings = true;
+      const now = new Date(2026, 9, 15, 19, 30);
+      dateMocks.getMeetingStartToday.mockReturnValue(
+        minutesToStart === null
+          ? null
+          : new Date(now.getTime() + minutesToStart * 60_000),
+      );
+      const { automateZoomSettingsOnMusicStart } = await import('../zoom');
+
+      await automateZoomSettingsOnMusicStart(now);
+
+      expect(commandTypes().includes('leave-audio')).toBe(applied);
+    },
+  );
 
   it('skips every step when no Zoom meeting is open', async () => {
     meetingFound = false;
@@ -550,7 +574,7 @@ describe('Zoom meeting auto-launch', () => {
     meetingFound = false;
     const { autoLaunchZoomMeetingIfNeeded } = await import('../zoom');
 
-    await autoLaunchZoomMeetingIfNeeded(600);
+    await autoLaunchZoomMeetingIfNeeded();
 
     expect(launchZoomMeetingMock).toHaveBeenCalledWith('123 456');
   });
@@ -559,7 +583,7 @@ describe('Zoom meeting auto-launch', () => {
     currentSettings.zoomMeetingManagerAutoLaunchMeeting = true;
     const { autoLaunchZoomMeetingIfNeeded } = await import('../zoom');
 
-    await autoLaunchZoomMeetingIfNeeded(600);
+    await autoLaunchZoomMeetingIfNeeded();
 
     expect(launchZoomMeetingMock).not.toHaveBeenCalled();
   });
@@ -581,7 +605,7 @@ describe('Zoom automations and the startup check', () => {
 
     await automateZoomMeetingSettings();
     expect(await automateZoomMediaSharing(true)).toBe(false);
-    await autoLaunchZoomMeetingIfNeeded(600);
+    await autoLaunchZoomMeetingIfNeeded();
 
     expect(zoomCommandMock).not.toHaveBeenCalled();
     expect(launchZoomMeetingMock).not.toHaveBeenCalled();
@@ -661,6 +685,7 @@ describe('Zoom setup assistant', () => {
 
   it("learns raised hands through Zoom's Reactions button, remembering its name", async () => {
     Object.assign(currentSettings, {
+      zoomHandButtonTitle: null,
       zoomHandRaisedPhrase: null,
       zoomReactButtonTitle: 'React',
     });
@@ -674,13 +699,55 @@ describe('Zoom setup assistant', () => {
     await learnZoomHandRaisedPhrase();
 
     expect(zoomCommandMock).toHaveBeenCalledWith({
+      handRaiseTitle: null,
       reactButtonTitle: 'React',
       titles: expect.any(Object),
       type: 'learn-hand-raised',
     });
     expect(currentSettings).toMatchObject({
+      zoomHandButtonTitle: null,
       zoomHandRaisedPhrase: 'Hand raised',
       zoomReactButtonTitle: 'Reactions',
+    });
+  });
+
+  it("learns raised hands through Zoom's plain Raise hand button", async () => {
+    Object.assign(currentSettings, {
+      zoomHandButtonTitle: null,
+      zoomHandRaisedPhrase: null,
+      zoomReactButtonTitle: 'React',
+    });
+    zoomCommandMock.mockResolvedValue({
+      handButtonTitle: 'Raise hand',
+      ok: true,
+      phrase: 'Hand raised',
+      reactButtonTitle: null,
+    });
+    const { learnZoomHandRaisedPhrase } = await import('../zoom');
+
+    await learnZoomHandRaisedPhrase('Raise hand');
+
+    expect(zoomCommandMock).toHaveBeenCalledWith({
+      handRaiseTitle: null,
+      reactButtonTitle: 'Raise hand',
+      titles: expect.any(Object),
+      type: 'learn-hand-raised',
+    });
+    // Zoom has no React button for this account: none is looked for again.
+    expect(currentSettings).toMatchObject({
+      zoomHandButtonTitle: 'Raise hand',
+      zoomHandRaisedPhrase: 'Hand raised',
+      zoomReactButtonTitle: null,
+    });
+
+    // Learning again goes by the button learned, whatever Zoom shows first.
+    zoomCommandMock.mockClear();
+    await learnZoomHandRaisedPhrase();
+    expect(zoomCommandMock).toHaveBeenCalledWith({
+      handRaiseTitle: 'Raise hand',
+      reactButtonTitle: null,
+      titles: expect.any(Object),
+      type: 'learn-hand-raised',
     });
   });
 
@@ -1003,6 +1070,34 @@ describe('telling the user while M³ operates Zoom', () => {
     expect(commandTypes()).toEqual(['meeting', 'join-audio']);
     expect(restartZoomHelperMock).toHaveBeenCalled();
     expect(zoomState.runActive).toBe(false);
+  });
+});
+
+describe('describing Zoom for error reports', () => {
+  it('reads what Zoom shows, without the overlay', async () => {
+    const snapshot = {
+      dialogs: { 'SomeZoomDialog 420x240': ['Join', 'Cancel'] },
+      meeting: false,
+      sharing: false,
+      windows: ['SomeZoomDialog'],
+      zoomVersion: '7.2.5.51704',
+    };
+    zoomCommandMock.mockResolvedValueOnce({ ok: true, snapshot });
+    const { getZoomSnapshot } = await import('../zoom');
+
+    expect(await getZoomSnapshot()).toEqual(snapshot);
+    expect(commandTypes()).toEqual(['snapshot']);
+    expect(zoomState.beginRun).not.toHaveBeenCalled();
+  });
+
+  it("gives null when the helper can't tell", async () => {
+    zoomCommandMock.mockResolvedValueOnce({
+      error: 'helper-not-running',
+      ok: false,
+    });
+    const { getZoomSnapshot } = await import('../zoom');
+
+    expect(await getZoomSnapshot()).toBeNull();
   });
 });
 

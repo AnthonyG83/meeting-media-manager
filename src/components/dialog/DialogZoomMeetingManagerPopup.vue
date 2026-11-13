@@ -46,7 +46,7 @@
       </div>
 
       <div v-if="checkRunning" class="action-popup__banner">
-        <q-spinner color="primary" size="18px" />
+        <LiquidSpinner color="primary" size="18px" />
         <div class="col text-caption text-weight-medium">
           {{ t('zoom-check-running') }}
         </div>
@@ -62,6 +62,9 @@
             {{ t('zoom-automations-paused') }}
           </div>
           <div v-if="relearnNeeded">{{ t('zoom-check-names-changed') }}</div>
+          <div v-else-if="checkDeclined">
+            {{ t('zoom-automations-paused-declined') }}
+          </div>
           <div v-else>
             {{
               t('zoom-automations-paused-failed', { problems: pausedProblems })
@@ -111,6 +114,9 @@
             outline
             @click="runAction('meeting')"
           >
+            <template #loading>
+              <LiquidSpinner />
+            </template>
             <q-tooltip :delay="500">
               {{ t('zoomMeetingManagerAutomateMeetingAudioSettings-explain') }}
             </q-tooltip>
@@ -133,6 +139,9 @@
             outline
             @click="runAction('postMeeting')"
           >
+            <template #loading>
+              <LiquidSpinner />
+            </template>
             <q-tooltip :delay="500">
               {{
                 t('zoomMeetingManagerAutomatePostMeetingAudioSettings-explain')
@@ -180,7 +189,12 @@
             </q-item-section>
             <q-item-section>
               <q-item-label class="ellipsis">{{ name }}</q-item-label>
-              <div class="row q-gutter-xs">
+              <!-- Notify-only: the list still names who raised a hand, but the
+                   participant is left to the operator in Zoom. -->
+              <div
+                v-if="!currentSettings?.zoomMeetingManagerHandAlertNotifyOnly"
+                class="row q-gutter-xs"
+              >
                 <q-btn
                   class="btn-tonal"
                   color="positive"
@@ -193,7 +207,11 @@
                   no-caps
                   size="sm"
                   @click="unmute(name)"
-                />
+                >
+                  <template #loading>
+                    <LiquidSpinner />
+                  </template>
+                </q-btn>
                 <q-btn
                   class="btn-tonal"
                   color="primary"
@@ -206,7 +224,11 @@
                   no-caps
                   size="sm"
                   @click="muteAndLower(name)"
-                />
+                >
+                  <template #loading>
+                    <LiquidSpinner />
+                  </template>
+                </q-btn>
               </div>
             </q-item-section>
           </q-item>
@@ -272,6 +294,9 @@
           unelevated
           @click="arrangeWindows"
         >
+          <template #loading>
+            <LiquidSpinner />
+          </template>
           <q-tooltip :delay="500">
             {{ t('zoom-layout-arrange-explain') }}
           </q-tooltip>
@@ -381,6 +406,7 @@ import type { SettingsValues, ZoomMeetingState } from 'src/types';
 
 import ZoomSelfTestPanel from 'components/dialog/ZoomSelfTestPanel.vue';
 import ActionPopup from 'components/ui/ActionPopup.vue';
+import LiquidSpinner from 'components/ui/LiquidSpinner.vue';
 import { storeToRefs } from 'pinia';
 import { getZoomHelperErrorMessageKey } from 'src/constants/zoom';
 import { errorCatcher } from 'src/helpers/error-catcher';
@@ -443,7 +469,7 @@ const { currentSettings, mediaIsPlaying, zoomHelperLogs } =
   storeToRefs(currentState);
 
 const zoomState = useZoomStateStore();
-const { automationsPaused, checkRunning, pause, relearnNeeded } =
+const { automationsPaused, checkDeclined, checkRunning, pause, relearnNeeded } =
   storeToRefs(zoomState);
 
 const handAlert = useHandAlertStore();

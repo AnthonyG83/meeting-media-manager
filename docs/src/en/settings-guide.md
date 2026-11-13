@@ -483,9 +483,13 @@ Choose how the timer is reached from the main window:
 
 ### Timer Remote {#timer-remote}
 
-<!-- **Settings**: `timerRemoteEnable`, `timerRemotePort`, `timerRemoteAllowControl`, `timerRemotePin`, `timerRemoteNewPin` -->
+<!-- **Settings**: `timerRemoteEnable`, `timerRemoteFocusLayout`, `timerRemotePort`, `timerRemoteAllowControl`, `timerRemotePin`, `timerRemoteNewPin` -->
 
 When turned on, M³ serves a copy of the timer display as a web page on your local network, for a tablet or phone at the lectern: the speaker sees the remaining time without it being on the congregation's screen or in a Zoom share. The page follows the timer in real time, including the pre-meeting countdown, the clock, overtime colors and the hand alert, and the controls stay in M³ unless you allow the page to control the timer (see below).
+
+With **Focus layout for the timer remote** on, the page shows the time in a large progress ring instead: teal while there's time to spare, yellow in the last minute, then red with the amount of overtime (`+02:18`). The Zoom participants whose hand is raised are listed beside it, in the order they raised them, with the first four by name and a count of the rest, and each new hand flashes a "Hand raised" banner for a few seconds while the hands stay listed. The default display remains the plain large time.
+
+While the page is open, it keeps the device's screen awake, so a tablet at the lectern doesn't lock or dim mid-part. Where the browser doesn't allow that on the page's plain-HTTP address, it plays a silent video to hold the screen on instead.
 
 The addresses to open on the device are listed in the timer popup, with a copy button. Change the port only if another program already uses it. Note that anyone on the same network can open the page while this is on; unless you allow control, it shows nothing but the timer.
 

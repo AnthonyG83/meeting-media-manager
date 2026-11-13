@@ -264,6 +264,19 @@ Versuchen Sie diese Leistungsoptimierungen:
 3. **Sprachverfügbarkeit**: Stellen Sie sicher, dass die Mediensprache auf der offiziellen Website der Zeugen Jehovas verfügbar ist
 4. **Ausweichsprache**: Versuchen Sie, eine Ausweichsprache einzustellen
 
+### :wrench: M³ lässt sich nach einem Update nicht mehr öffnen. Was soll ich tun? {#faq-update-interrupted}
+
+Wenn der Computer ausgeschaltet oder neu gestartet wurde, während M³ ein Update installierte, wurde die Installation möglicherweise mittendrin abgebrochen, und M³ lässt sich nicht mehr öffnen. Ihre Einstellungen und Medien sind noch vorhanden. So reparieren Sie M³:
+
+1. Laden Sie die neueste Version von der [Download-Seite](download) herunter.
+2. Führen Sie das Installationsprogramm aus. Es stellt M³ wieder her und behält Ihre Einstellungen bei.
+
+**Deinstallieren Sie M³ nicht vorher**: Beim Deinstallieren werden auch seine Einstellungen gelöscht.
+
+Wenn der Computer keine Verbindung zum Internet herstellen kann, ist das Installationsprogramm, das M³ heruntergeladen hatte, meist noch vorhanden: Drücken Sie `Win+R`, geben Sie `%LOCALAPPDATA%\meeting-media-manager-updater\pending` ein und führen Sie dann das Installationsprogramm in dem Ordner aus, der sich öffnet.
+
+Um einen solchen Abbruch zu verhindern, installiert M³ unter Windows ein heruntergeladenes Update beim nächsten Öffnen statt beim Schließen. When M³ is installed for all users of the computer, Windows asks for permission first, so M³ waits until you choose to install the update.
+
 ## Support und Community {#support-community}
 
 ### :radioactive: Wie melde ich ein Problem? {#how-do-i-report-an-issue}

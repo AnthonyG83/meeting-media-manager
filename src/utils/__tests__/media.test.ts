@@ -6,6 +6,7 @@ import {
   getFileNameMaskFromPubMediaId,
   isAudio,
   isExpectedMediaAccessError,
+  isGpuDecodeError,
   isHeic,
   isImage,
   isJwPlaylist,
@@ -356,6 +357,51 @@ describe('Media Utilities', () => {
           sizeFollowingViolations(getCaptureSizeBounds(width, height)),
         ).toEqual([]);
       }
+    });
+  });
+
+  // MMM-V2-3MH: the media window tells the main window about these so it
+  // can recommend disabling hardware acceleration.
+  describe('isGpuDecodeError', () => {
+    it.each([
+      ['a bare decode error code', { code: 3, message: '' }],
+      [
+        'PIPELINE_ERROR_DISCONNECTED: video decode error!',
+        {
+          code: 3,
+          message: 'PIPELINE_ERROR_DISCONNECTED: video decode error!',
+        },
+      ],
+      [
+        'PIPELINE_ERROR_DECODE: format error',
+        { code: 3, message: 'PIPELINE_ERROR_DECODE: format error' },
+      ],
+    ])('treats %s as a decoder failure', (_name, error) => {
+      expect(isGpuDecodeError(error)).toBe(true);
+    });
+
+    it.each([
+      ['no error', null],
+      ['missing error', undefined],
+      [
+        'an unsupported source',
+        { code: 4, message: 'MEDIA_ELEMENT_SRC_NOT_SUPPORTED' },
+      ],
+      [
+        'a network failure',
+        { code: 2, message: 'PIPELINE_ERROR_NETWORK: net error' },
+      ],
+      // MMM-V2-3NV: no decoder for the format on this machine (HEVC).
+      [
+        'a format this machine has no decoder for',
+        {
+          code: 4,
+          message:
+            'PipelineStatus::DECODER_ERROR_NOT_SUPPORTED: GetVideoDecoderConfigCount failed: The operation completed successfully. (0x0)',
+        },
+      ],
+    ])('does not treat %s as a decoder failure', (_name, error) => {
+      expect(isGpuDecodeError(error)).toBe(false);
     });
   });
 });

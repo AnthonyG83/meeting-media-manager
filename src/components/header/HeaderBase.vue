@@ -18,13 +18,21 @@
             loading="lazy"
             src="~assets/img/beta-logo-no-background.svg"
             width="40px"
-          />
+          >
+            <template #loading>
+              <LiquidSpinner color="primary" size="40px" />
+            </template>
+          </q-img>
           <q-img
             v-else
             loading="lazy"
             src="~assets/img/logo-no-background.svg"
             width="40px"
-          />
+          >
+            <template #loading>
+              <LiquidSpinner color="primary" size="40px" />
+            </template>
+          </q-img>
           <q-badge
             v-if="updatesAreDisabled"
             color="warning"
@@ -82,7 +90,11 @@
       </div>
       <div class="col-shrink q-gutter-x-sm">
         <HeaderCalendar v-if="route.fullPath.includes('/media-calendar')" />
-        <HeaderSettings v-else-if="route.fullPath.includes('/settings')" />
+        <HeaderSettings
+          v-else-if="
+            route.fullPath.includes('/settings') && !currentState.settingsLocked
+          "
+        />
         <HeaderWebsite
           v-else-if="route.fullPath.includes('/present-website')"
         />
@@ -93,6 +105,7 @@
 <script setup lang="ts">
 import { useIntervalFn } from '@vueuse/core';
 import DialogAbout from 'components/dialog/DialogAbout.vue';
+import LiquidSpinner from 'components/ui/LiquidSpinner.vue';
 import { storeToRefs } from 'pinia';
 import { updatesDisabled } from 'src/utils/fs';
 import { useCongregationSettingsStore } from 'stores/congregation-settings';

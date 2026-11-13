@@ -7,6 +7,7 @@ import {
   countZoomMeetingParticipants,
   getZoomMeetingState,
 } from 'src/helpers/zoom';
+import { answerZoomCheckPrompt } from 'src/helpers/zoom-check-prompt';
 import { runZoomStartupCheck } from 'src/helpers/zoom-startup-check';
 import { useCongregationSettingsStore } from 'stores/congregation-settings';
 import { useCurrentStateStore } from 'stores/current-state';
@@ -24,6 +25,7 @@ import {
   ROOT,
   sleep,
   titles,
+  waitUntilHostAlone,
 } from './support';
 
 // The startup check against the real Zoom app (see README.md): it opens
@@ -33,6 +35,7 @@ import {
 // A meeting starts in 30 minutes, every day here: M³ may open it now.
 vi.mock('src/helpers/date', async (importOriginal) => ({
   ...(await importOriginal<object>()),
+  getMeetingStartToday: () => new Date(Date.now() + 30 * 60_000),
   getTodaysMeetingStartDateTime: () => new Date(Date.now() + 30 * 60_000),
 }));
 
@@ -77,6 +80,36 @@ const launchMeeting = (id: string) => {
     'url.dll,FileProtocolHandler',
     `zoommtg://zoom.us/join?${query.toString()}`,
   ]);
+};
+
+/** How many times the check asked before touching Zoom. */
+const asked = { times: 0 };
+
+/**
+ * Runs the check, answering the question it asks first (see
+ * DialogZoomCheckPrompt) as a user would, and returns its outcome. Nothing
+ * is answered for a manual check, which asks nothing.
+ */
+const runCheck = async (
+  options?: Parameters<typeof runZoomStartupCheck>[0],
+): Promise<Awaited<ReturnType<typeof runZoomStartupCheck>>> => {
+  const running = runZoomStartupCheck(options);
+  for (let attempt = 0; attempt < 300; attempt++) {
+    if (useZoomStateStore().checkPrompt) {
+      print('  Asked before testing Zoom: answering "run the checks"');
+      asked.times++;
+      answerZoomCheckPrompt('run');
+      break;
+    }
+    // Nothing to answer once the check has finished on its own, which it
+    // does on a day without a meeting or when it already passed today.
+    const settled = await Promise.race([
+      running,
+      sleep(200).then(() => 'checking' as const),
+    ]);
+    if (settled !== 'checking') return settled;
+  }
+  return running;
 };
 
 const startParticipants = (count: number) =>
@@ -174,22 +207,31 @@ describe.skipIf(!canRunLive)('Zoom startup check, live', () => {
       await callParticipants(participantsPort, '/quit', {}).catch(
         () => undefined,
       );
-      await sleep(3000);
+      await waitUntilHostAlone(helper);
     }
     children.forEach((child) => child.kill());
     helper.stop();
   });
 
-  it('opens the meeting if needed, then tests everything with the host alone', async () => {
+  it('opens the meeting if needed, then tests everything with the host alone', async (context) => {
     const open = (await getZoomMeetingState())?.found;
     print(
       open
         ? '  The meeting is already open'
         : '  The meeting is not open: the check opens it',
     );
+    // Test participants from another test file may still be leaving, and
+    // ones kept running (see README.md) stay.
+    if (open && !(await waitUntilHostAlone(helper))) {
+      context.skip('Others are in the meeting: the check would only look');
+      return;
+    }
 
     sent = [];
-    expect(await runZoomStartupCheck()).toBe('passed');
+    asked.times = 0;
+    expect(await runCheck()).toBe('passed');
+    // It asked first, and only then pressed anything in Zoom.
+    expect(asked.times).toBe(1);
     print(`  Sent to Zoom: ${sent.join(', ')}`);
     expect(visibleActionsSent()).toEqual([
       'join-audio',
@@ -207,7 +249,10 @@ describe.skipIf(!canRunLive)('Zoom startup check, live', () => {
   const expectCheckOnlyLooks = async () => {
     const before = await getZoomMeetingState(true);
     sent = [];
-    expect(await runZoomStartupCheck({ manual: true })).toBe('passed');
+    const askedBefore = asked.times;
+    expect(await runCheck({ manual: true })).toBe('passed');
+    // A check the user started asks nothing.
+    expect(asked.times).toBe(askedBefore);
     print(`  Sent to Zoom: ${sent.join(', ')}`);
     expect(visibleActionsSent()).toEqual([]);
     // It still looked at everything the automations use.
@@ -231,6 +276,8 @@ describe.skipIf(!canRunLive)('Zoom startup check, live', () => {
   });
 
   it('counts real participants as others in the meeting', async (context) => {
+    // On top of anyone already in, like participants kept running.
+    const before = await countZoomMeetingParticipants();
     const launched = await startParticipants(2);
     children.push(launched.child);
     participantsPort = launched.port;
@@ -241,7 +288,8 @@ describe.skipIf(!canRunLive)('Zoom startup check, live', () => {
       return;
     }
 
-    expect(await countZoomMeetingParticipants()).toBe(joined + 1);
+    expect(before).not.toBeNull();
+    expect(await countZoomMeetingParticipants()).toBe((before ?? 0) + joined);
     await expectCheckOnlyLooks();
   });
 });

@@ -27,6 +27,7 @@ const t = (key: string, named?: Record<string, unknown>) =>
 const getPageText = (): Record<string, string> => ({
   controls: t('timer-remote-controls'),
   elapsed: t('elapsed'),
+  handRaised: t('hand-raised'),
   hideTimer: t('timer-remote-hide-timer'),
   lang: i18n.global.locale.value,
   meetingStartsIn: t('meeting-starts-in'),
@@ -36,6 +37,7 @@ const getPageText = (): Record<string, string> => ({
   paused: t('paused'),
   pinPrompt: t('timer-remote-pin-prompt'),
   pinWrong: t('timer-remote-pin-wrong'),
+  raisedHands: t('raised-hands'),
   reconnecting: t('timer-remote-reconnecting'),
   remaining: t('remaining'),
   resume: t('resume'),
@@ -120,7 +122,12 @@ const applySettings = async () => {
 
   globalThis.electronApi.timerRemoteText(getPageText());
   if (settings) sendControlConfig(settings);
-  if (runningPort === wanted) return;
+  if (runningPort === wanted) {
+    // A setting that only changes what the page draws needs no restart:
+    // push the current state so an idle page picks it up too.
+    if (wanted !== null) useTimer().updateTimerWindow();
+    return;
+  }
 
   const status = await globalThis.electronApi.startTimerRemote(wanted);
   if (!status.running) {

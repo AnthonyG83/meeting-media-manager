@@ -36,6 +36,8 @@ export type MeetingPart = BuiltInMeetingPart | CustomMeetingPart;
 export interface MeetingPartOption {
   icon?: string;
   label: string;
+  /** The part's name alone, where its duration is shown next to it. */
+  name?: string;
   section?: 'custom-timer-parts' | MediaSectionIdentifier;
   value: MeetingPart;
   /** The section's parts don't add up to the time allotted to it. */
@@ -85,6 +87,7 @@ export interface TimerData {
   timerPartTargetSeconds?: number;
   /** Set by the main process: the page may send commands (with the PIN). */
   timerRemoteControlAllowed?: boolean;
+  timerRemoteFocusLayout?: boolean;
   /** The day's parts, for the remote's part list (the remote only). */
   timerRemoteParts?: TimerRemotePart[];
   timerTextColor?: string;

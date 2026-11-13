@@ -19,8 +19,10 @@
       :start-step="zoomSetupAssistantStep"
     />
     <DialogZoomAutomationOverlay />
+    <DialogZoomCheckPrompt />
     <DialogFeatureNudge />
     <DialogMusicStartConfirm />
+    <MediaConversionConfirm />
 
     <!-- Main content -->
     <q-page-container class="app-main-scroll main-bg">
@@ -108,7 +110,9 @@ import DialogCongregationSwitcher from 'components/dialog/DialogCongregationSwit
 import DialogFeatureNudge from 'components/dialog/DialogFeatureNudge.vue';
 import DialogMusicStartConfirm from 'components/dialog/DialogMusicStartConfirm.vue';
 import DialogZoomAutomationOverlay from 'components/dialog/DialogZoomAutomationOverlay.vue';
+import DialogZoomCheckPrompt from 'components/dialog/DialogZoomCheckPrompt.vue';
 import DialogZoomSetupAssistant from 'components/dialog/DialogZoomSetupAssistant.vue';
+import MediaConversionConfirm from 'components/dialog/MediaConversionConfirm.vue';
 import HeaderBase from 'components/header/HeaderBase.vue';
 import MediaPreview from 'components/media/MediaPreview.vue';
 import TimerDockPanel from 'components/media/TimerDockPanel.vue';
@@ -133,7 +137,7 @@ import {
 } from 'src/helpers/date';
 import { DISK_FULL_ERROR_EVENT, errorCatcher } from 'src/helpers/error-catcher';
 import { exportAllDays } from 'src/helpers/export-media';
-import { setElementFont } from 'src/helpers/fonts';
+import { loadUiLocaleFont, setElementFont } from 'src/helpers/fonts';
 import { watchExternalFolder } from 'src/helpers/fs';
 import {
   clearMeetingCheckStatusPruneTimers,
@@ -147,6 +151,7 @@ import {
   registerAllCustomShortcuts,
   unregisterAllCustomShortcuts,
 } from 'src/helpers/keyboardShortcuts';
+import { markUnplayable } from 'src/helpers/media-conversion';
 import {
   getOrCreateMediaSection,
   removeWatchedMediaSectionInfo,
@@ -169,10 +174,8 @@ import {
   syncZoomHandAlertWatcher,
 } from 'src/helpers/zoom-hand-alert';
 import { syncZoomLayoutWatcher } from 'src/helpers/zoom-layout';
-import {
-  scheduleZoomStartupCheck,
-  watchZoomChanges,
-} from 'src/helpers/zoom-startup-check';
+import { scheduleZoomAutomations } from 'src/helpers/zoom-meeting-day';
+import { watchZoomChanges } from 'src/helpers/zoom-startup-check';
 import { localeOptions } from 'src/i18n';
 import { log, type LogPrefix } from 'src/shared/vanilla';
 import { useAppSettingsStore } from 'src/stores/app-settings';
@@ -594,8 +597,13 @@ async function handleAddWatchFolderEvent(
 
     const itemWithSavedPlacement = {
       ...(existingItem ?? watchedItem),
+      // The file it plays is whatever the folder has now: the watched file,
+      // or its copy converted to play on this computer (which can appear, or
+      // be cleaned up, between two looks at the folder).
+      fileUrl: watchedItem.fileUrl,
       originalSection: watchedItem.originalSection,
       sortOrderOriginal: watchedItem.sortOrderOriginal,
+      thumbnailUrl: watchedItem.thumbnailUrl,
     };
 
     const targetSection = getOrCreateMediaSection(
@@ -779,6 +787,11 @@ bcClose.onmessage = (event) => {
   }
 };
 
+// Whether the GPU-decode-failure recommendation was already shown this
+// session (MMM-V2-3MH) - the media window reports every failure, but the
+// user only needs to hear the recommendation once.
+let gpuDecodeNoticeShown = false;
+
 const initListeners = () => {
   onLog(({ ctx, level, msg }) => {
     log(`[main] ${msg}`, ctx as unknown as LogPrefix, level, ctx);
@@ -846,7 +859,9 @@ const initListeners = () => {
       loaded: existing?.loaded,
       meetingDate: existing?.meetingDate ?? '',
       progressCategory: existing?.progressCategory,
-      total: args.totalBytes,
+      // 0 when the server didn't say (a compressed response, say): keep the
+      // size the media's own details gave, if any.
+      total: args.totalBytes > 0 ? args.totalBytes : existing?.total,
     };
   });
 
@@ -874,6 +889,10 @@ const initListeners = () => {
     if (existing) existing.loaded = args.bytesReceived;
   });
 
+  const goToHardwareAccelerationSetting = () => {
+    void router.push('/settings/disableHardwareAcceleration');
+  };
+
   onGpuCrashDetected(() => {
     createTemporaryNotification({
       actions: [
@@ -884,8 +903,14 @@ const initListeners = () => {
           },
           label: t('restart-app'),
         },
+        {
+          color: 'white',
+          handler: goToHardwareAccelerationSetting,
+          label: t('go-to-settings'),
+        },
       ],
       caption: t('gpu-crash-detected-restarting'),
+      group: 'gpu-crash',
       message: t('gpu-crash-detected'),
       timeout: 0,
       type: 'negative',
@@ -903,9 +928,55 @@ const initListeners = () => {
 
   onHardwareAccelerationTemporaryDisabled(() => {
     createTemporaryNotification({
+      actions: [
+        {
+          color: 'dark',
+          handler: goToHardwareAccelerationSetting,
+          label: t('go-to-settings'),
+        },
+        {
+          color: 'dark',
+          icon: 'close',
+          round: true,
+        },
+      ],
       caption: t('gpu-crash-detected-explain'),
+      group: 'gpu-crash',
       message: t('gpu-crash-detected'),
       timeout: 10_000,
+      type: 'warning',
+    });
+  });
+
+  // A video the media window couldn't decode (MMM-V2-3MH): the file played
+  // fine up to that point, so this points at the device's decoder, not the
+  // file. Suggest what actually helps, once per session and never when
+  // hardware acceleration is already off.
+  whenever(gpuDecodeFailed, () => {
+    if (
+      gpuDecodeNoticeShown ||
+      currentSettings.value?.disableHardwareAcceleration
+    ) {
+      return;
+    }
+    gpuDecodeNoticeShown = true;
+    createTemporaryNotification({
+      actions: [
+        {
+          color: 'dark',
+          handler: goToHardwareAccelerationSetting,
+          label: t('go-to-settings'),
+        },
+        {
+          color: 'dark',
+          icon: 'close',
+          round: true,
+        },
+      ],
+      caption: t('media-decode-failed-explain'),
+      group: 'gpu-crash',
+      message: t('media-decode-failed'),
+      timeout: 15_000,
       type: 'warning',
     });
   });
@@ -948,6 +1019,11 @@ const initListeners = () => {
               relaunchApp();
             },
             label: t('restart-app'),
+          },
+          {
+            color: 'white',
+            handler: goToHardwareAccelerationSetting,
+            label: t('go-to-settings'),
           },
         ],
         caption: t('media-window-keeps-stopping-explain'),
@@ -1013,6 +1089,19 @@ const { post: postUrlVariables } = useBroadcastChannel<
 });
 const { post: postOnline } = useBroadcastChannel<boolean, boolean>({
   name: 'online',
+});
+
+const { data: gpuDecodeFailed } = useBroadcastChannel<number, number>({
+  name: 'gpu-decode-failed',
+});
+
+// A file the media window has no decoder for on this computer (HEVC on a
+// graphics card that can't decode it, say): offer to convert it.
+const { data: noDecoderHere } = useBroadcastChannel<
+  { at: number; url: string },
+  { at: number; url: string }
+>({
+  name: 'media-no-decoder-here',
 });
 
 // Function to check if we should show the yeartext preview notification
@@ -1264,6 +1353,15 @@ watchImmediate(
 
     // Update previous state
     previousState.value = { base, mediator, wasOnline: online };
+  },
+);
+
+// Also retried on coming back online: a font that couldn't be fetched isn't
+// kept as failed, and one already loaded returns at once.
+watchImmediate(
+  (): [string, boolean] => [locale.value, online.value],
+  ([newLocale]) => {
+    void loadUiLocaleFont(newLocale);
   },
 );
 
@@ -1836,6 +1934,7 @@ watchImmediate(
     currentSettings.value?.enableTimerDisplay,
     currentSettings.value?.timerRemoteEnable,
     currentSettings.value?.timerRemoteAllowControl,
+    currentSettings.value?.timerRemoteFocusLayout,
     currentSettings.value?.timerRemotePin,
     currentSettings.value?.timerRemotePort,
     locale.value,
@@ -1846,12 +1945,13 @@ watchImmediate(
 );
 
 // Once M³ has started (or a congregation is opened), check its Zoom before
-// any automation relies on it. The check itself runs only once per session.
+// any automation relies on it (once a day), then run the automations due
+// before each meeting, in order.
 watchImmediate(
   () => currentCongregation.value,
   (congregation) => {
     watchZoomChanges();
-    if (congregation) scheduleZoomStartupCheck();
+    if (congregation) scheduleZoomAutomations();
   },
 );
 
@@ -1975,4 +2075,8 @@ useIntervalFn(
 // Tells the user the disk is full whenever a write fails for lack of space
 // (downloads say so through onDownloadError instead).
 useEventListener(globalThis, DISK_FULL_ERROR_EVENT, notifyDiskFull);
+
+watch(noDecoderHere, (failure) => {
+  if (failure?.url) void markUnplayable(failure.url);
+});
 </script>

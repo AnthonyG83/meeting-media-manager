@@ -264,6 +264,19 @@ M³ 在您的电脑上播放带有声音的媒体，但当使用 OBS Studio 时�
 3. **语言可用性**：确认该语言在耶和华见证人官方网站上有相应内容
 4. **备用语言**：可以尝试设置备用媒体语言
 
+### :wrench: M³ 更新后无法启动。我该怎么办？ {#faq-update-interrupted}
+
+如果在 M³ 安装更新的过程中计算机关机或重新启动，安装可能会在中途停止，导致 M³ 无法再启动。设置和媒体仍然保留。要修复 M³：
+
+1. 从[下载页面](download)下载最新版本。
+2. 运行安装程序。它会重新安装 M³，并保留现有设置。
+
+**不要先卸载 M³**：卸载时也会删除它的设置。
+
+如果计算机无法联网，M³ 先前下载的安装程序通常还在：按 `Win+R`，输入 `%LOCALAPPDATA%\meeting-media-manager-updater\pending`，然后运行打开的文件夹中的安装程序。
+
+为了防止这种情况，Windows 版 M³ 会在下次启动时安装已下载的更新，而不是在关闭时安装。 When M³ is installed for all users of the computer, Windows asks for permission first, so M³ waits until you choose to install the update.
+
 ## 支持与社区 {#support-community}
 
 ### :radioactive: 如何报告问题？ {#how-do-i-report-an-issue}

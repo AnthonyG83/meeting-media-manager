@@ -25,7 +25,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.x'
 
@@ -51,9 +51,25 @@ jobs:
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
           fi
 
+  # ci.yml skips pull requests authored by github-actions[bot], which this is,
+  # so the bump would otherwise admin-merge without ever being built (see
+  # fix-vulnerable-dependencies.yml). Build the bump branch first.
+  build-version-bump:
+    name: Build the version bump
+    needs: bump-version
+    if: needs.bump-version.outputs.draft_exists != 'true' && needs.bump-version.outputs.has_changes == 'true'
+    uses: ./.github/workflows/build.yml
+    with:
+      checkout-latest: true
+      # Lint and unit tests are enough here: the bump only changes the version
+      # number, and the release build packages this same content right after.
+      quality-only: true
+      ref: ${{ needs.bump-version.outputs.bump_branch }}
+    secrets: inherit
+
   merge-version-bump:
     name: Merge version bump
-    needs: bump-version
+    needs: [bump-version, build-version-bump]
     if: needs.bump-version.outputs.draft_exists != 'true' && needs.bump-version.outputs.has_changes == 'true'
     uses: ./.github/workflows/pr-creator-and-waiter.yml
     with:
@@ -66,8 +82,16 @@ jobs:
   draft-release:
     name: Draft release
     runs-on: ubuntu-latest
-    needs: [bump-version, merge-version-bump]
-    if: always() && needs.bump-version.result == 'success' && (needs.merge-version-bump.result == 'success' || needs.merge-version-bump.result == 'skipped')
+    needs: [bump-version, build-version-bump, merge-version-bump]
+    # `merge-version-bump` is legitimately skipped when there is nothing to
+    # merge (no changes, or the draft already exists), so `skipped` stays
+    # acceptable for it. It is skipped for a second reason though - the bump
+    # gate failed - and that one must stop the release: drafting and then
+    # packaging from a master that never got the bump ships the previous
+    # version's content under the new tag. Requiring the gate itself to have
+    # succeeded, or to have been skipped because there was nothing to gate,
+    # tells the two apart.
+    if: always() && needs.bump-version.result == 'success' && (needs.build-version-bump.result == 'success' || needs.build-version-bump.result == 'skipped') && (needs.merge-version-bump.result == 'success' || needs.merge-version-bump.result == 'skipped')
     permissions:
       contents: write
     steps:
@@ -75,6 +99,14 @@ jobs:
         with:
           ref: master
           fetch-depth: 0
+
+      # Build and tag this commit, not whatever master is by then: GitHub
+      # creates a draft's tag when it's published, by hand here and often
+      # days later, so with 'master' as its target the tag took in every
+      # commit merged since the build (see beta-release.yml).
+      - id: release_commit
+        name: Pin the commit to release
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Clear existing draft release assets
         run: |
@@ -127,14 +159,25 @@ jobs:
         with:
           name: v${{ needs.bump-version.outputs.new_version }}
           tag: v${{ needs.bump-version.outputs.new_version }}
-          commit: 'master'
+          commit: ${{ steps.release_commit.outputs.sha }}
           draft: true
           prerelease: false
           bodyFile: release-notes.md
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      # A re-run for an existing draft leaves its notes alone but rebuilds
+      # from the commit pinned above, so the draft has to point there too.
+      - name: Point the existing draft at the rebuilt commit
+        if: needs.bump-version.outputs.draft_exists == 'true'
+        run: gh release edit "v$NEW_VERSION" --target "$RELEASE_COMMIT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_VERSION: ${{ needs.bump-version.outputs.new_version }}
+          RELEASE_COMMIT: ${{ steps.release_commit.outputs.sha }}
     outputs:
       id: ${{ steps.create_release.outputs.id || '' }}
+      sha: ${{ steps.release_commit.outputs.sha }}
 
   debug-before-build:
     name: Debug before build
@@ -167,6 +210,7 @@ jobs:
     with:
       checkout-latest: true
       publish-release: true
+      ref: ${{ needs.draft-release.outputs.sha }}
     secrets:
       APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
       APPLE_ID: ${{ secrets.APPLE_ID }}

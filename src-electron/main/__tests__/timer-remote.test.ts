@@ -132,10 +132,23 @@ describe('timer remote', () => {
     expect(page.body).toContain('lang="fr"');
     expect(page.body).toContain('La réunion commence dans');
     expect(page.body).toContain('/app.js');
+    expect(page.body).toContain('id="awake"');
 
     expect((await get(port, '/app.js')).response.status).toBe(200);
     expect((await get(port, '/app.css')).response.status).toBe(200);
     expect((await get(port, '/nope')).response.status).toBe(404);
+
+    // The silent clip the page plays when Wake Lock isn't available.
+    const clip = await fetch(`http://127.0.0.1:${port}/awake.mp4`);
+    expect(clip.status).toBe(200);
+    expect(clip.headers.get('content-type')).toBe('video/mp4');
+    expect(clip.headers.get('content-security-policy')).toContain(
+      "media-src 'self'",
+    );
+    const clipBytes = new Uint8Array(await clip.arrayBuffer());
+    expect(clipBytes.byteLength).toBeGreaterThan(1000);
+    // A real MP4 starts with a 4-byte box size, then "ftyp".
+    expect(new TextDecoder().decode(clipBytes.slice(4, 8))).toBe('ftyp');
 
     updateTimerRemote({
       mode: 'countdown',
@@ -156,10 +169,66 @@ describe('timer remote', () => {
 
     const page = await get(port, '/');
     expect(page.body).toMatch(/<div id="hand" class="hand" hidden>/);
-    // .hand sets display: flex, which beats the browser's own [hidden] rule.
+    expect(page.body).toMatch(/<aside id="hands" class="hands" hidden>/);
+    // .hand and .hands set display: flex, which beats the browser's own [hidden] rule.
     const css = (await get(port, '/app.css')).body;
     expect(css).toMatch(/\.hand \{[^}]*display: flex/);
+    expect(css).toMatch(/\.hands \{[^}]*display: flex/);
     expect(css).toMatch(/\[hidden\] \{ display: none !important; \}/);
+  });
+
+  it('serves the focus layout: a progress ring, and the raised hands beside it', async () => {
+    const { startTimerRemote } = await import('../timer-remote');
+    const port = await freePort();
+    await startTimerRemote(port);
+
+    const page = (await get(port, '/')).body;
+    expect(page).toContain('id="ringProgress"');
+    expect(page).toContain('id="handBanner"');
+    expect(page).toContain('id="handList"');
+
+    const css = (await get(port, '/app.css')).body;
+    // The ring and the hands sit in the face, the area above the controls.
+    expect(css).toMatch(/\.display\.focus\.has-hands \.face \{ padding-right:/);
+    expect(css).toMatch(/\.hand-banner\.flash \{ animation:/);
+  });
+
+  it('keeps the focus layout clear of the controls', async () => {
+    const { startTimerRemote } = await import('../timer-remote');
+    const port = await freePort();
+    await startTimerRemote(port);
+
+    const page = (await get(port, '/')).body;
+    // The ring and the hands list are inside the face, which shrinks when the
+    // controls open; the controls come after it, at the bottom.
+    const face = page.indexOf('<div class="face">');
+    const controls = page.indexOf('id="controls"');
+    expect(face).toBeGreaterThan(-1);
+    expect(page.indexOf('id="ringProgress"')).toBeGreaterThan(face);
+    expect(page.indexOf('id="hands"')).toBeGreaterThan(face);
+    expect(controls).toBeGreaterThan(page.indexOf('id="hands"'));
+
+    const css = (await get(port, '/app.css')).body;
+    // The focus layout's clock takes the top right: the page's buttons go left.
+    expect(css).toMatch(/\.tools \{[^}]*left: 12px/);
+    expect(css).toMatch(/\.display\.focus\.with-controls\.is-active \.dial \{ width:/);
+    expect(css).toMatch(/\.display\.with-controls \.hands \{[^}]*position: static/);
+  });
+
+  it('serves the page under one policy for the wake clip and the controls', async () => {
+    const { startTimerRemote } = await import('../timer-remote');
+    const port = await freePort();
+    await startTimerRemote(port);
+
+    const policy =
+      (await get(port, '/')).response.headers.get('content-security-policy') ??
+      '';
+    // The silent clip that keeps the tablet awake must still load...
+    expect(policy).toContain("media-src 'self'");
+    // ...while the page with controls can't be framed or posted from elsewhere.
+    expect(policy).toContain("frame-ancestors 'none'");
+    expect(policy).toContain("form-action 'none'");
+    expect(policy).toContain("base-uri 'none'");
   });
 
   it('reports a port already in use', async () => {

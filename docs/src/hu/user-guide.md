@@ -163,7 +163,7 @@ Az időzítő felugró ablakában található **Kézfelemelés-jelzés** gomb eg
 
 #### Időzítő táblagépen {#user-guide-timer-remote}
 
-A választható [távoli időzítő](/settings-guide#timer-remote) a helyi hálózaton weboldalként teszi elérhetővé az időzítő kijelzőjének csak olvasható másolatát. Nyissa meg az időzítő felugró ablakában látható címet a pulpitusnál lévő táblagép vagy telefon böngészőjében, így az előadó csak saját maga látja a hátralévő időt, a vezérlők pedig mind az M³-ban maradnak.
+A választható [távoli időzítő](/settings-guide#timer-remote) a helyi hálózaton weboldalként teszi elérhetővé az időzítő kijelzőjének csak olvasható másolatát. Nyissa meg az időzítő felugró ablakában látható címet a pulpitusnál lévő táblagép vagy telefon böngészőjében, így az előadó csak saját maga látja a hátralévő időt, a vezérlők pedig mind az M³-ban maradnak. Választható fókuszált elrendezése folyamatjelző gyűrűben mutatja az időt, mellette pedig a kezüket felemelő Zoom-résztvevők nevével. Az oldal nyitva léte alatt ébren is tartja a táblagép képernyőjét, hogy az ne záródjon le egy programpont közben.
 
 #### Gyors hozzáférés {#user-guide-timer-quick-access}
 
@@ -418,6 +418,17 @@ Konfiguráljon egyéni billentyűparancsokat a hatékony működés érdekében:
 - Győződjön meg arról, hogy a nyelv elérhető a JW.org oldalon
 - Próbáljon ki egy tartalék nyelvet
 - Ellenőrizze a kezelőfelület nyelvi beállítását
+
+#### Elfelejtett beállítási PIN-kód {#user-guide-forgotten-settings-pin}
+
+Ezt csak az tegye meg, aki jogosult módosítani az M³ beállításait. Három hibás próbálkozás után az M³ mindenhol felkínálja az **Elfelejtette a PIN-kódot?** lehetőséget, ahol a PIN-kódot kéri. A PIN-kód eltávolítása:
+
+1. Válassza az **Elfelejtette a PIN-kódot?** lehetőséget, és hagyja nyitva az M³-ban megnyíló ablakot. Az ablak egy mappát mutat ezen a számítógépen.
+2. Nyissa meg ezt a mappát a számítógép fájlkezelőjében.
+3. Nyissa meg az `M3 settings PIN reset code.txt` nevű szövegfájlt, amelyet az M³ az imént hozott létre ott.
+4. Írja be az M³-ban a fájlban található hatjegyű kódot, majd hagyja jóvá.
+
+Az M³ ezután eltávolítja a PIN-kódot, és törli a fájlt. A beállítások újbóli védelméhez állítson be új PIN-kódot a **Beállítások** > **Haladó** menüpontban.
 
 ### Segítségkérés {#getting-help}
 
