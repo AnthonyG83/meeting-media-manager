@@ -8,6 +8,19 @@ Za celoten seznam sprememb med različicami si oglejte našo datoteko CHANGELOG.
 
 ### ✨ Nove funkcije
 
+- ✨ **Obisk okrajnega nadzornika in teden spominske slovesnosti**: Med obiskom okrajnega nadzornika in v tednu spominske slovesnosti na to opozori oznaka poleg datuma na vrhu okna. Ko se z miško ustaviš na njej, vidiš, kaj je na izbrani dan drugače, na primer da je shod med tednom prestavljen na torek, katero multimedijsko vsebino M³ takrat skrije ali kateri shod nadomesti spominska slovesnost. Na običajni dan shoda med tednom v tednu obiska ali na dan shoda, ki ga nadomesti spominska slovesnost, prazna stran zdaj pojasni, zakaj ni shoda, gumb pa te popelje na torek ali na spominsko slovesnost. V koledarju so dnevi shodov v takem tednu obarvani v barvi tedna, pod datumi tedna pa je napisano, za kateri teden gre.
+- ✨ **Linux na ARM**: M³ je zdaj na voljo tudi za računalnike z Linuxom in 64-bitnim procesorjem ARM (arm64), kot je Raspberry Pi 4 ali 5 s 64-bitnim sistemom ali prenosnik s procesorjem Snapdragon, na katerem teče Linux: kot AppImage, ki se sam posodablja tako kot tisti za x86_64, in v trgovini Snap Store. To je novost, zato sporoči vse, kar na tvojem računalniku ne deluje.
+
+## v26.11.4
+
+### ✨ Nove funkcije
+
+- ✨ **Premik v drug razdelek**: Meni multimedijskega elementa ima zdaj podmeni **Premakni** z možnostmi Premakni gor, Premakni dol in drugimi razdelki dneva, tako da element z enim klikom pošlješ v drug razdelek, namesto da ga povlečeš tja. Če je izbranih več elementov, jih **Premakni v razdelek** zbere na koncu razdelka, ki ga izbereš; razdelek, v katerem so že vsi, ni ponujen.
+
+## v26.11.3
+
+### ✨ Nove funkcije
+
 - ✨ **Multimedija, ki je tvoj računalnik ne more predvajati**: Nekateri videoposnetki se na določenih računalnikih predvajajo brez slike ali brez zvoka: videoposnetek HEVC na grafični kartici, ki ga ne zna dekodirati, star videoposnetek AVI ali MPEG-4 ali film z zvokom AC-3 ali DTS. M³ te zdaj opozori takoj, ko najde takšen videoposnetek, in sicer pri multimedijski datoteki in v obvestilu, plošča pred shodom pa te na to spomni, tako da lahko težavo odpraviš pravočasno, še preden ga potrebuješ. Za takšen videoposnetek tudi ne predlaga več, da onemogočiš strojno pospeševanje, kar bi stanje le še poslabšalo. »Pretvori« ustvari kopijo, ki jo je mogoče predvajati na vsakem računalniku, in pri tem po možnosti uporabi tvojo grafično kartico, da M³ in shod tečeta gladko. Napredek je prikazan pri multimedijski datoteki in v pojavnem oknu za sinhronizacijo multimedijske vsebine, kjer lahko pretvorbo tudi prekličeš. Uvoženo datoteko nadomesti njena pretvorjena kopija; datoteka iz mape v skupni rabi ostane nespremenjena, M³ pa predvaja pretvorjeno kopijo, shranjeno na tem računalniku.
 
 ## v26.11.2

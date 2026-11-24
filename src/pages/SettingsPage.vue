@@ -75,7 +75,7 @@
               <q-badge
                 v-if="invalidSettingsByGroup[groupId]"
                 class="settings-rail-item__badge"
-                color="negative"
+                color="notice-negative"
                 rounded
               >
                 {{ invalidSettingsByGroup[groupId] }}
@@ -193,8 +193,9 @@
                 </q-item>
               </div>
 
+              <!-- Only update toggles: a store build's store updates it. -->
               <div
-                v-if="groupId === 'advanced'"
+                v-if="groupId === 'advanced' && !appStore"
                 class="subgroup-card subgroup-card--global"
               >
                 <q-item-label class="settings-subgroup-label" header>
@@ -344,7 +345,7 @@
                           !isSecretEncryptionAvailable
                         "
                         caption
-                        class="text-warning"
+                        class="text-notice-warning"
                       >
                         <q-icon name="mmm-warning" size="xs" />
                         {{ t('obs-password-not-encrypted-warning') }}
@@ -352,7 +353,7 @@
                       <q-item-label
                         v-if="isSettingDisabled(settingId)"
                         caption
-                        class="text-primary"
+                        class="text-notice-info"
                       >
                         <q-icon name="mmm-info" size="xs" />
                         {{ getBlockingSettingsMessage(settingId) }}
@@ -489,6 +490,7 @@ let settingsFilterClosedAt = 0;
 // the normal settingsDefinitions/BaseInput v-model pattern.
 const autoUpdateEnabled = ref(true);
 const betaUpdatesEnabled = ref(false);
+const { appStore } = globalThis.electronApi;
 
 // Set while loadGlobalPreferences() syncs the refs above from disk, so the
 // watch(betaUpdatesEnabled, ...) below can tell a user-initiated toggle
@@ -1100,7 +1102,7 @@ watch(autoUpdateEnabled, (enabled) => {
     dismissUpdatesDisabledWarning = createTemporaryNotification({
       message: t('updates-disabled-warning'),
       timeout: 10_000,
-      type: 'info',
+      type: 'warning',
     });
   }
 });

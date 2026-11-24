@@ -32,11 +32,11 @@ Contrôlez le thème d'apparence de M³.
 
 <!-- **Setting**: `firstDayOfWeek` -->
 
-Définissez quel jour doit être considéré comme le premier jour de la semaine dans la vue calendrier.
+Définissez quel jour doit être considéré comme le premier jour de la semaine dans les champs de date des paramètres, comme la date de la visite du responsable de circonscription. Le calendrier en haut de la fenêtre affiche toujours les semaines du lundi au dimanche, comme les semaines de réunions.
 
 **Options** : Dimanche à samedi
 
-**Par défaut** : Dimanche
+**Par défaut** : Lundi
 
 ### Format de date {#date-format}
 

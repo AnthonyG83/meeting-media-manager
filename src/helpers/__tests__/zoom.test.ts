@@ -1,9 +1,11 @@
 import type { ZoomCommand, ZoomCommandResult } from 'src/types';
 
 import { MEDIA_WINDOW_TITLE } from 'src/constants/zoom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const currentSettings = {
+  obsEnable: false,
+  zoomEnable: false,
   zoomHandButtonTitle: null as null | string,
   zoomHandRaisedPhrase: null as null | string,
   zoomJoinAudioTitle: null as null | string,
@@ -13,6 +15,7 @@ const currentSettings = {
   zoomMeetingManagerAutomatePostMeetingAudioSettings: false,
   zoomMeetingManagerEnable: true,
   zoomMeetingManagerMeetingId: '123 456' as null | string,
+  zoomMeetingManagerMuteHostMicDuringMedia: false,
   zoomMeetingManagerPostMeetingAskToUnmute: true,
   zoomMicOffTitle: 'Unmute' as null | string,
   zoomMicOnTitle: 'Mute' as null | string,
@@ -32,7 +35,12 @@ const { dateMocks, notifyMock, sentryMocks, updateChecklistMock } = vi.hoisted(
       isMemorialDay: vi.fn(() => false),
     },
     notifyMock: vi.fn(),
-    sentryMocks: { addBreadcrumb: vi.fn(), captureMessage: vi.fn() },
+    sentryMocks: {
+      addBreadcrumb: vi.fn(),
+      captureMessage: vi.fn(),
+      // Sentry isn't set up unless a test says so.
+      getClient: vi.fn((): object | undefined => undefined),
+    },
     updateChecklistMock: vi.fn(),
   }),
 );
@@ -65,6 +73,7 @@ const zoomState = {
     }
   }),
   meeting: null as unknown,
+  relearnNeeded: false,
   requestCancel: vi.fn(() => {
     zoomState.cancelRequested = true;
   }),
@@ -105,6 +114,9 @@ const zoomCommandMock =
   vi.fn<(command: ZoomCommand) => Promise<ZoomCommandResult>>();
 const launchZoomMeetingMock = vi.fn();
 const restartZoomHelperMock = vi.fn(async () => ({ ok: true }));
+const getInstalledZoomVersionMock = vi.fn(
+  async (): Promise<null | string> => null,
+);
 
 let meetingFound = true;
 let zoomSharing = false;
@@ -123,13 +135,16 @@ beforeEach(() => {
   dateMocks.isMemorialDay.mockReturnValue(false);
   zoomState.meeting = null;
   zoomState.automationsPaused = false;
+  zoomState.relearnNeeded = false;
   zoomState.cancelRequested = false;
   zoomState.runDepth = 0;
   zoomState.runLabel = null;
+  sentryMocks.getClient.mockReturnValue(undefined);
   Object.assign(currentSettings, {
     zoomMeetingManagerAutoLaunchMeeting: false,
     zoomMeetingManagerAutomateMeetingAudioSettings: false,
     zoomMeetingManagerAutomatePostMeetingAudioSettings: false,
+    zoomMeetingManagerMuteHostMicDuringMedia: false,
     zoomMeetingManagerPostMeetingAskToUnmute: true,
     zoomMicOffTitle: 'Unmute',
     zoomMicOnTitle: 'Mute',
@@ -149,8 +164,10 @@ beforeEach(() => {
     if (command.type === 'stop-share') zoomSharing = false;
     return { changed: true, ok: true };
   });
+  getInstalledZoomVersionMock.mockResolvedValue(null);
   vi.stubGlobal('electronApi', {
     focusMediaWindow: vi.fn(),
+    getInstalledZoomVersion: getInstalledZoomVersionMock,
     launchZoomMeeting: launchZoomMeetingMock,
     restartZoomHelper: restartZoomHelperMock,
     zoomCommand: zoomCommandMock,
@@ -611,6 +628,72 @@ describe('Zoom automations and the startup check', () => {
     expect(launchZoomMeetingMock).not.toHaveBeenCalled();
   });
 
+  // The check's own "automations paused" notice may have been closed by
+  // the time media is shown: the media not reaching Zoom is said each time.
+  // Like the check's own notice, it offers to test Zoom again, or the setup
+  // assistant once Zoom's buttons no longer read as learned.
+  it.each([
+    { event: 'testZoomAgain', label: 'Test again', relearnNeeded: false },
+    {
+      event: 'openZoomSetupAssistant',
+      label: 'Open setup assistant',
+      relearnNeeded: true,
+    },
+  ])(
+    'say the media was not shared in Zoom while paused, at meeting time, with "$label"',
+    async ({ event, label, relearnNeeded }) => {
+      const { automateZoomMediaSharing } = await import('../zoom');
+      zoomState.automationsPaused = true;
+      zoomState.relearnNeeded = relearnNeeded;
+      dateMocks.getMeetingStartToday.mockReturnValue(
+        new Date(Date.now() + 10 * 60 * 1000),
+      );
+      const dispatched: string[] = [];
+      const dispatch = vi
+        .spyOn(globalThis, 'dispatchEvent')
+        .mockImplementation((sent) => {
+          dispatched.push(sent.type);
+          return true;
+        });
+
+      expect(await automateZoomMediaSharing(true)).toBe(false);
+
+      expect(zoomCommandMock).not.toHaveBeenCalled();
+      expect(notifyMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          caption: 'Share the media window from Zoom yourself.',
+          group: 'zoom-sharing',
+          message:
+            "Zoom automations are paused, so the media wasn't shared in Zoom",
+          // Red, like the other "not shared in Zoom" failure with this caption.
+          type: 'negative',
+        }),
+      );
+      const [{ actions }] = notifyMock.mock.calls[0] as [
+        { actions: { handler: () => void; label: string }[] },
+      ];
+      expect(actions.map((action) => action.label)).toEqual([label, undefined]);
+      // Its own actions replace the default close button: it gets one again.
+      expect(actions[1]).toEqual({
+        color: 'white',
+        icon: 'close',
+        round: true,
+      });
+      actions[0]?.handler();
+      expect(dispatched).toEqual([event]);
+      dispatch.mockRestore();
+    },
+  );
+
+  it('say nothing of it while paused outside meeting time', async () => {
+    const { automateZoomMediaSharing } = await import('../zoom');
+    zoomState.automationsPaused = true;
+
+    expect(await automateZoomMediaSharing(true)).toBe(false);
+
+    expect(notifyMock).not.toHaveBeenCalled();
+  });
+
   it('wait for a check in progress, which uses Zoom too', async () => {
     const { automateZoomMeetingSettings, runWhileHoldingZoomAutomations } =
       await import('../zoom');
@@ -639,6 +722,38 @@ describe('Zoom automations and the startup check', () => {
       'set-video',
       'mute-all',
     ]);
+  });
+});
+
+// MMM-V2-3NC: the helper said which windows the Share press left open, but
+// that never reached the check's report.
+describe('testing the share window', () => {
+  it("passes on how Share was pressed and what Zoom showed when the share window didn't open", async () => {
+    zoomCommandMock.mockResolvedValue({
+      ok: true,
+      opened: false,
+      pickerError: 'share-picker-not-found',
+      pressedVia: 'more',
+      presses: 2,
+      snapshot: { windows: ['ZPContentViewWndClass'] },
+      windowListed: false,
+      windowsLeft: ['zBubbleBaseClass'],
+      windowsOpened: ['zBubbleBaseClass', 'ZPMoreMenuClass'],
+    });
+    const { testZoomShareEntry } = await import('../zoom');
+
+    expect(await testZoomShareEntry('Share')).toEqual({
+      error: undefined,
+      opened: false,
+      pickerError: 'share-picker-not-found',
+      pressedVia: 'more',
+      presses: 2,
+      snapshot: { windows: ['ZPContentViewWndClass'] },
+      windowListed: false,
+      windowSelected: false,
+      windowsLeft: ['zBubbleBaseClass'],
+      windowsOpened: ['zBubbleBaseClass', 'ZPMoreMenuClass'],
+    });
   });
 });
 
@@ -816,11 +931,32 @@ describe('Zoom setup assistant', () => {
     expect(currentSettings.zoomParticipantsButtonTitle).toBeNull();
 
     expect(await tryZoomParticipantsEntry('Participants')).toBe(true);
+    // Through the entry even if the panel was open: closed, then opened.
     expect(zoomCommandMock).toHaveBeenLastCalledWith({
+      reopen: true,
       titles: expect.objectContaining({ participants: 'Participants' }),
       type: 'participants',
     });
     expect(currentSettings.zoomParticipantsButtonTitle).toBe('Participants');
+  });
+
+  it("has the setup assistant's checks open the participants panel through its button, even when it's open", async () => {
+    zoomCommandMock.mockResolvedValue({
+      diagnosis: { meeting: true },
+      ok: true,
+    });
+    const { diagnoseZoom } = await import('../zoom');
+
+    await diagnoseZoom({ reopenParticipants: true });
+    expect(zoomCommandMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ reopenParticipants: true, type: 'diagnose' }),
+    );
+
+    // The check before a meeting leaves an open panel as it is.
+    await diagnoseZoom();
+    expect(zoomCommandMock).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ reopenParticipants: true }),
+    );
   });
 
   it('keeps a "Mute all" or "Stop share" pick only once Zoom confirmed it', async () => {
@@ -1000,6 +1136,173 @@ describe('Zoom setup assistant', () => {
   );
 });
 
+// Shared videos sounded muffled or choppy to Zoom participants in a hall
+// whose sound desk sends the media computer's own output back to it as
+// Zoom's microphone: Zoom got the media's sound twice.
+describe('the host microphone while media plays', () => {
+  const VIDEO = 'file:///C:/Media/video.mp4';
+  const SONG = 'file:///C:/Media/song.mp3';
+  const PICTURE = 'file:///C:/Media/picture.jpg';
+
+  const micCommands = () =>
+    zoomCommandMock.mock.calls
+      .map(([command]) => command)
+      .filter((command) => command.type === 'set-mic')
+      .map((command) => ('on' in command ? command.on : null));
+
+  beforeEach(() => {
+    Object.assign(currentSettings, {
+      zoomMeetingManagerAutomateMediaSharing: true,
+      zoomMeetingManagerMuteHostMicDuringMedia: true,
+    });
+  });
+
+  it.each([VIDEO, SONG])(
+    'mutes it before sharing media with sound, and unmutes it once the share stops (%s)',
+    async (url) => {
+      const { automateZoomMediaSharing } = await import('../zoom');
+
+      expect(await automateZoomMediaSharing(true, url)).toBe(true);
+      expect(await automateZoomMediaSharing(false)).toBe(true);
+
+      // Muted while Zoom still shows its meeting window, which sharing hides.
+      expect(commandTypes()).toEqual([
+        'meeting',
+        'set-mic',
+        'start-share',
+        'meeting',
+        'stop-share',
+        'set-mic',
+      ]);
+      expect(micCommands()).toEqual([false, true]);
+      // Only for the media's time: the meeting checklist stays as it was.
+      expect(updateChecklistMock).not.toHaveBeenCalled();
+      expect(notifyMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          group: 'zoom-host',
+          message: 'Host microphone muted while the media plays',
+        }),
+      );
+    },
+  );
+
+  it('leaves it alone for a picture', async () => {
+    const { automateZoomMediaSharing } = await import('../zoom');
+
+    await automateZoomMediaSharing(true, PICTURE);
+    await automateZoomMediaSharing(false);
+
+    expect(micCommands()).toEqual([]);
+  });
+
+  it("doesn't unmute a microphone the host had muted already", async () => {
+    const respond = zoomCommandMock.getMockImplementation();
+    zoomCommandMock.mockImplementation(async (command) =>
+      command.type === 'set-mic'
+        ? { changed: false, ok: true }
+        : (respond?.(command) ?? { ok: false }),
+    );
+    const { automateZoomMediaSharing } = await import('../zoom');
+
+    await automateZoomMediaSharing(true, VIDEO);
+    await automateZoomMediaSharing(false);
+
+    expect(micCommands()).toEqual([false]);
+  });
+
+  it("unmutes it again when the share doesn't start", async () => {
+    failing = { 'start-share': 'share-picker-not-found' };
+    const { automateZoomMediaSharing } = await import('../zoom');
+
+    expect(await automateZoomMediaSharing(true, VIDEO)).toBe(false);
+
+    expect(micCommands()).toEqual([false, true]);
+  });
+
+  it('follows the media while the share goes on: a picture unmutes it, a video mutes it again', async () => {
+    const { automateZoomMediaSharing, followZoomHostMicWithMedia } =
+      await import('../zoom');
+
+    await automateZoomMediaSharing(true, VIDEO);
+    await followZoomHostMicWithMedia(VIDEO);
+    await followZoomHostMicWithMedia(PICTURE);
+    await followZoomHostMicWithMedia(PICTURE);
+    await followZoomHostMicWithMedia(SONG);
+
+    expect(micCommands()).toEqual([false, true, false]);
+  });
+
+  it("does nothing with a share the user started, nor once M³'s has stopped", async () => {
+    zoomSharing = true;
+    const { automateZoomMediaSharing, followZoomHostMicWithMedia } =
+      await import('../zoom');
+
+    await automateZoomMediaSharing(true, VIDEO);
+    await followZoomHostMicWithMedia(VIDEO);
+    await automateZoomMediaSharing(false);
+
+    expect(micCommands()).toEqual([]);
+  });
+
+  it('does nothing with the setting off', async () => {
+    currentSettings.zoomMeetingManagerMuteHostMicDuringMedia = false;
+    const { automateZoomMediaSharing, followZoomHostMicWithMedia } =
+      await import('../zoom');
+
+    await automateZoomMediaSharing(true, VIDEO);
+    await followZoomHostMicWithMedia(SONG);
+    await automateZoomMediaSharing(false);
+
+    expect(micCommands()).toEqual([]);
+  });
+
+  it("says so when it can't mute it, and shares all the same", async () => {
+    failing = { 'set-mic': 'share-toolbar-mic-button-not-found' };
+    const { automateZoomMediaSharing } = await import('../zoom');
+
+    expect(await automateZoomMediaSharing(true, VIDEO)).toBe(true);
+
+    expect(commandTypes()).toContain('start-share');
+    expect(notifyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        group: 'zoom-host',
+        message: expect.stringContaining('couldn’t mute the host microphone'),
+        type: 'warning',
+      }),
+    );
+  });
+
+  it.each(['audio-not-joined', 'cancelled'])(
+    'says nothing when it could not mute it for %s',
+    async (error) => {
+      failing = { 'set-mic': error };
+      const { automateZoomMediaSharing } = await import('../zoom');
+
+      await automateZoomMediaSharing(true, VIDEO);
+
+      expect(notifyMock).not.toHaveBeenCalledWith(
+        expect.objectContaining({ group: 'zoom-host' }),
+      );
+    },
+  );
+
+  it("says so when it can't unmute it after the media", async () => {
+    const { automateZoomMediaSharing } = await import('../zoom');
+    await automateZoomMediaSharing(true, VIDEO);
+    failing = { 'set-mic': 'share-toolbar-mic-button-not-found' };
+
+    await automateZoomMediaSharing(false);
+
+    expect(notifyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        group: 'zoom-host',
+        message: expect.stringContaining('couldn’t unmute the host microphone'),
+        type: 'negative',
+      }),
+    );
+  });
+});
+
 describe('stopping Zoom sharing after media', () => {
   it("stops the Zoom Meeting Manager's share when its media sharing is automated", async () => {
     Object.assign(currentSettings, {
@@ -1022,6 +1325,35 @@ describe('stopping Zoom sharing after media', () => {
     stopZoomSharingAfterMedia();
     await Promise.resolve();
     expect(commandTypes()).not.toContain('stop-share');
+  });
+});
+
+describe("acting on a raised hand's participant", () => {
+  const participantNotices = () =>
+    notifyMock.mock.calls
+      .map(([options]) => options as { group?: string; type?: string })
+      .filter((options) => options.group === 'zoom-participants');
+
+  it('says it unmuted them (or asked them to) as done, and an already unmuted one as information', async () => {
+    const { unmuteZoomParticipant } = await import('../zoom');
+
+    zoomCommandMock.mockResolvedValueOnce({ ok: true, pressed: true });
+    await unmuteZoomParticipant('Ann');
+    zoomCommandMock.mockResolvedValueOnce({ ok: true, pressed: false });
+    await unmuteZoomParticipant('Ann');
+
+    expect(participantNotices().map(({ type }) => type)).toEqual([
+      'positive',
+      'info',
+    ]);
+  });
+
+  it('says it muted them and lowered their hand as done', async () => {
+    const { muteZoomParticipantAndLowerHand } = await import('../zoom');
+
+    await muteZoomParticipantAndLowerHand('Ann');
+
+    expect(participantNotices().map(({ type }) => type)).toEqual(['positive']);
   });
 });
 
@@ -1054,6 +1386,28 @@ describe('telling the user while M³ operates Zoom', () => {
     expect(zoomState.beginRun).not.toHaveBeenCalled();
   });
 
+  it('counts the people in the meeting from a participants panel already open, when only peeking', async () => {
+    zoomCommandMock
+      .mockResolvedValueOnce({
+        ok: true,
+        participants: [
+          { details: 'Host, me', name: 'Host', section: 'meeting' },
+          { details: 'Waiting', name: 'Visitor', section: 'waiting' },
+          { details: 'Guest', name: 'Guest', section: 'meeting' },
+        ],
+      })
+      // The panel is closed: nothing to read without pressing anything.
+      .mockResolvedValueOnce({ ok: true });
+    const { countZoomMeetingParticipants } = await import('../zoom');
+
+    expect(await countZoomMeetingParticipants({ peek: true })).toBe(2);
+    expect(await countZoomMeetingParticipants({ peek: true })).toBeNull();
+    expect(zoomCommandMock).toHaveBeenCalledWith(
+      expect.objectContaining({ peek: true, type: 'participants' }),
+    );
+    expect(zoomState.beginRun).not.toHaveBeenCalled();
+  });
+
   it('sends nothing more to Zoom once cancelled', async () => {
     const { cancelZoomRun, runZoomMeetingSequence } = await import('../zoom');
     zoomCommandMock.mockImplementation(async (command) => {
@@ -1070,6 +1424,163 @@ describe('telling the user while M³ operates Zoom', () => {
     expect(commandTypes()).toEqual(['meeting', 'join-audio']);
     expect(restartZoomHelperMock).toHaveBeenCalled();
     expect(zoomState.runActive).toBe(false);
+  });
+});
+
+describe('warning about an older Zoom', () => {
+  /** Has the helper say this Zoom version for the meeting it finds. */
+  const zoomSays = (zoomVersion: string) => {
+    zoomCommandMock.mockImplementation(async () => ({
+      meeting: { found: true, sharing: false, zoomVersion },
+      ok: true,
+    }));
+  };
+
+  const versionWarnings = () =>
+    notifyMock.mock.calls.filter(
+      ([props]) => props.group === 'zoom-outdated-version',
+    );
+
+  it('warns once a session that an older Zoom may be less reliable, and suggests updating it', async () => {
+    zoomSays('6.5.12.14128');
+    const { getZoomMeetingState } = await import('../zoom');
+
+    await getZoomMeetingState();
+    await getZoomMeetingState();
+
+    expect(versionWarnings()).toEqual([
+      [
+        {
+          caption:
+            'Some features may be less reliable with it. Update Zoom at your earliest convenience.',
+          deferWhileDialogOpen: true,
+          group: 'zoom-outdated-version',
+          icon: 'mmm-warning',
+          message:
+            'Zoom 6.5.12 is older than Zoom 7.2.1, the version M³ is tested with',
+          timeout: 15_000,
+          type: 'warning',
+        },
+      ],
+    ]);
+  });
+
+  it('warns again for another older version, such as after an update that still falls short', async () => {
+    const { getZoomMeetingState } = await import('../zoom');
+
+    zoomSays('6.5.12.14128');
+    await getZoomMeetingState();
+    zoomSays('7.1.9.48550');
+    await getZoomMeetingState();
+
+    expect(versionWarnings()).toHaveLength(2);
+  });
+
+  it.each(['7.2.1.48556', '7.3.0.100'])(
+    'says nothing about Zoom %s',
+    async (version) => {
+      zoomSays(version);
+      const { getZoomMeetingState } = await import('../zoom');
+
+      await getZoomMeetingState();
+
+      expect(versionWarnings()).toEqual([]);
+    },
+  );
+
+  it('says nothing while no integration that involves Zoom is on', async () => {
+    currentSettings.zoomMeetingManagerEnable = false;
+    zoomSays('6.5.12.14128');
+    getInstalledZoomVersionMock.mockResolvedValue('6.5.12.14128');
+    const { getZoomMeetingState, warnIfInstalledZoomOutdated } =
+      await import('../zoom');
+
+    try {
+      await getZoomMeetingState();
+      await warnIfInstalledZoomOutdated();
+    } finally {
+      currentSettings.zoomMeetingManagerEnable = true;
+    }
+
+    expect(versionWarnings()).toEqual([]);
+    expect(getInstalledZoomVersionMock).not.toHaveBeenCalled();
+  });
+
+  describe("from the installed Zoom's files", () => {
+    const integrations = [
+      'obsEnable',
+      'zoomEnable',
+      'zoomMeetingManagerEnable',
+    ] as const;
+
+    /** Only `on` among the integrations that involve Zoom. */
+    const onlyOn = (on: (typeof integrations)[number]) => {
+      for (const key of integrations) currentSettings[key] = key === on;
+    };
+
+    afterEach(() => {
+      onlyOn('zoomMeetingManagerEnable');
+    });
+
+    it.each(integrations)(
+      'warns with only %s on, whether or not Zoom runs',
+      async (on) => {
+        onlyOn(on);
+        getInstalledZoomVersionMock.mockResolvedValue('6.5.12.14128');
+        const { warnIfInstalledZoomOutdated } = await import('../zoom');
+
+        await warnIfInstalledZoomOutdated();
+
+        expect(versionWarnings()).toHaveLength(1);
+        expect(versionWarnings()[0]?.[0]).toMatchObject({
+          message:
+            'Zoom 6.5.12 is older than Zoom 7.2.1, the version M³ is tested with',
+        });
+        expect(commandTypes()).toEqual([]);
+      },
+    );
+
+    it('takes a macOS version as Zoom gives it', async () => {
+      getInstalledZoomVersionMock.mockResolvedValue('6.5.12 (63187)');
+      const { warnIfInstalledZoomOutdated } = await import('../zoom');
+
+      await warnIfInstalledZoomOutdated();
+
+      expect(versionWarnings()[0]?.[0]).toMatchObject({
+        message:
+          'Zoom 6.5.12 is older than Zoom 7.2.1, the version M³ is tested with',
+      });
+    });
+
+    it("doesn't warn twice when the meeting shows the same Zoom", async () => {
+      getInstalledZoomVersionMock.mockResolvedValue('6.5.12.14128');
+      zoomSays('6.5.12.14128');
+      const { getZoomMeetingState, warnIfInstalledZoomOutdated } =
+        await import('../zoom');
+
+      await warnIfInstalledZoomOutdated();
+      await warnIfInstalledZoomOutdated();
+      await getZoomMeetingState();
+
+      expect(versionWarnings()).toHaveLength(1);
+    });
+
+    it.each([
+      ['Zoom not found', async () => null],
+      [
+        'reading it failed',
+        async () => {
+          throw new Error('IPC failed');
+        },
+      ],
+    ])('stays silent when %s', async (_why, answer) => {
+      getInstalledZoomVersionMock.mockImplementation(answer);
+      const { warnIfInstalledZoomOutdated } = await import('../zoom');
+
+      await expect(warnIfInstalledZoomOutdated()).resolves.toBeUndefined();
+
+      expect(versionWarnings()).toEqual([]);
+    });
   });
 });
 
@@ -1101,6 +1612,108 @@ describe('describing Zoom for error reports', () => {
   });
 });
 
+describe("reporting Zoom's Original sound controls", () => {
+  const probe = {
+    audioMenu: {
+      groups: [3, 4, 4, 2, 1],
+      names: [
+        'Mic modes',
+        'Noise suppression (default), Checked',
+        'Original sound for musicians, Unchecked',
+      ],
+      via: 'share-toolbar' as const,
+    },
+    meetingControls: ['Mute, Alt+A', 'End, Alt+Q'],
+    sharing: true,
+    zoomVersion: '7.2.1.48556',
+  };
+
+  // Whether the overlay was up as each probe reached the helper.
+  let overlayDuringProbes: boolean[] = [];
+
+  /** Answers the probe as `result`, and everything else as before. */
+  const answerProbe = (result: ZoomCommandResult) => {
+    overlayDuringProbes = [];
+    const respond = zoomCommandMock.getMockImplementation();
+    zoomCommandMock.mockImplementation(async (command) => {
+      if (command.type !== 'original-sound-probe') {
+        return respond?.(command) ?? { ok: false };
+      }
+      overlayDuringProbes.push(zoomState.runActive);
+      return result;
+    });
+  };
+
+  const probes = () =>
+    commandTypes().filter((type) => type === 'original-sound-probe');
+
+  it('reports what Zoom shows once, after the first share M³ started, without the overlay', async () => {
+    sentryMocks.getClient.mockReturnValue({});
+    answerProbe({ ok: true, originalSound: probe });
+    const { automateZoomMediaSharing } = await import('../zoom');
+
+    await automateZoomMediaSharing(true);
+    await vi.waitFor(() =>
+      expect(sentryMocks.captureMessage).toHaveBeenCalled(),
+    );
+    await automateZoomMediaSharing(false);
+    await automateZoomMediaSharing(true);
+    await automateZoomMediaSharing(false);
+
+    expect(probes()).toHaveLength(1);
+    expect(sentryMocks.captureMessage).toHaveBeenCalledTimes(1);
+    expect(sentryMocks.captureMessage).toHaveBeenCalledWith(
+      'Zoom original sound controls',
+      {
+        extra: probe,
+        fingerprint: ['zoom-original-sound-controls'],
+        level: 'info',
+        tags: { feature: 'zoom-meeting-manager', zoomVersion: '7.2.1.48556' },
+      },
+    );
+    expect(overlayDuringProbes).toEqual([false]);
+  });
+
+  it("doesn't open Zoom's audio menu when Sentry isn't set up", async () => {
+    answerProbe({ ok: true, originalSound: probe });
+    const { automateZoomMediaSharing } = await import('../zoom');
+
+    expect(await automateZoomMediaSharing(true)).toBe(true);
+    await automateZoomMediaSharing(false);
+
+    expect(probes()).toEqual([]);
+    expect(sentryMocks.captureMessage).not.toHaveBeenCalled();
+  });
+
+  it("doesn't look while M³ hasn't shared anything, nor for a share the user started", async () => {
+    sentryMocks.getClient.mockReturnValue({});
+    answerProbe({ ok: true, originalSound: probe });
+    failing = { 'start-share': 'share-not-started' };
+    const { automateZoomMediaSharing } = await import('../zoom');
+
+    expect(await automateZoomMediaSharing(true)).toBe(false);
+    failing = {};
+    zoomSharing = true;
+    expect(await automateZoomMediaSharing(true)).toBe(true);
+
+    expect(probes()).toEqual([]);
+  });
+
+  it("reports nothing, and doesn't look again, when the helper doesn't answer", async () => {
+    sentryMocks.getClient.mockReturnValue({});
+    answerProbe({ error: 'helper-not-running', ok: false });
+    const { automateZoomMediaSharing } = await import('../zoom');
+
+    await automateZoomMediaSharing(true);
+    await vi.waitFor(() => expect(probes()).toHaveLength(1));
+    await automateZoomMediaSharing(false);
+    await automateZoomMediaSharing(true);
+
+    expect(probes()).toHaveLength(1);
+    expect(sentryMocks.captureMessage).not.toHaveBeenCalled();
+  });
+});
+
 describe('cancelling also stops the read-only lookups', () => {
   it('answers "cancelled" to a meeting lookup while a cancel is pending', async () => {
     zoomState.runDepth = 1;
@@ -1109,5 +1722,76 @@ describe('cancelling also stops the read-only lookups', () => {
 
     expect(await getZoomMeetingState()).toBeNull();
     expect(zoomCommandMock).not.toHaveBeenCalled();
+  });
+});
+
+// The meeting checklist goes by these to tell the user what M³ will do in
+// Zoom, so they must match what the sequences themselves tick.
+describe('what the Zoom sequences leave Zoom in', () => {
+  /** Every checklist update the sequence made, merged in order. */
+  const reportedState = () =>
+    Object.assign(
+      {},
+      ...updateChecklistMock.mock.calls.map(([state]) => state as object),
+    );
+
+  const forgetButtonNames = () => {
+    Object.assign(currentSettings, {
+      zoomMicOffTitle: null,
+      zoomMicOnTitle: null,
+      zoomVideoOffTitle: null,
+      zoomVideoOnTitle: null,
+    });
+    failing = {
+      'set-mic': 'mic-titles-not-captured',
+      'set-video': 'video-titles-not-captured',
+    };
+  };
+
+  it.each([true, false])(
+    'the meeting settings, with the button names learned: %s',
+    async (learned) => {
+      if (!learned) forgetButtonNames();
+      const { getZoomMeetingSequenceOutcome, runZoomMeetingSequence } =
+        await import('../zoom');
+
+      await runZoomMeetingSequence();
+
+      expect(getZoomMeetingSequenceOutcome()).toEqual(reportedState());
+    },
+  );
+
+  it.each([
+    [true, true],
+    [true, false],
+    [false, true],
+  ])(
+    'the before/after-meeting settings, with the button names learned: %s, asking everyone to unmute: %s',
+    async (learned, askAllToUnmute) => {
+      if (!learned) forgetButtonNames();
+      currentSettings.zoomMeetingManagerPostMeetingAskToUnmute = askAllToUnmute;
+      const { getZoomPostMeetingSequenceOutcome, runZoomPostMeetingSequence } =
+        await import('../zoom');
+
+      await runZoomPostMeetingSequence();
+
+      expect(getZoomPostMeetingSequenceOutcome()).toEqual(reportedState());
+    },
+  );
+
+  it('remembers when music asked for the before/after-meeting settings once the meeting started', async () => {
+    const start = new Date(2026, 9, 15, 19, 30);
+    dateMocks.getMeetingStartToday.mockReturnValue(start);
+    const { automateZoomSettingsOnMusicStart, getAfterMeetingSettingsAskedAt } =
+      await import('../zoom');
+    expect(getAfterMeetingSettingsAskedAt()).toBeNull();
+
+    // Before the meeting, the meeting's own schedule applies them.
+    await automateZoomSettingsOnMusicStart(new Date(2026, 9, 15, 19, 0));
+    expect(getAfterMeetingSettingsAskedAt()).toBeNull();
+
+    const after = new Date(2026, 9, 15, 21, 20);
+    await automateZoomSettingsOnMusicStart(after);
+    expect(getAfterMeetingSettingsAskedAt()).toBe(after.getTime());
   });
 });

@@ -32,11 +32,11 @@ Nadzorujte temo aplikacije M³.
 
 <!-- **Setting**: `firstDayOfWeek` -->
 
-Nastavite, kateri dan naj se v koledarju šteje za prvi dan v tednu.
+Nastavi, kateri dan naj v datumskih poljih v Nastavitvah, na primer pri datumu obiska okrajnega nadzornika, velja za prvi dan v tednu. Koledar na vrhu okna vedno prikazuje tedne od ponedeljka do nedelje, saj tako potekajo tudi tedni shodov.
 
 **Možnosti**: od nedelje do sobote
 
-**Privzeto**: nedelja
+**Privzeto**: ponedeljek
 
 ### Oblika datuma {#date-format}
 
@@ -106,21 +106,21 @@ Ura začetka vašega shoda med tednom.
 
 **Privzeto**: Prazno (treba nastaviti med nastavitvijo)
 
-### Dan shoda ob koncu tedna {#weekend-meeting-day}
+### Dan javnega shoda {#weekend-meeting-day}
 
 <!-- **Setting**: `weDay` -->
 
-Dan v tednu, ko poteka vaš shod ob koncu tedna.
+Dan v tednu, ko poteka vaš javni shod.
 
 **Možnosti**: od nedelje do sobote
 
 **Privzeto**: Prazno (treba nastaviti med nastavitvijo)
 
-### Čas shoda ob koncu tedna {#weekend-meeting-time}
+### Čas javnega shoda {#weekend-meeting-time}
 
 <!-- **Setting**: `weStartTime` -->
 
-Ura začetka vašega shoda ob koncu tedna.
+Ura začetka vašega javnega shoda.
 
 **Oblika**: HH:MM (24-urni format)
 
@@ -154,8 +154,8 @@ Te nastavitve vam omogočajo nastavitev začasnih sprememb urnika shodov:
 - **Enkratna sprememba**: Ali gre za trajno ali začasno spremembo
 - **Nov dan sredi tedna**: Nov dan za shod sredi tedna
 - **Novi čas sredi tedna**: Nov čas za shod sredi tedna
-- **Nov dan ob koncu tedna**: Nov dan za shod ob koncu tedna
-- **Nov čas ob koncu tedna**: Nov čas za shod ob koncu tedna
+- **Nov dan javnega shoda**: Nov dan za javni shod
+- **Nov čas javnega shoda**: Nov čas za javni shod
 
 ### Samodejne posodobitve urnika shodov {#automatic-meeting-schedule-updates}
 

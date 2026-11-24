@@ -32,11 +32,11 @@ Az M³ külső megjelenésének vezérlése.
 
 <!-- **Setting**: `firstDayOfWeek` -->
 
-Állítsa be, hogy melyik napot kell a naptárban a hét első napjának tekinteni.
+Állítsa be, hogy a beállítások dátummezőiben, például a körzetfelvigyázó látogatásának dátumánál, melyik napot kell a hét első napjának tekinteni. Az ablak tetején lévő naptár mindig hétfőtől vasárnapig mutatja a heteket, az összejöveteli hetekhez hasonlóan.
 
 **Opciók**: vasárnaptól szombatig
 
-**Alapértelmezett**: vasárnap
+**Alapértelmezett**: hétfő
 
 ### Dátumformátum {#date-format}
 

@@ -38,11 +38,12 @@ Die Hauptoberfläche von M³ besteht aus mehreren Schlüsselbereichen:
 
 ### Verständnis der Kalenderansicht {#calendar-view}
 
-Die Kalenderansicht zeigt Ihren Zusammenkunftsplan und verfügbare Medien:
+Klicken Sie oben im Fenster auf das Datum, um den Kalender zu öffnen. Er zeigt jede Woche, für die M³ Medien vorbereitet, beginnend mit der aktuellen:
 
-- **Zusammenkunftstage** - Hervorgehobene Tage zeigen an, wann Zusammenkünfte geplant sind
-- **Medienindikatoren** - Symbole zeigen an, welche Arten von Medien verfügbar sind
-- **Datumsnavigation** - Verwenden Sie die Pfeiltasten, um zwischen Monaten zu navigieren
+- **Wochen** - Jede Zeile ist eine Woche von Montag bis Sonntag, mit Namen wie "Diese Woche", "Nächste Woche" oder "In 2 Wochen" und mit ihren Daten
+- **Zusammenkunftstage** - Zusammenkunftstage sind nach ihrem Status eingefärbt: grün, wenn ihre Medien bereit sind, orange, wenn sie noch nicht bereit sind, und rot, wenn sie nicht abgerufen werden konnten. Tage mit Medien, die Sie selbst hinzugefügt haben, sind lila. Eine Legende unter dem Kalender erklärt die Farben
+- **Besondere Wochen** - Während des Besuchs des Kreisaufsehers und in der Woche des Gedächtnismahls erscheinen die Zusammenkunftstage dieser Woche in der Farbe der Woche, deren Name unter ihren Daten steht. Ein Label neben dem Datum oben im Fenster zeigt, was am ausgewählten Tag anders ist
+- **Tastatur** - Verwenden Sie die Pfeiltasten, um zwischen den Tagen zu wechseln, und die Eingabetaste, um einen Tag auszuwählen
 
 ### Medien organisieren {#organizing-media}
 

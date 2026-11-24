@@ -1,9 +1,13 @@
 import { pathExists, remove } from 'fs-extra/esm';
 import { createHash } from 'node:crypto';
-import { stat } from 'node:fs/promises';
+import { access, constants, stat } from 'node:fs/promises';
+import {
+  assertAbsolutePath,
+  assertAppTempFolder,
+} from 'src-electron/main/conversion-paths';
 import { getImageDimensions } from 'src-electron/main/image-size';
 import { AUDIO_EXTENSIONS, FULL_HD } from 'src/constants/media';
-import { basename, changeExt, extname, join } from 'upath';
+import { basename, extname, join } from 'upath';
 
 const conversionQueue = new Map<string, Promise<string>>();
 
@@ -25,6 +29,8 @@ export interface RunnableFfmpegCommand {
 // left as orphaned child processes - nothing previously kept a reference to
 // the process fluent-ffmpeg spawns internally.
 const activeFfmpegCommands = new Map<string, RunnableFfmpegCommand>();
+// The commands killed that way: they didn't fail, the app is quitting.
+const commandsStoppedAtQuit = new WeakSet<RunnableFfmpegCommand>();
 
 // ffmpeg exits with AVERROR(ENOSPC), -28, when it runs out of disk space:
 // 4294967268 as Windows reports the exit code, 228 elsewhere (its low 8
@@ -95,6 +101,7 @@ export const runFfmpegCommand = (
  */
 export const cleanupFfmpegConversions = () => {
   for (const command of activeFfmpegCommands.values()) {
+    commandsStoppedAtQuit.add(command);
     try {
       command.kill('SIGKILL');
     } catch {
@@ -102,6 +109,35 @@ export const cleanupFfmpegConversions = () => {
     }
   }
   activeFfmpegCommands.clear();
+};
+
+/**
+ * Whether cleanupFfmpegConversions killed this command: its run then fails
+ * because the app is quitting, not because ffmpeg couldn't convert.
+ */
+export const wasStoppedAtQuit = (command: RunnableFfmpegCommand) =>
+  commandsStoppedAtQuit.has(command);
+
+/**
+ * The FFmpeg that ships with M³ (resources/ffmpeg/bin, see
+ * scripts/fetch-ffmpeg.mjs), if it's there and can be run. Null otherwise
+ * (in development, or a build made without it): M³ then downloads FFmpeg the
+ * first time it needs it.
+ */
+export const getBundledFfmpegPath = async (): Promise<null | string> => {
+  const isWindows = process.platform === 'win32';
+  const ffmpegPath = join(
+    process.resourcesPath,
+    'ffmpeg',
+    'bin',
+    isWindows ? 'ffmpeg.exe' : 'ffmpeg',
+  );
+  try {
+    await access(ffmpegPath, isWindows ? constants.F_OK : constants.X_OK);
+    return ffmpegPath;
+  } catch {
+    return null;
+  }
 };
 
 /**
@@ -232,26 +268,35 @@ const getMaxHeight = (dimensions: {
   return undefined;
 };
 
+/**
+ * Turns an image or an audio file into an MP4 for export, written in
+ * `outputDir`, named after the file and its path. The request is checked
+ * first, as for playback (see conversion-paths.ts): ffmpeg overwrites its
+ * output, and a failed run deletes it, so `outputDir` can only be the app's
+ * Temp folder.
+ * @returns Where the MP4 is.
+ */
 export const createVideoFromNonVideo = async (
   originalFile: string,
   ffmpegPath: string,
-  outputDir?: string,
+  outputDir: string,
 ): Promise<string> => {
   const existingPromise = conversionQueue.get(originalFile);
-  if (existingPromise) return existingPromise;
+  if (existingPromise !== undefined) return existingPromise;
 
   const conversionPromise = (async (): Promise<string> => {
+    assertAbsolutePath('originalFile', originalFile);
+    assertAbsolutePath('outputDir', outputDir);
+    await assertAppTempFolder(outputDir);
     await assertValidFfmpegPath(ffmpegPath);
 
-    const convertedFilePath = outputDir
-      ? join(
-          outputDir,
-          `${basename(originalFile, extname(originalFile))}-${createHash('sha1')
-            .update(originalFile)
-            .digest('hex')
-            .slice(0, 8)}.mp4`,
-        )
-      : changeExt(originalFile, '.mp4');
+    const convertedFilePath = join(
+      outputDir,
+      `${basename(originalFile, extname(originalFile))}-${createHash('sha1')
+        .update(originalFile)
+        .digest('hex')
+        .slice(0, 8)}.mp4`,
+    );
 
     const canReuse = await shouldUseExistingConversion(
       originalFile,

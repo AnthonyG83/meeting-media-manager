@@ -8,6 +8,19 @@ Para ver la lista completa de cambios entre versiones, consulta nuestro archivo 
 
 ### ✨ Nuevas funciones
 
+- ✨ **Visita del superintendente de circuito y semana de la Conmemoración**: Durante la visita del superintendente de circuito y la semana de la Conmemoración, una etiqueta junto a la fecha, en la parte superior de la ventana, lo indica. Pasa el cursor sobre ella para ver lo que cambia el día seleccionado, como el traslado de la reunión de entre semana al martes, los archivos multimedia que M³ oculta entonces o la reunión que la Conmemoración reemplaza. El día habitual de la reunión de entre semana durante la visita, o el día de la reunión que la Conmemoración reemplaza, la página vacía ahora explica por qué no hay reunión, con un botón que lleva al martes o a la Conmemoración. En el calendario, los días de reunión de esa semana toman el color de la semana, y su nombre aparece debajo de sus fechas.
+- ✨ **Linux en ARM**: M³ ahora también está disponible para computadoras con Linux y un procesador ARM de 64 bits (arm64), como una Raspberry Pi 4 o 5 con su sistema de 64 bits, o una laptop con procesador Snapdragon que use Linux: como AppImage, que se actualiza sola como la de x86_64, y en la Snap Store. Es nuevo, así que avísanos de cualquier cosa que no funcione en la tuya.
+
+## v26.11.4
+
+### ✨ Nuevas funciones
+
+- ✨ **Mover a otra sección**: El menú de un elemento multimedia ahora tiene un submenú **Mover** con Mover hacia arriba, Mover hacia abajo y las demás secciones del día, para enviar el elemento a otra sección con un solo clic en vez de arrastrarlo hasta allí. Con varios elementos seleccionados, **Mover a la sección** los reúne todos al final de la sección que elijas; no se ofrece una sección en la que ya estén todos.
+
+## v26.11.3
+
+### ✨ Nuevas funciones
+
 - ✨ **Archivos multimedia que tu computadora no puede reproducir**: En algunas computadoras, ciertos videos se reproducen sin imagen o sin sonido: un video HEVC en una tarjeta gráfica que no puede decodificarlo, un video AVI o MPEG-4 antiguo, o una película con sonido AC-3 o DTS. Ahora M³ te avisa en cuanto encuentra uno, en el elemento multimedia y con una notificación, y el panel de antes de la reunión te lo recuerda, para que puedas solucionarlo mucho antes de necesitarlo. Además, ya no sugiere desactivar la aceleración por hardware para este tipo de video, lo que solo empeoraría las cosas. La conversión crea una copia que se reproduce en cualquier computadora y, cuando es posible, usa tu tarjeta gráfica para que M³ y tu reunión sigan funcionando con fluidez. Su progreso se muestra en el elemento multimedia y en la ventana emergente de sincronización de archivos multimedia, donde también puedes cancelarla. Un archivo que importaste se reemplaza por su copia convertida; un archivo de tu carpeta compartida se deja como está, y M³ reproduce una copia convertida que se guarda en esta computadora.
 
 ## v26.11.2

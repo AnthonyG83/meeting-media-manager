@@ -8,6 +8,19 @@ Voor de volledige lijst van wijzigingen tussen versies, zie ons CHANGELOG.md bes
 
 ### ✨ Nieuwe functies
 
+- ✨ **Bezoek van de kringopziener en Herdenkingsweek**: Tijdens het bezoek van de kringopziener en in de week van de Herdenking geeft een label naast de datum bovenaan het venster dat aan. Houd de muisaanwijzer erop om te zien wat er op de geselecteerde dag anders is, zoals de doordeweekse vergadering die naar dinsdag verschuift, de media die M³ dan verbergt, of de vergadering die door de Herdenking wordt vervangen. Op de gebruikelijke doordeweekse vergaderdag tijdens het bezoek, of op de vergaderdag die door de Herdenking wordt vervangen, legt de lege pagina nu uit waarom er geen vergadering is, met een knop die naar dinsdag of naar de Herdenking gaat. In de kalender krijgen de vergaderdagen van die week de kleur van die week, en staat de naam van de week onder de datums.
+- ✨ **Linux op ARM**: M³ is er nu ook voor Linux-computers met een 64-bits ARM-processor (arm64), zoals een Raspberry Pi 4 of 5 met zijn 64-bits systeem, of een laptop met een Snapdragon-processor waarop Linux draait: als AppImage, die zichzelf bijwerkt net als die voor x86_64, en in de Snap Store. Het is nieuw, dus meld alles wat op jouw computer niet werkt.
+
+## v26.11.4
+
+### ✨ Nieuwe functies
+
+- ✨ **Naar een andere sectie verplaatsen**: Het menu van een media-item heeft nu een submenu **Verplaatsen** met Naar boven verplaatsen, Naar beneden verplaatsen en de andere secties van de dag, zodat je het item met één klik naar een andere sectie stuurt in plaats van het erheen te slepen. Als er meerdere items geselecteerd zijn, zet **Naar sectie verplaatsen** ze allemaal aan het einde van de gekozen sectie; een sectie waar ze allemaal al in staan, wordt niet aangeboden.
+
+## v26.11.3
+
+### ✨ Nieuwe functies
+
 - ✨ **Media die je computer niet kan afspelen**: Sommige video's worden op bepaalde computers zonder beeld of zonder geluid afgespeeld: een HEVC-video op een videokaart die de video niet kan decoderen, een oude AVI- of MPEG-4-video, of een film met AC-3- of DTS-geluid. M³ laat het je nu weten zodra het er een vindt, bij het media-item en in een melding, en het paneel vóór de vergadering herinnert je eraan, zodat je het probleem ruim van tevoren kunt oplossen. Ook raadt M³ bij zo'n video niet langer aan om hardwareversnelling uit te schakelen, wat het alleen maar erger zou maken. "Omzetten" maakt een kopie die op elke computer kan worden afgespeeld, en gebruikt daarbij zo mogelijk je videokaart, zodat M³ en de vergadering soepel blijven lopen. De voortgang is te zien bij het media-item en in het pop-upvenster van de mediasynchronisatie, waar je het omzetten ook kunt annuleren. Een bestand dat je hebt geïmporteerd, wordt vervangen door de omgezette kopie; een bestand uit je gedeelde map blijft zoals het is, en M³ speelt een omgezette kopie af die op deze computer wordt bewaard.
 
 ## v26.11.2

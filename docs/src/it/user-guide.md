@@ -38,11 +38,12 @@ L'interfaccia principale di M³ è composta da diverse aree chiave:
 
 ### Capire la vista calendario {#calendar-view}
 
-La vista calendario mostra il programma delle adunanze e i media disponibili:
+Fai clic sulla data in alto nella finestra per aprire il calendario. Mostra tutte le settimane per cui M³ prepara i media, a partire da quella corrente:
 
-- **Giorni delle adunanze** - I giorni evidenziati mostrano quando sono programmate le adunanze
-- **Indicatori dei media** - Le icone mostrano quali tipi di media sono disponibili
-- **Navigazione tra le date** - Usa i tasti freccia per spostarti tra i mesi
+- **Settimane** - Ogni riga è una settimana da lunedì a domenica, con le sue date e un nome come "Questa settimana", "Settimana prossima", "Tra 2 settimane" e così via
+- **Giorni delle adunanze** - I giorni delle adunanze sono colorati in base al loro stato: verde quando i media sono pronti, arancione quando non sono ancora pronti e rosso se non è stato possibile scaricarli. I giorni con media che hai aggiunto tu sono viola. Una legenda sotto il calendario spiega i colori
+- **Settimane speciali** - Durante la visita del sorvegliante di circoscrizione e la settimana della Commemorazione, i giorni delle adunanze di quella settimana prendono il colore della settimana e sotto le date compare il nome della settimana. Un'etichetta accanto alla data in alto nella finestra indica cosa cambia nel giorno selezionato
+- **Tastiera** - Usa i tasti freccia per spostarti tra i giorni e Invio per selezionarne uno
 
 ### Organizzazione dei media {#organizing-media}
 

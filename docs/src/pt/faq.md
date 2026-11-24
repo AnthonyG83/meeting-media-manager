@@ -275,7 +275,7 @@ Se o computador foi desligado ou reiniciado enquanto o M³ instalava uma atualiz
 
 Se o computador não conseguir se conectar à internet, o instalador que o M³ tinha baixado geralmente ainda está lá: pressione `Win+R`, digite `%LOCALAPPDATA%\meeting-media-manager-updater\pending` e depois execute o instalador na pasta que for aberta.
 
-Para evitar isso, no Windows, o M³ instala uma atualização baixada na próxima vez que é aberto, em vez de quando é fechado. When M³ is installed for all users of the computer, Windows asks for permission first, so M³ waits until you choose to install the update.
+Para evitar isso, no Windows, o M³ instala uma atualização baixada na próxima vez que é aberto, em vez de quando é fechado. Quando o M³ está instalado para todos os usuários do computador, o Windows pede permissão primeiro, então o M³ espera até você escolher instalar a atualização.
 
 ## Suporte e comunidade {#support-community}
 
@@ -359,6 +359,8 @@ Sim! O M³ foi projetado com foco em segurança e privacidade:
 - **Downloads diretos**: A mídia é baixada diretamente do site oficial das Testemunhas de Jeová
 - **Código aberto**: O código está aberto para revisão e verificação
 - **Relatórios de erros**: Alguns dados limitados podem ser coletados para relatar erros
+
+Para mais detalhes, leia a [política de privacidade](privacy) do M³.
 
 ### :arrows_clockwise: Com que frequência o M³ verifica se há atualizações? {#update-frequency}
 

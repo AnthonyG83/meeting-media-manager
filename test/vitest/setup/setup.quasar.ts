@@ -67,7 +67,7 @@ initHttpHandlers([
     HttpResponse.json(jwYeartext),
   ),
   http.get(
-    `${import.meta.env.repository?.replace(
+    `${import.meta.env.updatesRepository?.replace(
       'github.com',
       'api.github.com/repos',
     )}/releases`,

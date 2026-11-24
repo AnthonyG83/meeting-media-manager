@@ -8,6 +8,19 @@ Täielik nimekiri versioonide vahelistest muudatustest on esitatud failis CHANGE
 
 ### ✨ Uued funktsioonid
 
+- ✨ **Ringkonnaülevaataja külastus ja mälestusõhtu nädal**: Ringkonnaülevaataja külastuse ajal ja mälestusõhtu nädalal annab sellest märku silt akna ülaosas kuupäeva kõrval. Kui viid hiirekursori selle kohale, näed, mis on valitud päeval teisiti, näiteks et nädalasisene koosolek nihkub teisipäevale, millise meedia M³ siis peidab või millise koosoleku mälestusõhtu asendab. Külastuse ajal tavapärasel nädalasisese koosoleku päeval või koosolekupäeval, mille mälestusõhtu asendab, selgitab tühi leht nüüd, miks koosolekut ei toimu, ja nupp viib teisipäevale või mälestusõhtu päevale. Kalendris saavad selle nädala koosolekupäevad nädala värvi ning nädala nimi on kirjas selle kuupäevade all.
+- ✨ **Linux ARM-il**: M³ on nüüd saadaval ka 64-bitise ARM-protsessoriga (arm64) Linuxi arvutitele, näiteks 64-bitise süsteemiga Raspberry Pi 4 või 5 või Linuxit kasutav Snapdragoni protsessoriga sülearvuti: AppImage'ina, mis uuendab end ise nagu x86_64 oma, ja Snap Store'is. See on uus, seega anna palun teada kõigest, mis sinu arvutis ei tööta.
+
+## v26.11.4
+
+### ✨ Uued funktsioonid
+
+- ✨ **Teise jaotisesse liigutamine**: Meediaelemendi menüüs on nüüd alammenüü **Liiguta**, kus on Liiguta üles, Liiguta alla ja päeva teised jaotised, et saaksid elemendi ühe klõpsuga teise jaotisesse saata, selle asemel et seda sinna lohistada. Kui valitud on mitu elementi, koondab **Liiguta jaotisesse** need kõik selle jaotise lõppu, mille valid; jaotist, kus need kõik juba on, ei pakuta.
+
+## v26.11.3
+
+### ✨ Uued funktsioonid
+
 - ✨ **Meedia, mida sinu arvuti ei suuda esitada**: Mõnes arvutis esitatakse osa videoid ilma pildita või ilma helita: HEVC-video graafikakaardil, mis ei suuda seda dekodeerida, vana AVI- või MPEG-4-video või AC-3- või DTS-heliga film. M³ annab nüüd kohe teada, kui leiab sellise faili, nii meediaelemendil kui ka teavituses, ja koosolekueelne paneel tuletab seda meelde, nii et saad probleemi lahendada aegsasti enne, kui faili vaja läheb. Samuti ei soovita M³ sellise video puhul enam riistvaralist kiirendust keelata, mis teeks olukorra ainult hullemaks. „Teisenda” teeb koopia, mida saab esitada igas arvutis, ja kasutab võimaluse korral sinu graafikakaarti, et M³ ja koosolek kulgeksid sujuvalt. Edenemist näeb meediaelemendil ja meediafailide sünkroniseerimise hüpikaknas, kus saad teisendamise ka tühistada. Sinu imporditud fail asendatakse selle teisendatud koopiaga; jagatud kaustast pärit fail jääb muutmata ja M³ esitab selles arvutis hoitavat teisendatud koopiat.
 
 ## v26.11.2

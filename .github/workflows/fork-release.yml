@@ -1,0 +1,101 @@
+name: Fork Release (Windows)
+
+# Builds this fork's Windows installer (with the timer remote controls) and
+# uploads it to a DRAFT GitHub release in this repository. Installed copies of
+# this fork update from this repository's releases (see UPDATES_OWNER in
+# quasar.config.ts), and they ignore drafts: nothing updates until you open the
+# draft under Releases and publish it.
+#
+# The release's version is package.json's `version`, which comes from the
+# upstream release merged into this fork. Run this after merging a new
+# upstream release. Upstream's own release workflows (manual-release.yml,
+# beta-release.yml) only run on sircharlo/meeting-media-manager.
+#
+# The installer is not code-signed, so Windows SmartScreen warns about an
+# unknown publisher the first time it is installed by hand. Updates install
+# without that warning. Error reports are off (no Sentry DSN), so this fork's
+# builds don't send reports to the official project.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: fork-release
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    name: Check version, lint and test
+    runs-on: ubuntu-latest
+    if: github.repository == 'AnthonyG83/meeting-media-manager'
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - id: version
+        name: Read the version and make sure it isn't released yet
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version: $version"
+          is_draft=$(gh release view "v$version" --json isDraft --jq .isDraft 2>/dev/null || echo none)
+          if [ "$is_draft" = "false" ]; then
+            echo "::error::v$version is already published in this repository. Merge a newer upstream release (or raise the version in package.json) first."
+            exit 1
+          fi
+          if [ "$is_draft" = "true" ]; then
+            echo "A draft for v$version exists already: its files will be replaced."
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+          cache: 'yarn'
+      - name: Install X11 development libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxtst-dev libxinerama-dev libx11-xcb-dev libxkbcommon-x11-dev libxss-dev libpng-dev libpng++-dev
+      - name: Install dependencies
+        run: yarn install
+      - name: Prepare Quasar
+        run: yarn quasar prepare
+      - name: Lint files
+        run: yarn lint
+      - name: Run tests
+        run: yarn test:unit
+
+  build-windows:
+    name: Build and upload the Windows installer
+    needs: quality
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      # No yarn cache for a release build, like upstream's build.yml.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: yarn install
+      - name: Build Electron app and upload it to the draft release
+        shell: bash
+        run: |
+          yarn generate:icons
+          yarn generate:logos
+          yarn build --publish=always
+        env:
+          # electron-builder creates (or reuses) the draft release
+          # v<version> in this repository and uploads the installer, the
+          # portable build and latest.yml (what the auto-updater reads).
+          GITHUB_TOKEN: ${{ github.token }}
+          SENTRY_AUTH_TOKEN: ''
+          SENTRY_DSN: ''
+          TEST_VERSION: 'false'
+      - name: Summary
+        shell: bash
+        run: |
+          echo "Draft release v${{ needs.quality.outputs.version }} is ready: open Releases in this repository, check it, then publish it so installed copies update." >> "$GITHUB_STEP_SUMMARY"

@@ -602,12 +602,14 @@ export const fetchReleaseNotes = async (
 };
 
 /**
- * Fetches the latest version of the app.
+ * Fetches the latest version of the app, from the repository this build
+ * updates from (`updatesRepository`), so the "update available" banner offers
+ * the same version the auto-updater would install.
  * @returns The latest version.
  */
 export const fetchLatestVersion = async () => {
-  if (!import.meta.env.repository) return;
-  const url = `${import.meta.env.repository.replace('github.com', 'api.github.com/repos')}/releases`;
+  if (!import.meta.env.updatesRepository) return;
+  const url = `${import.meta.env.updatesRepository.replace('github.com', 'api.github.com/repos')}/releases`;
   const includeBeta = !(await betaUpdatesDisabled());
   const result = await fetchJson<Release[]>(url);
   return result?.find((r) => includeBeta || !r.prerelease)?.tag_name.slice(1);

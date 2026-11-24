@@ -7,14 +7,14 @@ import {
 import { useDialogStateStore } from 'stores/dialog-state';
 import { watch } from 'vue';
 
-// 1. Strict allowed types
+// 1. Strict allowed types: the four registered in boot/notify-types.ts, each
+// with its own color and icon, and Quasar's own 'ongoing' (with a spinner)
 const allowedTypes = [
   'positive',
   'negative',
   'warning',
   'info',
   'ongoing',
-  'primary',
 ] as const;
 
 // 2. Interface with strict type
@@ -49,6 +49,12 @@ interface AllowedNotifyProps {
   icon?: QNotifyCreateOptions['icon'];
   message?: QNotifyCreateOptions['message'];
   noClose?: boolean;
+  /**
+   * Called once it's closed, however that happens: its close button or an
+   * action, its timeout, or dismissAllTemporaryNotifications() (switching
+   * congregations). Updating a closed notification shows nothing.
+   */
+  onDismiss?: QNotifyCreateOptions['onDismiss'];
   position?: QNotifyCreateOptions['position'];
   /**
    * When true, this notification is not tracked by
@@ -94,15 +100,12 @@ const waitForOpenDialogsToClose = (show: () => void) => {
   return true;
 };
 
-/** The default actions of a closable notification: just a close button. */
-const getCloseActions = (
-  type: AllowedNotifyType | undefined,
-): QNotifyCreateOptions['actions'] => [
-  {
-    color: type === 'warning' ? 'dark' : 'white',
-    icon: 'close',
-    round: true,
-  },
+/**
+ * The default actions of a closable notification: just a close button,
+ * white like the text of every type of notification.
+ */
+const getCloseActions = (): QNotifyCreateOptions['actions'] => [
+  { color: 'white', icon: 'close', round: true },
 ];
 
 /**
@@ -123,6 +126,19 @@ const trackTemporaryNotification = (dismiss: () => void, timeout: number) => {
   }
 };
 
+/** The options passed on to Quasar only when they're given. */
+const getOptionalOptions = ({
+  caption,
+  classes,
+  group,
+  onDismiss,
+}: AllowedNotifyProps) => ({
+  ...(caption && { caption }),
+  ...(classes && { classes }),
+  ...(group && { group }),
+  ...(onDismiss && { onDismiss }),
+});
+
 export const createTemporaryNotification = (
   props: NoExtraKeys<AllowedNotifyProps>,
 ) => {
@@ -136,9 +152,6 @@ export const createTemporaryNotification = (
 
     const {
       actions,
-      caption,
-      classes,
-      group,
       icon,
       message,
       noClose = false,
@@ -153,28 +166,17 @@ export const createTemporaryNotification = (
       throw new Error(`Unknown notify type: "${type}"`);
     }
 
-    const typeIcons: Record<string, string> = {
-      info: 'mmm-info',
-      negative: 'mmm-error',
-      ongoing: 'mmm-loading',
-      positive: 'mmm-check',
-      primary: 'mmm-info',
-      warning: 'mmm-warning',
-    };
-
-    const resolvedIcon = icon ?? (type ? typeIcons[type] : undefined);
-
+    // Without an icon of its own, it gets its type's (see
+    // boot/notify-types.ts): one given as undefined would replace it.
     const dismiss = Notify.create({
       group: false,
       message,
       position,
       timeout,
-      ...(caption && { caption }),
-      ...(classes && { classes }),
+      ...getOptionalOptions(props),
       ...(type && { type }),
-      ...(resolvedIcon && { icon: resolvedIcon }),
-      ...(group && { group }),
-      ...(!noClose && { actions: actions ?? getCloseActions(type) }),
+      ...(icon && { icon }),
+      ...(!noClose && { actions: actions ?? getCloseActions() }),
     });
 
     // Track the dismiss function if it exists, unless it's protected from
@@ -245,6 +247,32 @@ export const notifyDiskFull = (): void => {
     type: 'negative',
   });
   recordDiskSpaceWarning();
+};
+
+/**
+ * Tells the user that M³ couldn't install its update because the disk is full
+ * (MMM-V2-3P8). Like any disk-full warning, it stops disk-full errors from
+ * being reported from then on.
+ */
+export const notifyUpdateDiskFull = (): void => {
+  createTemporaryNotification({
+    caption: i18n.global.t('update-failed'),
+    message: i18n.global.t('update-error-disk-full'),
+    timeout: 15_000,
+    type: 'negative',
+  });
+  recordDiskSpaceWarning();
+};
+
+/**
+ * Tells the user that next year's yeartext couldn't be fetched for its
+ * preview, naming the year (the message used to show "{year}" as is).
+ */
+export const notifyYeartextPreviewFailed = (year: number): void => {
+  createTemporaryNotification({
+    message: i18n.global.t('yeartext-preview-failed', { year }),
+    type: 'negative',
+  });
 };
 
 const EXPECTED_DOWNLOAD_ISSUE_WARNING_THROTTLE_MS = 5 * 60 * 1000;

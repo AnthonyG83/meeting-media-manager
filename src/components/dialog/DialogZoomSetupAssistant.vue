@@ -99,9 +99,9 @@
             />
             <p
               v-if="!meetingIdInput"
-              class="text-caption text-warning row items-center no-wrap"
+              class="text-caption text-notice-warning row items-center no-wrap"
             >
-              <q-icon class="q-mr-xs" name="mmm-info" size="14px" />
+              <q-icon class="q-mr-xs" name="mmm-warning" size="14px" />
               {{ t('zoom-setup-meeting-id-missing') }}
             </p>
             <q-btn
@@ -153,7 +153,7 @@
               />
               <p
                 v-if="participantsEntryFailed"
-                class="text-caption text-negative q-mb-none"
+                class="text-caption text-notice-negative q-mb-none"
               >
                 {{ t('zoom-setup-participants-not-opened') }}
               </p>
@@ -175,7 +175,7 @@
               />
               <p
                 v-if="muteAllEntryFailed"
-                class="text-caption text-negative q-mb-none"
+                class="text-caption text-notice-negative q-mb-none"
               >
                 {{ t('zoom-setup-mute-all-not-opened') }}
               </p>
@@ -456,9 +456,9 @@
                   !currentSettings.enableMusicButton &&
                   currentSettings.zoomMeetingManagerAutomatePostMeetingAudioSettings
                 "
-                class="row items-center no-wrap q-mt-sm text-caption text-warning"
+                class="row items-center no-wrap q-mt-sm text-caption text-notice-warning"
               >
-                <q-icon class="q-mr-xs" name="mmm-info" size="14px" />
+                <q-icon class="q-mr-xs" name="mmm-warning" size="14px" />
                 <div class="col">
                   {{ t('zoom-setup-music-needed-after-meeting') }}
                 </div>
@@ -473,9 +473,9 @@
               </div>
               <div
                 v-if="obsShowsMedia"
-                class="row items-center no-wrap q-mt-sm text-caption text-warning"
+                class="row items-center no-wrap q-mt-sm text-caption text-notice-warning"
               >
-                <q-icon class="q-mr-xs" name="mmm-info" size="14px" />
+                <q-icon class="q-mr-xs" name="mmm-warning" size="14px" />
                 <div class="col">{{ t('zoom-setup-obs-sharing-off') }}</div>
                 <q-btn
                   color="primary"
@@ -553,7 +553,7 @@
               />
               <p
                 v-if="stopShareEntryFailed"
-                class="text-caption text-negative q-mb-none"
+                class="text-caption text-notice-negative q-mb-none"
               >
                 {{ t('zoom-setup-stop-share-not-opened') }}
               </p>
@@ -594,7 +594,7 @@
 
           <!-- Done -->
           <div v-else key="done" class="column items-center text-center">
-            <div class="zoom-setup__done-icon text-positive q-my-md">
+            <div class="zoom-setup__done-icon text-notice-positive q-my-md">
               <q-icon name="mmm-check" size="lg" />
             </div>
             <div class="text-h6 q-mb-sm">{{ t('zoom-setup-done-title') }}</div>
@@ -861,8 +861,9 @@ const checksPassed = computed(
 
 // Zoom's Participants button is named in the user's Zoom language and is
 // sometimes kept in Zoom's "More" menu. When M³ can't find it, the user
-// picks it from Zoom's entries, as for Share; opening the panel by hand in
-// Zoom works too (the checks then learn the names from the open panel).
+// picks it from Zoom's entries, as for Share. The checks open the panel
+// through it even if the user opened it, which would hide a button M³
+// can't find.
 const participantsEntries = ref<{ more: string[]; toolbar: string[] }>({
   more: [],
   toolbar: [],
@@ -891,7 +892,11 @@ const hasChecksPicker = computed(
 const runChecks = async () => {
   checking.value = true;
   try {
-    diagnosis.value = (await diagnoseZoom()) ?? { meeting: false };
+    // Even with the participants panel open, M³ opens it through its button,
+    // so a button it can't find is asked about.
+    diagnosis.value = (await diagnoseZoom({ reopenParticipants: true })) ?? {
+      meeting: false,
+    };
     participantsEntries.value = diagnosis.value.participantsButtonMissing
       ? await getZoomShareEntries()
       : { more: [], toolbar: [] };

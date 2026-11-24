@@ -263,9 +263,12 @@ export const getPublicationsPath = () =>
 // Converted copies of watched-folder files this computer can't play, in a
 // folder per meeting date (cleaned up like the watched folder's own). Kept on
 // this computer: another one may play the originals, so syncing them through
-// a custom cache folder would only spread them around.
+// a custom cache folder would only spread them around. Not created here: a
+// conversion creates its date's folder as it places a copy, and cleaning up
+// or looking for a copy has no use for an empty one (on a computer where
+// creating folders there fails, cleaning up kept reporting it, MMM-V2-3P3).
 export const getConvertedMediaPath = () =>
-  getCachePath('Converted Media', true, { bypassCustomPath: true });
+  getCachePath('Converted Media', false, { bypassCustomPath: true });
 export const getAdditionalMediaPath = () =>
   getCachePath('Additional Media', false);
 
@@ -423,11 +426,14 @@ export const trimFilepathAsNeeded = (filepath: string, maxBytes = 230) => {
 };
 
 /**
- * Checks if auto updates are disabled.
+ * Checks if auto updates are disabled. Never in a store build: its store
+ * updates it, whatever M³'s own setting says.
  * @returns Whether auto updates are disabled.
  */
-export const updatesDisabled = async () =>
-  pathExists(await getUpdatesDisabledPath());
+export const updatesDisabled = async () => {
+  if (globalThis.electronApi.appStore) return false;
+  return pathExists(await getUpdatesDisabledPath());
+};
 
 /**
  * Toggles auto updates.
@@ -437,10 +443,12 @@ export const toggleAutoUpdates = async (enable: boolean) => {
   try {
     if (enable) {
       await remove(await getUpdatesDisabledPath());
-      checkForUpdates();
     } else {
       await ensureFile(await getUpdatesDisabledPath());
     }
+    // Checks right away once they're on. Once they're off, it's how the
+    // updater learns not to install a downloaded update when M³ quits.
+    checkForUpdates();
     // Let any listener (the header's "updates disabled" badge, the
     // "updates disabled" startup reminder, ...) know the setting changed,
     // wherever the toggle was flipped from.
@@ -453,11 +461,14 @@ export const toggleAutoUpdates = async (enable: boolean) => {
 };
 
 /**
- * Checks if beta updates are disabled.
+ * Checks if beta updates are disabled. Always in a store build: stores only
+ * ship M³'s releases.
  * @returns Wether beta updates are disabled.
  */
-export const betaUpdatesDisabled = async () =>
-  !(await pathExists(await getBetaUpdatesPath()));
+export const betaUpdatesDisabled = async () => {
+  if (globalThis.electronApi.appStore) return true;
+  return !(await pathExists(await getBetaUpdatesPath()));
+};
 
 /**
  * Toggles beta updates

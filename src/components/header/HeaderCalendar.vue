@@ -1,4 +1,45 @@
 <template>
+  <!-- First, before the buttons: it describes the selected week. -->
+  <div
+    v-if="specialWeek"
+    class="special-week-chip"
+    :class="[
+      `special-week-chip--${specialWeek.kind}`,
+      { 'special-week-chip--icon-only': !$q.screen.gt.sm },
+    ]"
+  >
+    <span
+      v-if="specialWeekGlyph"
+      aria-hidden="true"
+      class="jw-icon special-week-chip__glyph"
+    >
+      {{ specialWeekGlyph }}
+    </span>
+    <q-icon v-else :name="specialWeekFallbackIcon" size="18px" />
+    <span v-if="$q.screen.gt.sm" class="special-week-chip__label">
+      {{ specialWeekChipLabel }}
+    </span>
+    <q-tooltip :delay="300" max-width="320px">
+      <div class="text-weight-bold">
+        {{ specialWeekTitle }} ({{ specialWeekRange }})
+      </div>
+      <div v-for="line in specialWeekMessage" :key="line">{{ line }}</div>
+      <template v-if="specialWeekHiddenNames.length">
+        <div class="special-week-chip__hidden-title">
+          {{ t('special-week-hidden-items') }}
+        </div>
+        <ul class="special-week-chip__hidden-list">
+          <li
+            v-for="name in specialWeekHiddenNames"
+            :key="name"
+            class="ellipsis"
+          >
+            {{ name }}
+          </li>
+        </ul>
+      </template>
+    </q-tooltip>
+  </div>
   <transition
     appear
     enter-active-class="animated fadeIn"
@@ -291,17 +332,12 @@
     </q-tooltip>
     {{ $q.screen.gt.xs ? calendarDateLabel : '' }}
     <q-popup-proxy v-model="datePickerActive" :offset="[0, 11]">
-      <q-date
+      <WeekCalendar
         v-model="selectedDate"
-        :event-color="getEventDayColor"
-        :events="getEventDates()"
-        :first-day-of-week="friendlyDayToJsDay(currentSettings?.firstDayOfWeek)"
-        :locale="dateLocale"
-        minimal
-        :navigation-max-year-month="maxDate()"
-        :navigation-min-year-month="minDate()"
-        no-unset
-        :options="dateOptions"
+        :day-statuses="dayStatuses"
+        :max="lookupBounds?.max"
+        :min="lookupBounds?.min"
+        :special-weeks="specialWeeks"
       />
     </q-popup-proxy>
   </q-btn>
@@ -386,6 +422,8 @@
 <script setup lang="ts">
 import type { QMenu } from 'quasar';
 import type {
+  CalendarDayStatus,
+  DateInfo,
   DialogImportPayload,
   DocumentItem,
   MediaItem,
@@ -394,6 +432,7 @@ import type {
   MediaSectionIdentifier,
   MultimediaItem,
   PublicationFetcher,
+  SpecialWeekKind,
 } from 'src/types';
 
 import { useEventListener, watchImmediate } from '@vueuse/core';
@@ -407,11 +446,14 @@ import DialogRemoteVideo from 'components/dialog/DialogRemoteVideo.vue';
 import DialogSectionPicker from 'components/dialog/DialogSectionPicker.vue';
 import DialogSongPicker from 'components/dialog/DialogSongPicker.vue';
 import DialogStudyBible from 'components/dialog/DialogStudyBible.vue';
+import WeekCalendar from 'components/header/WeekCalendar.vue';
 import { storeToRefs } from 'pinia';
 import { useLocale } from 'src/composables/useLocale';
+import { useSpecialWeek } from 'src/composables/useSpecialWeek';
 import { SORTER } from 'src/constants/general';
 import { isCoWeek, isMemorialDay, isWeMeetingDay } from 'src/helpers/date';
 import { errorCatcher } from 'src/helpers/error-catcher';
+import { getJwIconFromKeyword } from 'src/helpers/fonts';
 import {
   addJwpubDocumentMediaToFiles,
   createMediaItemFromPath,
@@ -420,16 +462,9 @@ import {
   getPubMediaLinks,
 } from 'src/helpers/jw-media';
 import { withPendingSectionImport } from 'src/helpers/pending-section-imports';
+import { getSpecialWeek } from 'src/helpers/special-weeks';
 import { convertImageIfNeeded } from 'src/utils/converters';
-import {
-  datesAreSame,
-  formatDate,
-  friendlyDayToJsDay,
-  getDateDiff,
-  getLocalDate,
-  getMaxDate,
-  getMinDate,
-} from 'src/utils/date';
+import { formatDate, getLocalDate } from 'src/utils/date';
 import { useCurrentStateStore } from 'stores/current-state';
 import { useDemoModeStore } from 'stores/demo-mode';
 import { useJwStore } from 'stores/jw';
@@ -543,42 +578,95 @@ const openFileImportDialog = () => {
   );
 };
 
-const additionalMediaDates = computed(() =>
-  (
-    lookupPeriod.value?.[currentCongregation.value]?.filter((day) => {
-      if (!day.mediaSections) return false;
-      return Object.values(day.mediaSections).some((sectionMedia) =>
-        sectionMedia.items?.some((media) => media.source !== 'dynamic'),
-      );
-    }) || []
-  ).map((day) => formatDate(day.date, 'YYYY/MM/DD')),
+const lookupDays = computed(
+  () => lookupPeriod.value?.[currentCongregation.value] ?? [],
 );
 
-const additionalMediaForDayExists = (lookupDate: string) => {
-  try {
-    const day = lookupPeriod.value?.[currentCongregation.value]?.find((day) =>
-      datesAreSame(lookupDate, day.date),
-    );
+// The date picker's selectable range: every day M³ holds for this
+// congregation, which is whole weeks from this week's Monday.
+const lookupBounds = computed(() => {
+  const times = lookupDays.value
+    .map((day) => new Date(day.date).getTime())
+    .filter((time) => !Number.isNaN(time));
+  if (!times.length) return undefined;
+  return {
+    max: new Date(Math.max(...times)),
+    min: new Date(Math.min(...times)),
+  };
+});
 
-    if (!day?.mediaSections) return false;
+const hasAddedMedia = (day: DateInfo) =>
+  day.mediaSections?.some((sectionMedia) =>
+    sectionMedia.items?.some((media) => media.source !== 'dynamic'),
+  ) ?? false;
 
-    const additionalMediaCount = Object.values(day.mediaSections).reduce(
-      (total, sectionMedia) => {
-        return (
-          total +
-          (sectionMedia.items?.filter((media) => media.source !== 'dynamic')
-            .length ?? 0)
-        );
-      },
-      0,
-    );
-
-    return additionalMediaCount > 0;
-  } catch (error) {
-    errorCatcher(error);
-    return false;
-  }
+// A meeting day of the circuit overseer's visit or the Memorial week takes
+// the week's colour, unless fetching its media failed.
+const getDayStatus = (day: DateInfo): CalendarDayStatus | undefined => {
+  const addedMedia = hasAddedMedia(day);
+  const isEventDay = !!getMeetingType(day.date) || isMemorialDay(day.date);
+  if (!isEventDay && !addedMedia) return undefined;
+  if (day.status === 'error') return 'error';
+  const specialWeek = isEventDay ? getSpecialWeek(day.date) : undefined;
+  if (specialWeek) return specialWeek.kind;
+  if (day.status === 'complete' || isMemorialDay(day.date)) return 'ready';
+  return addedMedia ? 'added' : 'pending';
 };
+
+// The date picker's special weeks, keyed by their Monday.
+const specialWeeks = computed(() => {
+  const weeks: Partial<Record<string, SpecialWeekKind>> = {};
+  try {
+    for (const day of lookupDays.value) {
+      const week = getSpecialWeek(day.date);
+      if (week) weeks[formatDate(week.monday, 'YYYY/MM/DD')] = week.kind;
+    }
+  } catch (error) {
+    errorCatcher(error, { contexts: { fn: { name: 'specialWeeks' } } });
+  }
+  return weeks;
+});
+
+const {
+  chipLabel: specialWeekChipLabel,
+  hiddenNames: specialWeekHiddenNames,
+  messageLines: specialWeekMessage,
+  range: specialWeekRange,
+  specialWeek,
+  title: specialWeekTitle,
+} = useSpecialWeek();
+
+// The JW icons font draws the chip's icon, like the section headers'. It
+// can't load in demo mode (no network), so a bundled icon stands in there.
+const specialWeekGlyph = computed(() => {
+  if (!specialWeek.value || demoMode.enabled) return '';
+  return getJwIconFromKeyword(
+    specialWeek.value.kind === 'co' ? 'circuit-overseer' : 'memorial',
+  );
+});
+
+const specialWeekFallbackIcon = computed(() =>
+  specialWeek.value?.kind === 'co' ? 'mmm-lectern' : 'mmm-calendar-month',
+);
+
+// A date's first entry, the one the page shows (see selectedDateObject), in
+// case the lookup period still holds a later duplicate of it.
+const dayStatuses = computed(() => {
+  const statuses: Partial<Record<string, CalendarDayStatus>> = {};
+  const seen = new Set<string>();
+  try {
+    for (const day of lookupDays.value) {
+      const key = formatDate(day.date, 'YYYY/MM/DD');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const status = getDayStatus(day);
+      if (status) statuses[key] = status;
+    }
+  } catch (error) {
+    errorCatcher(error, { contexts: { fn: { name: 'dayStatuses' } } });
+  }
+  return statuses;
+});
 
 const additionalMediaForSelectedDayExists = computed(() => {
   if (!selectedDateObject.value?.mediaSections) return false;
@@ -592,50 +680,6 @@ const additionalMediaForSelectedDayExists = computed(() => {
 });
 
 const mediaDeleteAllPending = ref(false);
-
-const getEventDates = () => {
-  try {
-    if (!lookupPeriod.value || !currentCongregation.value) return [];
-    const meetingDates =
-      lookupPeriod.value[currentCongregation.value]
-        ?.filter((day) => getMeetingType(day.date))
-        .map((day) => formatDate(day.date, 'YYYY/MM/DD')) || [];
-    return meetingDates.concat(additionalMediaDates.value);
-  } catch (error) {
-    errorCatcher(error);
-    return [];
-  }
-};
-
-const minDate = () => {
-  try {
-    if (!lookupPeriod.value || !currentCongregation.value) return undefined;
-    const dateArray: Date[] =
-      lookupPeriod.value[currentCongregation.value]?.map((day) => day.date) ||
-      [];
-    if (!dateArray[0]) return undefined;
-    const minDate = getMinDate(dateArray[0], ...dateArray.slice(1));
-    return formatDate(minDate, 'YYYY/MM');
-  } catch (error) {
-    errorCatcher(error);
-    return undefined;
-  }
-};
-
-const maxDate = () => {
-  try {
-    if (!lookupPeriod.value || !currentCongregation.value) return undefined;
-    const dateArray: Date[] =
-      lookupPeriod.value[currentCongregation.value]?.map((day) => day.date) ||
-      [];
-    if (!dateArray[0]) return undefined;
-    const maxDate = getMaxDate(dateArray[0], ...dateArray.slice(1));
-    return formatDate(maxDate, 'YYYY/MM');
-  } catch (error) {
-    errorCatcher(error);
-    return undefined;
-  }
-};
 
 const importMenu = useTemplateRef<QMenu>('importMenu');
 // Set alongside `section` whenever openImportMenu is given a real section,
@@ -665,45 +709,6 @@ const handleImportMenuBeforeShow = () => {
     return;
   }
   section.value = undefined;
-};
-
-const dateOptions = (lookupDate: string) => {
-  try {
-    if (!lookupPeriod.value || !currentCongregation.value) return true;
-    const dateArray: Date[] =
-      lookupPeriod.value[currentCongregation.value]?.map((day) => day.date) ||
-      [];
-    if (!dateArray[0]) return true;
-    const minDate = getMinDate(dateArray[0], ...dateArray.slice(1));
-    const maxDate = getMaxDate(dateArray[0], ...dateArray.slice(1));
-    return (
-      getDateDiff(lookupDate, minDate, 'days') >= 0 &&
-      getDateDiff(lookupDate, maxDate, 'days') <= 0
-    );
-  } catch (error) {
-    errorCatcher(error);
-    return true;
-  }
-};
-
-const getEventDayColor = (eventDate: string) => {
-  try {
-    if (!lookupPeriod.value || !currentCongregation.value)
-      throw new Error('No congregation or lookup period');
-    const lookupDate = lookupPeriod.value[currentCongregation.value]?.find(
-      (d) => datesAreSame(eventDate, d.date),
-    );
-    if (lookupDate?.status === 'error') {
-      return 'negative';
-    } else if (lookupDate?.status === 'complete' || isMemorialDay(eventDate)) {
-      return 'positive';
-    }
-    if (additionalMediaForDayExists(eventDate)) return 'imported-media';
-  } catch (error) {
-    errorCatcher(error);
-    return 'negative';
-  }
-  return 'warning';
 };
 
 useEventListener<CustomEvent<{ section: MediaSectionIdentifier | undefined }>>(
@@ -1308,3 +1313,61 @@ watchImmediate(
   },
 );
 </script>
+
+<style lang="scss" scoped>
+// A white pill on the blue header in both themes, so its text keeps the
+// light theme's strong shades (see quasar.variables.scss).
+.special-week-chip {
+  align-items: center;
+  background: white;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px 0 8px;
+  vertical-align: middle;
+}
+
+.special-week-chip--icon-only {
+  padding: 0 6px;
+}
+
+.special-week-chip--co {
+  color: $co-week-strong;
+}
+
+.special-week-chip--memorial {
+  color: $memorial-week-strong;
+}
+
+// A long name (some languages have no short one) ends in "…" rather than
+// crowding the header: the tooltip names the week in full.
+.special-week-chip__label {
+  max-width: 14em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// The tooltip's hidden media, as in the hidden-media notice's ⓘ
+// (NoticeBanner.vue): a heading, then a bulleted list.
+.special-week-chip__hidden-title {
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+// The bullets go inside each line: its ellipsis (overflow: hidden) would
+// clip ones drawn outside it.
+.special-week-chip__hidden-list {
+  list-style-position: inside;
+  margin: 0;
+  padding-inline-start: 0.25em;
+}
+
+.special-week-chip__glyph {
+  font-size: 18px;
+  line-height: 1;
+}
+</style>

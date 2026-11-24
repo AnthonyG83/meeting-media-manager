@@ -275,7 +275,7 @@ Si la computadora se apagó o se reinició mientras M³ instalaba una actualizac
 
 Si la computadora no puede conectarse a internet, normalmente el instalador que M³ había descargado sigue ahí: pulsa `Win+R`, introduce `%LOCALAPPDATA%\meeting-media-manager-updater\pending` y luego ejecuta el instalador que está en la carpeta que se abre.
 
-Para evitar que esto ocurra, en Windows, M³ instala una actualización descargada la próxima vez que se abre, en lugar de cuando se cierra. When M³ is installed for all users of the computer, Windows asks for permission first, so M³ waits until you choose to install the update.
+Para evitar que esto ocurra, en Windows, M³ instala una actualización descargada la próxima vez que se abre, en lugar de cuando se cierra. Cuando M³ está instalado para todos los usuarios del equipo, Windows pide permiso primero, así que M³ espera hasta que elijas instalar la actualización.
 
 ## Ayuda y comunidad {#support-community}
 
@@ -359,6 +359,8 @@ El uso normal varía entre 2 y 10 GB según la configuración y el uso.
 - **Descargas directas**: Los archivos multimedia se descargan directamente del sitio web oficial de los testigos de Jehová
 - **Código abierto**: El código está disponible para revisarlo y verificarlo
 - **Reportes de errores**: Puede recopilarse una cantidad limitada de datos para reportar errores
+
+Para más detalles, lee la [política de privacidad](privacy) de M³.
 
 ### :arrows_clockwise: ¿Con qué frecuencia busca actualizaciones M³? {#update-frequency}
 

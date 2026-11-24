@@ -6,9 +6,12 @@ interface ImportMetaEnv {
   readonly IS_BETA: boolean;
   readonly IS_DEV: boolean;
   readonly IS_TEST: boolean;
+  readonly MSIX_IDENTITY_NAME: string;
+  readonly MSIX_PUBLISHER: string;
   readonly PRODUCT_NAME: string;
   readonly repository: string;
   readonly SENTRY_DSN: string;
+  readonly updatesRepository: string;
   readonly version: string;
   readonly VITEST: boolean | undefined;
 }

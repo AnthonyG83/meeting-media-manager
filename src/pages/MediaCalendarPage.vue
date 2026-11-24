@@ -82,25 +82,20 @@
   >
     <div v-if="bannerColumnVisible" class="col">
       <q-slide-transition v-for="b in pageBanners" :key="b.key">
-        <div class="row">
-          <q-banner :class="b.className" rounded>
+        <div class="row q-pb-sm">
+          <NoticeBanner
+            :actions="b.actions"
+            class="full-width"
+            :details="b.details"
+            :details-title="
+              b.detailsTitleKey ? t(b.detailsTitleKey) : undefined
+            "
+            :icon="b.icon"
+            :type="b.type"
+          >
             {{ t(b.textKey) }}
-            <template #avatar>
-              <q-avatar v-if="b.avatarClass" :class="b.avatarClass" size="lg">
-                <q-icon :name="b.icon" size="sm" />
-              </q-avatar>
-              <q-icon v-else :name="b.icon" size="lg" />
-            </template>
-            <template #action>
-              <q-btn
-                v-for="a in b.actions || []"
-                :key="a.labelKey"
-                flat
-                :label="t(a.labelKey)"
-                @click="a.onClick()"
-              />
-            </template>
-          </q-banner>
+            <template v-if="b.captionKey">{{ t(b.captionKey) }}</template>
+          </NoticeBanner>
         </div>
       </q-slide-transition>
       <EmptyState
@@ -242,6 +237,7 @@ import DialogSectionPicker from 'components/dialog/DialogSectionPicker.vue';
 import EmptyState from 'components/media/EmptyState.vue';
 import MediaList from 'components/media/MediaList.vue';
 import MeetingQuickActionsPanel from 'components/media/MeetingQuickActionsPanel.vue';
+import NoticeBanner from 'components/ui/NoticeBanner.vue';
 import QuickStartGuide from 'components/ui/QuickStartGuide.vue';
 import DOMPurify from 'dompurify';
 import Mousetrap from 'mousetrap';
@@ -250,16 +246,8 @@ import { type QInput, useMeta, useQuasar } from 'quasar';
 import { useLocale } from 'src/composables/useLocale';
 import { useMediaSectionRepeat } from 'src/composables/useMediaSectionRepeat';
 import { SORTER } from 'src/constants/general';
-import {
-  getMeetingSections,
-  MEDIA_STOP_FADE_DURATION_SECONDS,
-} from 'src/constants/media';
-import {
-  isCoWeek,
-  isMeetingDay,
-  isMemorialDay,
-  isWeMeetingDay,
-} from 'src/helpers/date';
+import { MEDIA_STOP_FADE_DURATION_SECONDS } from 'src/constants/media';
+import { isCoWeek, isMemorialDay, isWeMeetingDay } from 'src/helpers/date';
 import { errorCatcher } from 'src/helpers/error-catcher';
 import { addDayToExportQueue } from 'src/helpers/export-media';
 import { getRendererPlatform } from 'src/helpers/fs';
@@ -284,11 +272,13 @@ import {
   addSection,
   defaultAdditionalSection,
   findMediaSection,
+  getDisplayedMediaSections,
   getOrCreateMediaSection,
 } from 'src/helpers/media-sections';
 import { toggleMediaWindowVisibility } from 'src/helpers/mediaPlayback';
 import { triggerMediaWindowAutoHide } from 'src/helpers/mediaWindowAutoHide';
 import { createTemporaryNotification } from 'src/helpers/notifications';
+import { getPageBanners } from 'src/helpers/page-banners';
 import { withPendingSectionImport } from 'src/helpers/pending-section-imports';
 import { updateLastUsedDate } from 'src/helpers/usage';
 import { stopZoomSharingAfterMedia } from 'src/helpers/zoom';
@@ -519,6 +509,7 @@ const {
   currentSettings,
   currentSongbook,
   downloadProgress,
+  hiddenMediaNamesForSelectedDate,
   isSelectedDayToday,
   mediaIsPlaying,
   mediaPaused,
@@ -639,66 +630,28 @@ const customDuration = computed(() => {
   );
 });
 
-const pageBanners = computed(() => {
-  const banners: {
-    actions?: { labelKey: string; onClick: () => void }[];
-    avatarClass?: string;
-    className: string;
-    icon: string;
-    key: string;
-    textKey: string;
-  }[] = [];
-
-  if (showObsBanner.value) {
-    banners.push({
-      className: 'bg-negative text-white full-width',
-      icon: 'mmm-obs-studio',
-      key: 'obs',
-      textKey: 'obs-studio-disconnected-banner',
-    });
-  }
-
-  if (showObsSceneListErrorBanner.value) {
-    banners.push({
-      className: 'bg-warning text-white full-width',
-      icon: 'mmm-obs-studio',
-      key: 'obs-scene-list-error',
-      textKey: 'obs-studio-scene-list-error-banner',
-    });
-  }
-
-  if (someItemsHiddenForSelectedDate.value) {
-    banners.push({
-      actions: [
-        {
-          labelKey: 'show-all-media',
-          onClick: () =>
-            showHiddenMediaForSelectedDate(
-              currentCongregation.value,
-              selectedDateObject.value,
-            ),
-        },
-      ],
-      avatarClass: 'bg-white text-warning',
-      className: 'bg-warning text-white full-width',
-      icon: 'mmm-file-hidden',
-      key: 'hidden-items',
-      textKey: 'some-media-items-are-hidden',
-    });
-  }
-
-  if (duplicateSongsForWeMeeting.value) {
-    banners.push({
-      avatarClass: 'bg-white text-warning',
-      className: 'bg-warning text-white full-width',
-      icon: 'mmm-music-note',
-      key: 'duplicate-songs',
-      textKey: 'some-songs-are-duplicated',
-    });
-  }
-
-  return banners;
-});
+const pageBanners = computed(() =>
+  getPageBanners({
+    coWeek: isCoWeek(selectedDateObject.value?.date),
+    duplicateSongs: duplicateSongsForWeMeeting.value,
+    hiddenMediaNames: hiddenMediaNamesForSelectedDate.value,
+    meetingType: selectedDayMeetingType.value,
+    obsDisconnected: !!showObsBanner.value,
+    obsSceneListError: !!showObsSceneListErrorBanner.value,
+    showAllMedia: () =>
+      showHiddenMediaForSelectedDate(
+        currentCongregation.value,
+        selectedDateObject.value,
+      ),
+    someItemsHidden: someItemsHiddenForSelectedDate.value,
+  }).map(({ actions, ...banner }) => ({
+    ...banner,
+    actions: actions?.map(({ labelKey, onClick }) => ({
+      label: t(labelKey),
+      onClick,
+    })),
+  })),
+);
 
 const { post: postZoomPan } = useBroadcastChannel<
   Partial<Record<string, number>>,
@@ -1135,10 +1088,9 @@ const checkCoDate = () => {
       ],
       caption: t('dont-forget-to-add-circuit-overseer-date'),
       deferWhileDialogOpen: true,
-      icon: 'mmm-error',
       message: t('no-circuit-overseer-date-set'),
       timeout: 30_000,
-      type: 'primary',
+      type: 'warning',
     });
   }
 };
@@ -1489,6 +1441,7 @@ const notifySingleImportFile = (captionKey: string, filePath: string) => {
   createTemporaryNotification({
     caption: t(captionKey),
     message: t('processing') + ' ' + basename(filePath),
+    type: 'ongoing',
   });
 };
 
@@ -2444,64 +2397,18 @@ const shouldShowBannerColumn = computed(
     showEmptyState.value,
 );
 
-const mediaLists = computed(() => {
-  if (!selectedDateObject.value?.mediaSections) return [];
-
-  // Get the appropriate meeting sections based on meeting type (MW vs WE)
-  const meetingSections = getMeetingSections(
+// Shared with the media "Move to section" menu (MediaMoveMenuItem), which
+// offers exactly the sections shown here.
+const mediaLists = computed(() =>
+  getDisplayedMediaSections(
+    selectedDateObject.value,
     selectedDayMeetingType.value,
-    isCoWeek(selectedDateObject.value?.date),
-  );
-
-  // Create a list of all sections that should be displayed
-  const sectionsToShow: string[] = [...meetingSections];
-
-  // Add any custom sections that have items (not already in meeting sections)
-  selectedDateObject.value.mediaSections.forEach((sectionData) => {
-    const sectionId = sectionData.config.uniqueId;
-    const isMeetingToday = isMeetingDay(selectedDateObject.value?.date);
-    if (
-      !sectionsToShow.includes(sectionId) &&
-      ((!isMeetingToday && !meetingSections.includes(sectionId)) ||
-        (isMeetingToday && sectionData?.items?.length))
-    ) {
-      sectionsToShow.push(sectionId);
-    }
-  });
-
-  return selectedDateObject.value.mediaSections
-    .filter((m) => !!m.config)
-    .filter((m) => {
-      const sectionId = m.config?.uniqueId || '';
-      // Include if it's a meeting section OR if it has items
-      return sectionsToShow.includes(sectionId);
-    })
-    .sort((a, b) => {
-      const aId = a.config?.uniqueId || '';
-      const bId = b.config?.uniqueId || '';
-
-      // Get indices from our sectionsToShow array
-      const aIndex = sectionsToShow.indexOf(aId);
-      const bIndex = sectionsToShow.indexOf(bId);
-
-      // If both are in the list, sort by their position
-      if (aIndex !== -1 && bIndex !== -1) {
-        return aIndex - bIndex;
-      }
-
-      // If only one is in the list, prioritize the one in the list
-      if (aIndex !== -1) return -1;
-      if (bIndex !== -1) return 1;
-
-      // If neither is in the list, sort alphabetically
-      return aId.localeCompare(bId);
-    })
-    .map((sectionData) => ({
-      config: sectionData?.config,
-      items: sectionData?.items || [],
-      sectionId: (sectionData.config?.uniqueId || '') as MediaSectionIdentifier,
-    }));
-});
+  ).map((sectionData) => ({
+    config: sectionData.config,
+    items: sectionData.items || [],
+    sectionId: sectionData.config.uniqueId,
+  })),
+);
 
 const atRest: MediaPlayingState = {
   action: '',
@@ -2532,6 +2439,17 @@ function stopSlideshowPlayback() {
 
 const anchorId = ref<null | string>(null);
 
+// A right-click (forwarded by MediaItem's selectOnContextMenu) on an item
+// outside the selection makes that item the whole selection, as in a file
+// manager, so the menu that opens acts on it alone rather than on a
+// multi-selection it isn't part of. Modifier keys don't matter here: on
+// macOS a Ctrl-click is itself a right-click.
+const selectMediaItemForContextMenu = (mediaItemId: string) => {
+  if (selectedMediaItems.value.includes(mediaItemId)) return;
+  selectedMediaItems.value = [mediaItemId];
+  anchorId.value = mediaItemId;
+};
+
 // Handle item click events from MediaList components
 const handleMediaItemClick = (payload: {
   event: MouseEvent;
@@ -2539,6 +2457,10 @@ const handleMediaItemClick = (payload: {
   sectionId: string | undefined;
 }) => {
   log('Media item clicked:', 'mediaCalendar', 'log', payload.mediaItemId);
+  if (payload.event.type === 'contextmenu') {
+    selectMediaItemForContextMenu(payload.mediaItemId);
+    return;
+  }
   // Check if Ctrl/Cmd or Shift key is pressed for multiple selection
   const isCtrlPressed = payload.event.ctrlKey || payload.event.metaKey;
   const isShiftPressed = payload.event.shiftKey;
@@ -3341,7 +3263,7 @@ function notifyBackgroundMusicStillPlaying() {
   createTemporaryNotification({
     actions: [
       {
-        color: 'dark',
+        color: 'white',
         handler: () => {
           postBackgroundMusicAction({
             action: 'stop',
@@ -3352,7 +3274,7 @@ function notifyBackgroundMusicStillPlaying() {
         label: t('stop-music'),
       },
       {
-        color: 'dark',
+        color: 'white',
         icon: 'close',
         round: true,
       },

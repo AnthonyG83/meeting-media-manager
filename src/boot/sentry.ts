@@ -53,8 +53,17 @@ export default defineBoot(({ app, router }) => {
         });
         return scrubbedEvent;
       },
+      // The SDK's defaults have Sentry record the user's IP address, and
+      // the requests' cookies and bodies: none of these, like the main
+      // process (src-electron/electron-main.ts). See the privacy policy
+      // (docs/src/en/privacy.md).
+      dataCollection: { cookies: false, httpBodies: [], userInfo: false },
       dsn,
       environment,
+      // The main process's tags (how M³ was installed, and whether it runs
+      // under emulation on an ARM computer), which it puts on its own events
+      // too (src-electron/electron-main.ts).
+      initialScope: { tags: globalThis.electronApi?.getSentryTags() ?? {} },
       integrations: [
         vueIntegration({ app }),
         browserSessionIntegration(),

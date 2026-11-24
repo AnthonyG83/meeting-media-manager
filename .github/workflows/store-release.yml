@@ -1,0 +1,300 @@
+name: Store Release
+
+# When a release is published on GitHub (by hand, from the manual release's
+# draft), the app stores get it too:
+# - Snap Store: the release build uploaded the snaps (amd64 and arm64)
+#   without releasing them (build.yml); this releases those revisions to the
+#   stable channel.
+# - Flathub (on hold): Flathub's Generative AI policy accepts no
+#   AI-generated or AI-assisted manifest, and no automated submission pull
+#   request, so nothing goes to Flathub from here (see build/flatpak's
+#   README). This only makes the files a Flathub build would use (the
+#   manifest, pointing at the release's tag and commit, and the offline
+#   sources generated from its lockfiles) and keeps them as an artifact.
+# - Microsoft Store: this submits the release's MSIX with Microsoft's Store
+#   CLI (msstore), as Partner Center's Microsoft Entra application "M³ Store
+#   publishing" (Manager role). Its four secrets are MSSTORE_TENANT_ID,
+#   MSSTORE_CLIENT_ID, MSSTORE_CLIENT_SECRET (the application's key, which
+#   expires: Partner Center → Account settings → User management →
+#   Microsoft Entra applications) and MSSTORE_SELLER_ID. The CLI only
+#   updates an app that's live in the Store: until then, or without the
+#   secrets, or if the submission fails, this opens an issue with a link to
+#   the MSIX and the steps to upload it by hand.
+#
+# A release published by a workflow's GITHUB_TOKEN starts no workflow, so
+# betas (published by beta-release.yml) never get here; the prerelease check
+# is for one published by hand. workflow_dispatch reruns one store for a
+# release, or makes the Flathub files for any release tag (for the first
+# submission).
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, for example v26.11.4
+        required: true
+      store:
+        description: Which store
+        type: choice
+        options:
+          - flathub
+          - snap
+          - microsoft-store
+          - all
+        default: flathub
+
+permissions:
+  contents: read
+
+env:
+  APP_ID: io.github.sircharlo.meeting-media-manager
+  SNAP_NAME: meeting-media-manager
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
+jobs:
+  snap:
+    name: Snap Store
+    runs-on: ubuntu-latest
+    if: >-
+      github.repository == 'sircharlo/meeting-media-manager' &&
+      (github.event_name == 'release' && !github.event.release.prerelease ||
+      github.event_name == 'workflow_dispatch' && contains(fromJSON('["snap", "all"]'), inputs.store))
+    timeout-minutes: 15
+    steps:
+      - name: Install Snapcraft
+        run: sudo snap install snapcraft --classic --channel=8.x/stable
+      - name: Release the uploaded revisions to stable
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          if [ -z "$SNAPCRAFT_STORE_CREDENTIALS" ]; then
+            echo "::error::The repository has no SNAPCRAFT_STORE_CREDENTIALS secret."
+            exit 1
+          fi
+          version="${TAG#v}"
+          revisions=$(snapcraft revisions "$SNAP_NAME")
+          # The newest revision of this version for each architecture (a
+          # rebuilt draft uploads it again), from the columns Rev., Uploaded,
+          # Arches, Version and Channels: "amd64 12" and "arm64 13".
+          newest=$(awk -v version="$version" 'NR > 1 { for (i = 3; i <= NF; i++) if ($i == version) { arch = $(i - 1); if ($1 + 0 > rev[arch] + 0) rev[arch] = $1; break } } END { for (arch in rev) print arch, rev[arch] }' <<< "$revisions" | sort)
+          if ! grep -q '^amd64 ' <<< "$newest"; then
+            echo "::error::The Snap Store has no amd64 revision of $version. Its newest revisions:"
+            head -n 6 <<< "$revisions"
+            exit 1
+          fi
+          # The arm64 snap's build can fail without holding up the release
+          # (build.yml).
+          if ! grep -q '^arm64 ' <<< "$newest"; then
+            echo "::warning::The Snap Store has no arm64 revision of $version, so only the amd64 one goes to stable."
+          fi
+          while read -r arch revision; do
+            echo "Releasing revision $revision ($version, $arch) to stable"
+            snapcraft release "$SNAP_NAME" "$revision" stable < /dev/null
+          done <<< "$newest"
+
+  flathub:
+    name: Flathub
+    runs-on: ubuntu-latest
+    if: >-
+      github.repository == 'sircharlo/meeting-media-manager' &&
+      (github.event_name == 'release' && !github.event.release.prerelease ||
+      github.event_name == 'workflow_dispatch' && contains(fromJSON('["flathub", "all"]'), inputs.store))
+    timeout-minutes: 30
+    steps:
+      - name: Check out the release
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.TAG }}
+      # Pinned: it writes every source Flathub's offline build downloads.
+      - name: Install flatpak-node-generator
+        run: pipx install "git+https://github.com/flatpak/flatpak-builder-tools.git@9d86d336a39b9af38b86f114b6ce5820fe260f91#subdirectory=node"
+      - name: Make Flathub's files
+        run: |
+          mkdir -p flathub
+          # The same command as in build/flatpak/README.md: both lockfiles,
+          # and the headers of the Electron that robotjs is rebuilt for.
+          flatpak-node-generator yarn -r yarn.lock -R yarn.lock -R src-electron/yarn.lock \
+            --electron-node-headers -o flathub/generated-sources.json
+          node build/flatpak/flathub-manifest.mjs "$TAG" "$(git rev-parse HEAD)" "flathub/$APP_ID.yml"
+          # Only built and tested on x86_64, like the AppImage.
+          printf '{\n  "only-arches": ["x86_64"]\n}\n' > flathub/flathub.json
+          ls -l flathub
+      - name: Keep the files
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: Flathub files for ${{ env.TAG }}
+          path: flathub/
+
+  microsoft-store:
+    name: Microsoft Store
+    runs-on: windows-latest
+    if: >-
+      github.repository == 'sircharlo/meeting-media-manager' &&
+      (github.event_name == 'release' && !github.event.release.prerelease ||
+      github.event_name == 'workflow_dispatch' && contains(fromJSON('["microsoft-store", "all"]'), inputs.store))
+    permissions:
+      actions: read
+      issues: write
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # The Store ID of M³'s app in Partner Center (see quasar.config.ts).
+      MSSTORE_PRODUCT_ID: 9PDC5BZ593BM
+      REPOSITORY: ${{ github.repository }}
+    steps:
+      # The release's MSIX: the newest "M³ for the Microsoft Store" artifact
+      # made after the release's commit.
+      - name: Find the release's MSIX
+        id: msix
+        shell: bash
+        run: |
+          since=$(gh api "repos/$REPOSITORY/releases/tags/$TAG" --jq .created_at)
+          found=$(gh api "repos/$REPOSITORY/actions/artifacts?name=M%C2%B3%20for%20the%20Microsoft%20Store&per_page=20" \
+            --jq "[.artifacts[] | select(.created_at > \"$since\" and (.expired | not))] | sort_by(.created_at) | last | select(.) | \"\(.workflow_run.id) \(.id)\"")
+          if [ -z "$found" ]; then
+            echo "::warning::No \"M³ for the Microsoft Store\" artifact newer than the release's commit ($since)."
+            exit 0
+          fi
+          read -r run_id artifact_id <<< "$found"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "url=https://github.com/$REPOSITORY/actions/runs/$run_id/artifacts/$artifact_id" >> "$GITHUB_OUTPUT"
+      - name: Check for the Partner Center credentials
+        id: credentials
+        shell: bash
+        env:
+          MSSTORE_CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
+          MSSTORE_CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
+          MSSTORE_SELLER_ID: ${{ secrets.MSSTORE_SELLER_ID }}
+          MSSTORE_TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
+        run: |
+          missing=()
+          for name in MSSTORE_TENANT_ID MSSTORE_CLIENT_ID MSSTORE_CLIENT_SECRET MSSTORE_SELLER_ID; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            reason="the repository has no $(IFS=,; echo "${missing[*]}" | sed 's/,/, /g') secret"
+            [ ${#missing[@]} -gt 1 ] && reason+="s"
+            echo "::notice::Not submitted automatically: $reason."
+            echo "reason=$reason" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      # The CLI only updates an app that's live in the Store, and it replaces
+      # whatever submission is pending: the first one, being made by hand in
+      # Partner Center, or one still in certification. So it only runs when
+      # the app has a published submission and none pending (the submission
+      # API's application resource says both).
+      - name: Check the app's submissions in Partner Center
+        id: state
+        if: steps.credentials.outputs.ready == 'true'
+        shell: pwsh
+        env:
+          MSSTORE_CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
+          MSSTORE_CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
+          MSSTORE_TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
+        run: |
+          try {
+            $token = (Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$($env:MSSTORE_TENANT_ID)/oauth2/token" -Body @{
+              client_id     = $env:MSSTORE_CLIENT_ID
+              client_secret = $env:MSSTORE_CLIENT_SECRET
+              grant_type    = 'client_credentials'
+              resource      = 'https://manage.devcenter.microsoft.com'
+            }).access_token
+            $app = Invoke-RestMethod -Uri "https://manage.devcenter.microsoft.com/v1.0/my/applications/$($env:MSSTORE_PRODUCT_ID)" -Headers @{ Authorization = "Bearer $token" }
+          } catch {
+            $reason = "Partner Center couldn't be asked about the app ($($_.Exception.Message))"
+          }
+          if (-not $reason) {
+            if (-not $app.lastPublishedApplicationSubmission) {
+              $reason = "the app isn't live in the Store yet (its first submission is made in Partner Center)"
+            } elseif ($app.pendingApplicationSubmission) {
+              $reason = "submission $($app.pendingApplicationSubmission.id) is already in progress in Partner Center (a draft, or in certification)"
+            }
+          }
+          if ($reason) {
+            "::notice::Not submitted automatically: $reason."
+            "reason=$reason" >> $env:GITHUB_OUTPUT
+          } else {
+            "Published submission $($app.lastPublishedApplicationSubmission.id), none pending."
+            "ready=true" >> $env:GITHUB_OUTPUT
+          }
+      # electron-builder's appx target writes an .appx; the CLI takes the
+      # same package as an .msix.
+      - name: Download the MSIX
+        id: download
+        if: steps.state.outputs.ready == 'true' && steps.msix.outputs.run_id != ''
+        continue-on-error: true
+        shell: bash
+        env:
+          RUN_ID: ${{ steps.msix.outputs.run_id }}
+        run: |
+          gh run download "$RUN_ID" --repo "$REPOSITORY" --name "M³ for the Microsoft Store" --dir msix
+          packages=(msix/*.appx)
+          if [ ${#packages[@]} -ne 1 ] || [ ! -f "${packages[0]}" ]; then
+            echo "::error::Expected one .appx in the artifact, found: $(ls msix)"
+            exit 1
+          fi
+          mv "${packages[0]}" msix/package.msix
+          echo "path=$(cygpath -w "$PWD/msix/package.msix")" >> "$GITHUB_OUTPUT"
+      - name: Set up the Microsoft Store CLI
+        if: steps.download.outcome == 'success'
+        uses: microsoft/microsoft-store-apppublisher@cc9910a8d59f2eb55cbb83df0a3800cf3b5300e0 # v1.4
+        with:
+          version: v0.4.4
+      # It uploads the package to a new submission made from the published
+      # one (same listing) and submits it; the Store publishes it once it
+      # passes certification.
+      - name: Submit the MSIX
+        id: submit
+        if: steps.download.outcome == 'success'
+        continue-on-error: true
+        shell: pwsh
+        env:
+          MSIX_PATH: ${{ steps.download.outputs.path }}
+          MSSTORE_CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
+          MSSTORE_CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
+          MSSTORE_SELLER_ID: ${{ secrets.MSSTORE_SELLER_ID }}
+          MSSTORE_TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
+        run: |
+          msstore settings --enableTelemetry false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          msstore reconfigure --tenantId $env:MSSTORE_TENANT_ID --sellerId $env:MSSTORE_SELLER_ID --clientId $env:MSSTORE_CLIENT_ID --clientSecret $env:MSSTORE_CLIENT_SECRET
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          msstore publish $env:MSIX_PATH --appId $env:MSSTORE_PRODUCT_ID
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "Submitted $($env:TAG) to the Microsoft Store: it's published once it passes certification (Partner Center shows its progress)." >> $env:GITHUB_STEP_SUMMARY
+      # Whatever failed before it (but not when the run is cancelled).
+      - name: Open an issue to upload the MSIX by hand
+        if: ${{ !cancelled() && steps.submit.outcome != 'success' }}
+        shell: bash
+        env:
+          ARTIFACT_URL: ${{ steps.msix.outputs.url }}
+          REASON: ${{ steps.credentials.outputs.reason || steps.state.outputs.reason || (steps.msix.outputs.run_id == '' && 'the release''s MSIX artifact wasn''t found') || (steps.download.outcome == 'failure' && 'the MSIX couldn''t be downloaded') || 'the submission failed' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          echo "::warning::Not submitted to the Microsoft Store automatically: $REASON."
+          version="${TAG#v}"
+          artifact="$ARTIFACT_URL"
+          if [ -z "$artifact" ]; then
+            artifact="(not found: see the manual release run that built the release)"
+          fi
+          title="Upload $version to the Microsoft Store"
+          if [ -n "$(gh issue list --repo "$REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[].number')" ]; then
+            echo "::notice::An issue \"$title\" is already open."
+            exit 0
+          fi
+          body=$(cat <<EOF
+          This release wasn't submitted to the Microsoft Store automatically: $REASON ([run]($RUN_URL)). Its MSIX goes to Partner Center by hand this time.
+
+          1. Download the MSIX: $artifact (a zip with the \`.appx\` inside; unzip it).
+          2. In [Partner Center](https://partner.microsoft.com/dashboard/apps-and-games/overview), open **Meeting Media Manager** and select **Start update** (or **Update** on the current submission).
+          3. In **Packages**, remove the previous package and upload the new one.
+          4. Optionally, in each **Store listing**, fill in **What's new in this version** from the [release notes](https://github.com/$REPOSITORY/releases/tag/$TAG).
+          5. Select **Submit to the Store**, then close this issue.
+
+          Made by the Store Release workflow.
+          EOF
+          )
+          gh issue create --repo "$REPOSITORY" --title "$title" --assignee sircharlo --body "$body"

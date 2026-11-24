@@ -17,6 +17,7 @@
       'padding: 8px 6px': child,
       'flex-direction': 'column',
     }"
+    @contextmenu="selectOnContextMenu"
     @keydown.enter.space.prevent="(evt: KeyboardEvent) => emit('click', evt)"
     @mouseup.left.passive="(evt: MouseEvent) => emit('click', evt)"
   >
@@ -377,15 +378,7 @@
             >
               <div
                 class="media-tag__icon text-white"
-                :class="
-                  tagVariant === 'song'
-                    ? 'bg-accent-400'
-                    : tagVariant === 'warn'
-                      ? 'bg-warning'
-                      : tagVariant === 'neutral'
-                        ? 'bg-accent-300'
-                        : undefined
-                "
+                :class="TAG_ICON_CLASSES[tagVariant]"
                 :style="
                   tagVariant === 'paragraph' ? paragraphCapStyle : undefined
                 "
@@ -395,13 +388,7 @@
               <div
                 v-if="showTagValue"
                 class="media-tag__value"
-                :class="
-                  tagVariant === 'warn'
-                    ? 'bg-warning text-white'
-                    : tagVariant === 'song'
-                      ? 'bg-accent-200'
-                      : undefined
-                "
+                :class="TAG_VALUE_CLASSES[tagVariant]"
                 :style="[
                   { fontSize: tagValueFontSize },
                   tagVariant === 'paragraph' ? paragraphValueStyle : {},
@@ -491,7 +478,11 @@
               v-else-if="playbackProblem"
               class="media-cannot-play row items-center no-wrap text-caption fades-under-hover-actions"
             >
-              <q-icon class="q-mr-xs" color="warning" name="mmm-warning" />
+              <q-icon
+                class="q-mr-xs"
+                color="notice-warning"
+                name="mmm-warning"
+              />
               <span class="ellipsis">
                 {{
                   t(
@@ -566,7 +557,7 @@
               <q-icon
                 v-if="currentSongIsDuplicated"
                 class="q-mr-sm"
-                color="warning"
+                color="notice-warning"
                 name="mmm-warning"
                 size="sm"
               >
@@ -742,9 +733,10 @@
                 </q-tooltip>
               </q-select>
 
-              <!-- No sound here: it still plays, and can be converted. -->
+              <!-- No sound here, or it failed to play once: it still plays,
+                   and can be converted. -->
               <q-btn
-                v-if="canConvert && playbackProblem?.missing === 'sound'"
+                v-if="canConvertBesidePlay"
                 color="primary"
                 flat
                 icon="mmm-movie"
@@ -938,6 +930,7 @@
                 </q-item-label>
               </q-item-section>
             </q-item>
+            <MediaMoveMenuItem :media-ids="selectedMediaItems" />
             <q-item
               v-if="canDeleteSelected"
               v-close-popup
@@ -987,45 +980,31 @@
             </q-item>
           </template>
           <template v-else>
-            <q-item-label header>{{ displayMediaTitle }}</q-item-label>
+            <q-item-label class="media-item__menu-title ellipsis" header>
+              {{ displayMediaTitle }}
+            </q-item-label>
             <!--
-              UX-6 (full-audit-2026-09-04.md / full-audit backlog): keyboard/
-              screen-reader equivalent to the pointer-only drag handle -
-              placed here (rather than as always-visible row buttons, unlike
-              MediaDivider.vue/MediaGroup.vue) since this menu is already a
-              keyboard-focusable trigger and a media list can be dense
-              enough that two more always-visible icons per row would add
-              real clutter. Covers both top-level items and a group's own
+              UX-6 (full-audit-2026-09-04.md / full-audit backlog): Move up/
+              Move down are the keyboard/screen-reader equivalent to the
+              pointer-only drag handle - placed here (rather than as
+              always-visible row buttons, unlike MediaDivider.vue/
+              MediaGroup.vue) since this menu is already a keyboard-
+              focusable trigger and a media list can be dense enough that
+              two more always-visible icons per row would add real clutter.
+              They share one "Move" submenu with the other sections to move
+              the item to. Covers both top-level items and a group's own
               children (MediaGroup.vue passes the same can-move-up/
               can-move-down/@move contract for its children, reordering
-              only within the group - see moveChildItem there).
+              only within the group - see moveChildItem there), which never
+              leave their group, so they get no sections to move to.
             -->
-            <q-item
-              v-close-popup
-              clickable
-              :disable="!canMoveUp"
-              @click="emit('move', -1)"
-            >
-              <q-item-section avatar>
-                <q-icon name="mmm-up" />
-              </q-item-section>
-              <q-item-section>
-                <q-item-label>{{ t('move-up') }}</q-item-label>
-              </q-item-section>
-            </q-item>
-            <q-item
-              v-close-popup
-              clickable
-              :disable="!canMoveDown"
-              @click="emit('move', 1)"
-            >
-              <q-item-section avatar>
-                <q-icon name="mmm-down" />
-              </q-item-section>
-              <q-item-section>
-                <q-item-label>{{ t('move-down') }}</q-item-label>
-              </q-item-section>
-            </q-item>
+            <MediaMoveMenuItem
+              :can-move-down="canMoveDown"
+              :can-move-up="canMoveUp"
+              :media-ids="child ? [] : [media.uniqueId]"
+              reorder
+              @move="(delta) => emit('move', delta)"
+            />
             <q-item
               v-close-popup
               clickable
@@ -1484,6 +1463,7 @@ import {
 import BaseDialog from 'components/dialog/BaseDialog.vue';
 import ConfirmDialog from 'components/dialog/ConfirmDialog.vue';
 import MediaItemDownloadOverlay from 'components/media/MediaItemDownloadOverlay.vue';
+import MediaMoveMenuItem from 'components/media/MediaMoveMenuItem.vue';
 import LiquidSpinner from 'components/ui/LiquidSpinner.vue';
 import { storeToRefs } from 'pinia';
 import { type QBtn, type QImg, type QInput, QItem, useQuasar } from 'quasar';
@@ -1520,7 +1500,10 @@ import {
   stopZoomSharingAfterMedia,
   triggerZoomScreenShare,
 } from 'src/helpers/zoom';
-import { isExpectedNetworkPathAccessError } from 'src/shared/filesystem-errors';
+import {
+  isExpectedNetworkPathAccessError,
+  isInaccessiblePathError,
+} from 'src/shared/filesystem-errors';
 import { log, uuid } from 'src/shared/vanilla';
 import { getFileSizeIfExists, isFileUrl } from 'src/utils/fs';
 import {
@@ -1750,6 +1733,15 @@ const moreButton = useTemplateRef<QBtn>('moreButton');
 const contextMenu = ref(false);
 const menuTarget = ref<boolean | string | undefined>(true);
 
+// A right-click on an item outside the selection hands the contextmenu event
+// up the usual click path, where MediaCalendarPage's handleMediaItemClick
+// makes this item the whole selection. Without it, the multi-selection menu
+// opened for an item that wasn't part of the selection.
+const selectOnContextMenu = (event: MouseEvent) => {
+  if (props.selected) return;
+  emit('click', event);
+};
+
 const isEditingTitle = ref(false);
 const titleInput = ref<HTMLInputElement>();
 const mediaTitle = ref(props.media.title);
@@ -1959,13 +1951,28 @@ const mediaTagClasses = {
   'q-pr-none': true,
 };
 
-const tagVariant = computed(() => {
+type TagVariant = 'neutral' | 'paragraph' | 'song' | 'warn';
+
+const tagVariant = computed((): TagVariant => {
   if (props.media.tag?.type === 'song') {
     return currentSongIsDuplicated.value ? 'warn' : 'song';
   }
   if (props.media.tag?.type === 'paragraph') return 'paragraph';
   return 'neutral';
 });
+
+// A paragraph tag takes its section's color instead (see below). A song that
+// appears more than once gets the warning's solid fill, with white text.
+const TAG_ICON_CLASSES: Partial<Record<TagVariant, string>> = {
+  neutral: 'bg-accent-300',
+  song: 'bg-accent-400',
+  warn: 'bg-notice-warning',
+};
+
+const TAG_VALUE_CLASSES: Partial<Record<TagVariant, string>> = {
+  song: 'bg-accent-200',
+  warn: 'bg-notice-warning text-white',
+};
 
 // Paragraph tags borrow the color of the meeting section the item belongs
 // to (the same one behind that section's colored left-edge bar), rather
@@ -2190,6 +2197,23 @@ const notifyPathAccessWarning = () => {
   });
 };
 
+// The file is checked every second at first, then every minute (see
+// localFilePollInterval): an error that keeps coming back is reported once.
+let fileCheckErrorReported = false;
+
+const reportFileCheckError = (error: unknown, filePath: string) => {
+  if (fileCheckErrorReported) return;
+  fileCheckErrorReported = true;
+  errorCatcher(error, {
+    contexts: {
+      fn: {
+        args: { filePath },
+        name: 'MediaItem.fileIsLocal',
+      },
+    },
+  });
+};
+
 const fileIsLocal = async () => {
   const filePath = fileUrlToPath(props.media.fileUrl);
   try {
@@ -2204,15 +2228,10 @@ const fileIsLocal = async () => {
       isExpectedNetworkPathAccessError(error, filePath, getRendererPlatform())
     ) {
       notifyPathAccessWarning();
-    } else {
-      errorCatcher(error, {
-        contexts: {
-          fn: {
-            args: { filePath },
-            name: 'MediaItem.fileIsLocal',
-          },
-        },
-      });
+    } else if (!isInaccessiblePathError(error)) {
+      // Out of reach (no permission, say) is missing, as it was when this
+      // checked whether the file existed first.
+      reportFileCheckError(error, filePath);
     }
     return false;
   }
@@ -2443,9 +2462,10 @@ const setMediaPlaying = async (
     if (!shouldStartZoomManagerSharing) {
       triggerZoomScreenShare(true);
     }
-  } else if (isImage(mediaPlaying.value.url)) {
-    stopMedia(true);
   }
+  // Media already shown (a picture, say) is replaced as is, not stopped
+  // first: the media window then crossfades from one to the other, instead
+  // of fading out to the yeartext and back in.
   if (signLanguage) {
     if (marker) {
       updateMediaCustomDuration(getMarkerTimes(marker));
@@ -2485,7 +2505,10 @@ const setMediaPlaying = async (
   });
 
   if (shouldStartZoomManagerSharing) {
-    const sharingStarted = await automateZoomMediaSharing(true);
+    const sharingStarted = await automateZoomMediaSharing(
+      true,
+      mediaPlaying.value.url,
+    );
     if (!sharingStarted) {
       log('Zoom media sharing did not start', 'zoom', 'warn', {
         mediaTitle: media.title,
@@ -2951,10 +2974,17 @@ const canConvert = computed(
     canConvertMediaItem(props.media),
 );
 // Its picture can't show here: it gets a Convert button instead of Play.
+// Not when that was only seen while playing it: that may not happen again.
 const needsConversionToPlay = computed(
   () =>
     playbackProblem.value?.missing === 'picture' &&
+    !playbackProblem.value.fromPlayback &&
     canConvertMediaItem(props.media),
+);
+// It still plays (without sound, or after failing to play once): Convert
+// sits beside Play.
+const canConvertBesidePlay = computed(
+  () => canConvert.value && !needsConversionToPlay.value,
 );
 const convertMedia = () => {
   requestMediaConversion([props.media]);
@@ -3554,6 +3584,13 @@ watch(
 // before wrapping/crowding its segment.
 .tag-edit-card {
   min-width: 320px;
+}
+
+// The item's name, at the top of its right-click menu: one line, as wide as
+// the menu's own items make it (its length doesn't count toward the menu's
+// width), and ending in "…" when it's longer.
+.media-item__menu-title {
+  contain: inline-size;
 }
 
 .media-filter-filename-match {

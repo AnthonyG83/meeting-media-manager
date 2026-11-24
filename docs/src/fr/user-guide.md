@@ -38,11 +38,12 @@ L'interface principale de M³ se compose de plusieurs zones clés :
 
 ### Comprendre la vue calendrier {#calendar-view}
 
-La vue calendrier affiche votre horaire de réunions et les médias disponibles :
+Cliquez sur la date en haut de la fenêtre pour ouvrir le calendrier. Il affiche toutes les semaines pour lesquelles M³ prépare des médias, à commencer par la semaine en cours :
 
-- **Jours de réunion** - Les jours surlignés montrent quand les réunions sont programmées
-- **Indicateurs de médias** - Les icônes montrent quels types de médias sont disponibles
-- **Navigation par date** - Utilisez les touches fléchées pour naviguer entre les mois
+- **Semaines** - Chaque ligne est une semaine du lundi au dimanche, nommée « Cette semaine », « La semaine prochaine », « Dans 2 semaines » et ainsi de suite, avec ses dates
+- **Jours de réunion** - Les jours de réunion sont colorés selon leur état : en vert quand leurs médias sont prêts, en orange quand ils ne le sont pas encore, et en rouge s'ils n'ont pas pu être récupérés. Les jours avec des médias que vous avez ajoutés vous-même apparaissent en violet. Une légende sous le calendrier explique les couleurs
+- **Semaines spéciales** - Pendant la visite du responsable de circonscription et la semaine du Mémorial, les jours de réunion de la semaine prennent sa couleur, et son nom s'affiche sous ses dates. Une étiquette à côté de la date, en haut de la fenêtre, indique ce qui change le jour sélectionné
+- **Clavier** - Utilisez les touches fléchées pour naviguer entre les jours, et Entrée pour en sélectionner un
 
 ### Organiser les médias {#organizing-media}
 

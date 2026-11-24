@@ -8,6 +8,19 @@ Die vollständige Liste der Änderungen zwischen den Versionen finden Sie in uns
 
 ### ✨ Neue Funktionen
 
+- ✨ **Kreisaufseherbesuch und Gedächtnismahlwoche**: Während des Besuchs des Kreisaufsehers und in der Woche des Gedächtnismahls weist ein Label neben dem Datum oben im Fenster darauf hin. Zeigen Sie mit der Maus darauf, um zu sehen, was am ausgewählten Tag anders ist, etwa dass die Zusammenkunft unter der Woche auf Dienstag verlegt wird, welche Medien M³ dann ausblendet oder welche Zusammenkunft das Gedächtnismahl ersetzt. Am üblichen Tag der Zusammenkunft unter der Woche während des Besuchs oder an dem Zusammenkunftstag, den das Gedächtnismahl ersetzt, erklärt die leere Seite jetzt, warum keine Zusammenkunft stattfindet, und bietet eine Schaltfläche, die zum Dienstag oder zum Gedächtnismahl wechselt. Im Kalender erscheinen die Zusammenkunftstage dieser Woche in der Farbe der Woche, deren Name unter ihren Daten steht.
+- ✨ **Linux auf ARM**: M³ gibt es jetzt auch für Linux-Computer mit einem 64-Bit-ARM-Prozessor (arm64), etwa einen Raspberry Pi 4 oder 5 mit seinem 64-Bit-System oder einen Laptop mit Snapdragon-Prozessor unter Linux: als AppImage, das sich wie das für x86_64 selbst aktualisiert, und im Snap Store. Es ist neu, also melden Sie bitte alles, was auf Ihrem Computer nicht funktioniert.
+
+## v26.11.4
+
+### ✨ Neue Funktionen
+
+- ✨ **In einen anderen Abschnitt verschieben**: Das Menü eines Medienelements hat jetzt ein Untermenü **Bewegen** mit „Nach oben“, „Nach unten“ und den anderen Abschnitten des Tages, um das Element mit einem Klick in einen anderen Abschnitt zu verschieben, statt es dorthin zu ziehen. Sind mehrere Elemente ausgewählt, sammelt **In Abschnitt verschieben** sie alle am Ende des gewählten Abschnitts; ein Abschnitt, in dem sie sich schon alle befinden, wird nicht angeboten.
+
+## v26.11.3
+
+### ✨ Neue Funktionen
+
 - ✨ **Medien, die Ihr Computer nicht abspielen kann**: Einige Videos werden auf manchen Computern ohne Bild oder ohne Ton abgespielt: ein HEVC-Video auf einer Grafikkarte, die es nicht dekodieren kann, ein altes AVI- oder MPEG-4-Video oder ein Film mit AC-3- oder DTS-Ton. M³ weist Sie jetzt darauf hin, sobald es ein solches Video findet, am Medienelement und in einer Benachrichtigung, und das Bedienfeld vor der Zusammenkunft erinnert Sie daran, sodass Sie das Problem beheben können, lange bevor Sie das Video brauchen. Außerdem schlägt M³ bei einem solchen Video nicht mehr vor, die Hardwarebeschleunigung zu deaktivieren, was alles nur noch schlimmer machen würde. "Konvertieren" erstellt eine Kopie, die auf jedem Computer abgespielt werden kann, und nutzt dabei nach Möglichkeit Ihre Grafikkarte, damit M³ und die Zusammenkunft reibungslos laufen. Der Fortschritt wird am Medienelement und im Popup der Medien-Synchronisierung angezeigt, wo Sie die Konvertierung auch abbrechen können. Eine Datei, die Sie importiert haben, wird durch ihre konvertierte Kopie ersetzt; eine Datei aus Ihrem geteilten Ordner bleibt unverändert, und M³ spielt eine konvertierte Kopie ab, die auf diesem Computer gespeichert ist.
 
 ## v26.11.2

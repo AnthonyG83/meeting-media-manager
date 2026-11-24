@@ -11,6 +11,9 @@ export default defineConfig({
     'import.meta.env.repository': JSON.stringify(
       pkg.repository.url.replace('.git', ''),
     ),
+    'import.meta.env.updatesRepository': JSON.stringify(
+      'https://github.com/test-owner/test-updates-repo',
+    ),
     'import.meta.env.version': JSON.stringify('1.2.3'),
     'import.meta.env.VITEST': JSON.stringify(true),
   },

@@ -1,7 +1,12 @@
 import type { ElectronApi, ElectronIpcInvokeKey } from 'src/types/electron';
 
 import { contextBridge, webUtils } from 'electron/renderer';
-import { IS_DEMO_MODE, IS_DEV, PLATFORM } from 'src-electron/constants';
+import {
+  APP_STORE,
+  IS_DEMO_MODE,
+  IS_DEV,
+  PLATFORM,
+} from 'src-electron/constants';
 import { initCloseListeners } from 'src-electron/preload/close';
 import {
   fileUrlToPath,
@@ -76,6 +81,7 @@ const invokeWithoutResult = (
 };
 
 const electronApi: ElectronApi = {
+  appStore: APP_STORE,
   askForMediaAccess: () => send('askForMediaAccess'),
   basename,
   cancelAllDownloads: () => send('cancelAllDownloads'),
@@ -110,12 +116,15 @@ const electronApi: ElectronApi = {
   getAllScreens: () => invoke('getAllScreens'),
   getAppDataPath: () => invoke('getAppDataPath'),
   getBetaUpdatesPath: () => invoke('getBetaUpdatesPath'),
+  getBundledFfmpegPath: () => invoke('getBundledFfmpegPath'),
+  getInstalledZoomVersion: () => invoke('getInstalledZoomVersion'),
   getLocales: () => invoke('getLocales'),
   getLocalPathFromFileObject: (fo) => getPathFromFileObject(fo),
   getLowDiskSpaceStatus: () => invoke('getLowDiskSpaceStatus'),
   getMediaWindowCaptureSize: () => invoke('getMediaWindowCaptureSize'),
   getMediaWindowCaptureSourceId: () => invoke('getMediaWindowCaptureSourceId'),
   getScreenAccessStatus: () => invoke('getScreenAccessStatus'),
+  getSentryTags: () => sendSync('getSentryTagsSync') ?? {},
   getSharedDataPath: () => invoke('getSharedDataPath'),
   getUpdaterState: () => invoke('getUpdaterState'),
   getUpdatesDisabledPath: () => invoke('getUpdatesDisabledPath'),
@@ -167,6 +176,7 @@ const electronApi: ElectronApi = {
     listen('video-capture-crash-detected', cb),
   onWatchFolderError: (cb) => listen('watchFolderError', cb),
   onWatchFolderUpdate: (cb) => listen('watchFolderUpdate', cb),
+  onWebsiteLoadFailed: (cb) => listen('websiteLoadFailed', cb),
   onWebsiteWindowClosed: (cb) => listen('websiteWindowClosed', cb),
   openDiscussion: (c, t, p) => send('openDiscussion', c, t, p),
   openExternal: (w) => send('openExternal', w),

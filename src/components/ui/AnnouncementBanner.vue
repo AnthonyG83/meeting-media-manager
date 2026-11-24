@@ -3,13 +3,12 @@
     v-for="announcement in activeAnnouncements"
     :key="announcement.id"
   >
-    <q-banner :class="`q-ma-md ${bgColor(announcement.type)}`" rounded>
+    <NoticeBanner
+      class="q-ma-md"
+      :icon="announcement.icon && `mmm-${announcement.icon}`"
+      :type="noticeType(announcement.type)"
+    >
       {{ t(announcement.message) }}
-      <template #avatar>
-        <q-icon
-          :name="`mmm-${announcement.icon || announcement.type || 'info'}`"
-        />
-      </template>
       <template #action>
         <q-btn flat :label="t('dismiss')" @click="dismiss(announcement.id)" />
         <q-btn
@@ -20,7 +19,7 @@
           @click="actionDefs[action].onClick"
         />
       </template>
-    </q-banner>
+    </NoticeBanner>
   </q-slide-transition>
   <Teleport to="body">
     <Transition appear name="update-toast">
@@ -42,22 +41,29 @@
 import type {
   Announcement,
   AnnouncementAction,
+  NoticeType,
   UpdaterProgressInfo,
   UpdateVersionInfo,
 } from 'src/types';
 
-import { useIntervalFn } from '@vueuse/core';
+import { useIntervalFn, whenever } from '@vueuse/core';
+import NoticeBanner from 'components/ui/NoticeBanner.vue';
 import UpdateProgressToast from 'components/ui/UpdateProgressToast.vue';
 import { useQuasar } from 'quasar';
 import { getMeetingStartToday } from 'src/helpers/date';
 import { errorCatcher } from 'src/helpers/error-catcher';
-import { createTemporaryNotification } from 'src/helpers/notifications';
+import {
+  createTemporaryNotification,
+  notifyUpdateDiskFull,
+} from 'src/helpers/notifications';
 import { localeOptions } from 'src/i18n';
+import { log } from 'src/shared/vanilla';
 import { fetchAnnouncements, fetchLatestVersion } from 'src/utils/api';
 import { updatesDisabled } from 'src/utils/fs';
 import { getPreviousVersion, isVersionWithinBounds } from 'src/utils/general';
 import { useCongregationSettingsStore } from 'stores/congregation-settings';
 import { useCurrentStateStore } from 'stores/current-state';
+import { type MusicState, useMusicStore } from 'stores/music';
 import { computed, onMounted, ref, shallowRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -65,6 +71,7 @@ const $q = useQuasar();
 const { t } = useI18n();
 const currentStateStore = useCurrentStateStore();
 const congregationStore = useCongregationSettingsStore();
+const musicStore = useMusicStore();
 
 const {
   getUpdaterState,
@@ -99,13 +106,17 @@ const dismiss = (id: string) => {
   );
 };
 
-const typeToBg: Record<NonNullable<Announcement['type']>, string> = {
-  error: 'bg-negative',
-  info: 'bg-info',
-  warning: 'bg-warning',
+// Announcements come with the types of the remote announcements file.
+const ANNOUNCEMENT_NOTICE_TYPES: Record<
+  NonNullable<Announcement['type']>,
+  NoticeType
+> = {
+  error: 'negative',
+  info: 'info',
+  warning: 'warning',
 };
-const bgColor = (type?: Announcement['type']) =>
-  type ? typeToBg[type] : typeToBg.info;
+const noticeType = (type: Announcement['type'] = 'info') =>
+  ANNOUNCEMENT_NOTICE_TYPES[type];
 
 const announcements = ref<Announcement[]>([]);
 
@@ -133,32 +144,25 @@ const MINUTES_BEFORE_MEETING_WITHOUT_INSTALL = 15;
 const MINUTES_AFTER_MEETING_START_WITHOUT_INSTALL = 120;
 const MS_PER_MINUTE = 60_000;
 
+// Background music that is starting, playing or fading out.
+const MUSIC_STATES_IN_USE = new Set<MusicState>([
+  'music.playing',
+  'music.starting',
+  'music.stopping',
+]);
+
 // Seconds left before the update installs, while counting down.
 const installCountdown = ref<number>();
 
-const { pause: pauseInstallCountdown, resume: resumeInstallCountdown } =
-  useIntervalFn(
-    () => {
-      if (installCountdown.value) installCountdown.value -= 1;
-    },
-    1000,
-    { immediate: false },
-  );
-
-const stopInstallCountdown = () => {
-  pauseInstallCountdown();
-  installCountdown.value = undefined;
-};
-
-const installUpdate = () => {
-  stopInstallCountdown();
-  quitAndInstall();
-};
-
-const dismissUpdateToast = () => {
-  stopInstallCountdown();
-  updateToastDismissed.value = true;
-};
+// The version of an update that is due now, until a profile is loaded: its
+// meeting times tell whether it's a good time to install. None is loaded yet
+// right after launch, when the profile picker can still be open.
+const dueVersion = ref<string>();
+// Due updates whose countdown already started, or was skipped, in this
+// session. Checking for updates again (turning beta updates on, say) downloads
+// the same update again: an update put off, or held back, stays that way
+// until the next launch, or until the toast's own install button.
+const handledDueVersions = new Set<string>();
 
 const isAroundMeetingTime = () => {
   const meetingStart = getMeetingStartToday();
@@ -171,15 +175,91 @@ const isAroundMeetingTime = () => {
   );
 };
 
-const isGoodTimeToInstall = () =>
-  !currentStateStore.mediaIsPlaying && !isAroundMeetingTime();
+// Background music can start by itself well before the meeting.
+const isMusicOn = () =>
+  musicStore.musicPlaying || MUSIC_STATES_IN_USE.has(musicStore.musicState);
 
-// The toast just showed an update that is due now: start the countdown,
-// unless the toast was closed or M³ is needed right now. The update then
-// waits for the next launch, or for the toast's own install button.
-const startInstallCountdownIfDue = (versionInfo?: UpdateVersionInfo) => {
+/**
+ * What M³ is needed for right now, if anything, which installing would
+ * interrupt: it closes M³ for a minute or so.
+ * @returns Why it's not a good time to install, or null when it is
+ */
+const findInstallBlocker = () => {
+  if (currentStateStore.mediaIsPlaying) return 'media is shown';
+  if (isMusicOn()) {
+    return `background music is on (state: "${musicStore.musicState}", playing: ${musicStore.musicPlaying})`;
+  }
+  if (isAroundMeetingTime()) return 'it is around meeting time';
+  return null;
+};
+
+const { pause: pauseInstallCountdown, resume: resumeInstallCountdown } =
+  useIntervalFn(
+    () => {
+      tickInstallCountdown();
+    },
+    1000,
+    { immediate: false },
+  );
+
+const stopInstallCountdown = () => {
+  pauseInstallCountdown();
+  installCountdown.value = undefined;
+};
+
+// Every second of the countdown checks again that it's still a good time,
+// before the last one installs the update.
+const tickInstallCountdown = () => {
+  const blocker = findInstallBlocker();
+  if (blocker) {
+    log(
+      `Stopped the countdown to install the update, ${installCountdown.value} s before the end: ${blocker}.`,
+      'electronUpdater',
+      'log',
+    );
+    stopInstallCountdown();
+    return;
+  }
+  if (installCountdown.value) installCountdown.value -= 1;
+};
+
+const installUpdate = () => {
+  stopInstallCountdown();
+  quitAndInstall();
+};
+
+const dismissUpdateToast = () => {
+  stopInstallCountdown();
+  updateToastDismissed.value = true;
+};
+
+// The toast just showed an update that is due now: it counts down once a
+// profile is loaded (see startDueInstallCountdown).
+const markUpdateDue = (versionInfo?: UpdateVersionInfo) => {
   if (!versionInfo?.installOnLaunch) return;
-  if (updateToastDismissed.value || !isGoodTimeToInstall()) return;
+  if (handledDueVersions.has(versionInfo.version)) return;
+  dueVersion.value = versionInfo.version;
+};
+
+// Starts the countdown for the due update, unless the toast was closed or M³
+// is needed right now. The update then waits for the next launch, or for the
+// toast's own install button.
+const startDueInstallCountdown = () => {
+  const version = dueVersion.value;
+  dueVersion.value = undefined;
+  if (!version) return;
+  handledDueVersions.add(version);
+  if (updateToastDismissed.value) return;
+
+  const blocker = findInstallBlocker();
+  if (blocker) {
+    log(
+      `Not installing update ${version} now: ${blocker}.`,
+      'electronUpdater',
+      'log',
+    );
+    return;
+  }
   installCountdown.value = INSTALL_COUNTDOWN_SECONDS;
   resumeInstallCountdown();
 };
@@ -195,6 +275,7 @@ let updateEventReceived = false;
 const handleUpdateAvailable = () => {
   updateEventReceived = true;
   stopInstallCountdown();
+  dueVersion.value = undefined;
   updatePhase.value = 'downloading';
   updateProgress.value = undefined;
   updateToastDismissed.value = false;
@@ -218,7 +299,7 @@ const handleUpdateDownloaded = (versionInfo?: UpdateVersionInfo) => {
   // preceding update-available, so this can be the toast's first state.
   updatePhase.value = 'downloaded';
   updateVersionInfo.value = versionInfo;
-  startInstallCountdownIfDue(versionInfo);
+  markUpdateDue(versionInfo);
 };
 
 // The updater check runs at startup, concurrently with the renderer booting,
@@ -286,7 +367,11 @@ onMounted(() => {
       }
     });
 
-    onUpdateError(() => {
+    onUpdateError((reason) => {
+      if (reason === 'disk-full') {
+        notifyUpdateDiskFull();
+        return;
+      }
       createTemporaryNotification({
         caption: t('update-failed'),
         message: t('update-error-read-only-volume'),
@@ -332,7 +417,9 @@ if (import.meta.env.DEV) {
   };
 
   // An update that waited since an earlier session, as at launch on Windows.
+  // Each preview counts down again.
   const simulateInstallOnLaunch = () => {
+    handledDueVersions.delete(version);
     handleUpdateAvailable();
     handleUpdateDownloaded({
       installOnLaunch: true,
@@ -391,7 +478,7 @@ const testVersionAnnouncement = computed((): Announcement => {
     message: 'this-is-a-test-version',
     persistent: true,
     platform: isTestVersion ? 'all' : 'none',
-    type: 'error',
+    type: 'warning',
   };
 });
 
@@ -404,6 +491,7 @@ const newUpdateAnnouncement = computed((): Announcement => {
     message: 'update-available-please-update',
     persistent: true,
     platform: !updatesEnabled.value && !isTestVersion ? 'all' : 'none',
+    type: 'warning',
   };
 });
 
@@ -495,6 +583,11 @@ const activeAnnouncements = computed(() =>
 watch(installCountdown, (secondsLeft) => {
   if (secondsLeft === 0) installUpdate();
 });
+
+whenever(
+  () => !!dueVersion.value && !!currentStateStore.currentCongregation,
+  startDueInstallCountdown,
+);
 
 // A plain watchEffect here is a trap: loadAnnouncements()/loadLatestVersion()
 // each read their guard ref (announcements.value / latestVersion.value)

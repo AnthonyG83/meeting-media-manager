@@ -1,7 +1,7 @@
 import type { DateInfo, SettingsValues } from 'src/types';
 
 import { i18n } from 'boot/i18n';
-import { DAYS_IN_FUTURE } from 'src/constants/date';
+import { WEEKS_TO_FETCH } from 'src/constants/date';
 import { errorCatcher } from 'src/helpers/error-catcher';
 import { log } from 'src/shared/vanilla';
 import {
@@ -96,35 +96,48 @@ const shouldUseChangedMeetingSchedule = (lookupDate?: Date | string) => {
   );
 };
 
-export const isReplacedByMemorial = (lookupDate?: Date) => {
+const isWeekendDay = (date: Date) => [0, 6].includes(date.getDay());
+
+/**
+ * The Memorial held in the same Monday-to-Sunday week as this date, if any,
+ * from the yearly dates M³ fetched and the one in the settings.
+ */
+export const getMemorialInWeek = (lookupDate?: Date | string) => {
   try {
     const currentState = useCurrentStateStore();
     const jwStore = useJwStore();
     if (!lookupDate || currentState.currentSettings?.disableMediaFetching) {
-      return false;
+      return undefined;
     }
 
-    lookupDate = dateFromString(lookupDate);
-    const lookupDateInWeekend = [0, 6].includes(lookupDate.getDay());
-    const lookupWeekMonday = getSpecificWeekday(lookupDate, 0);
-    const memorialDates = [
-      ...Object.values(jwStore.memorials ?? {}),
+    const lookupWeekMonday = getSpecificWeekday(dateFromString(lookupDate), 0);
+    const memorialDate = [
       currentState.currentSettings?.memorialDate,
-    ].filter(
-      // Not `.filter(Boolean)`: that wouldn't narrow out null/undefined.
-      (memorialDate): memorialDate is `${number}/${number}/${number}` =>
-        !!memorialDate,
+      ...Object.values(jwStore.memorials ?? {}),
+    ].find(
+      (date) =>
+        !!date && datesAreSame(lookupWeekMonday, getSpecificWeekday(date, 0)),
     );
+    return memorialDate ? dateFromString(memorialDate) : undefined;
+  } catch (error) {
+    errorCatcher(error, { contexts: { fn: { name: 'getMemorialInWeek' } } });
+    return undefined;
+  }
+};
 
-    return memorialDates.some((memorialDate) => {
-      const parsedMemorialDate = dateFromString(memorialDate);
-      const memorialInWeekend = [0, 6].includes(parsedMemorialDate.getDay());
-      if (memorialInWeekend !== lookupDateInWeekend) return false;
-      return datesAreSame(
-        lookupWeekMonday,
-        getSpecificWeekday(memorialDate, 0),
-      );
-    });
+/**
+ * The Memorial replaces the meeting in its own half of the week: the
+ * midweek meeting for a Memorial on a weekday, the weekend meeting for one
+ * on a weekend.
+ */
+export const isReplacedByMemorial = (lookupDate?: Date) => {
+  try {
+    if (!lookupDate) return false;
+    const memorialDate = getMemorialInWeek(lookupDate);
+    if (!memorialDate) return false;
+    return (
+      isWeekendDay(memorialDate) === isWeekendDay(dateFromString(lookupDate))
+    );
   } catch (error) {
     errorCatcher(error);
     return false;
@@ -154,6 +167,44 @@ export const isMemorialDay = (lookupDate?: Date | string) => {
   }
 };
 
+/**
+ * Whether this is the congregation's midweek meeting day by its schedule,
+ * before a circuit overseer's visit or the Memorial moves or replaces the
+ * meeting.
+ */
+export const isScheduledMwDay = (lookupDate?: Date) => {
+  try {
+    if (!lookupDate) return false;
+    lookupDate = dateFromString(lookupDate);
+    const { currentSettings } = useCurrentStateStore();
+    const mwDay = shouldUseChangedMeetingSchedule(lookupDate)
+      ? (currentSettings?.meetingScheduleChangeMwDay ?? currentSettings?.mwDay)
+      : currentSettings?.mwDay;
+    return mwDay === getWeekDay(lookupDate);
+  } catch (error) {
+    errorCatcher(error);
+    return false;
+  }
+};
+
+/** Same as isScheduledMwDay, for the weekend meeting. */
+export const isScheduledWeDay = (lookupDate?: Date) => {
+  try {
+    if (!lookupDate) return false;
+    lookupDate = dateFromString(lookupDate);
+    const { currentSettings } = useCurrentStateStore();
+    const changedWeDay = currentSettings?.meetingScheduleChangeWeDay;
+    const weDay =
+      changedWeDay && shouldUseChangedMeetingSchedule(lookupDate)
+        ? changedWeDay
+        : currentSettings?.weDay;
+    return weDay === getWeekDay(lookupDate);
+  } catch (error) {
+    errorCatcher(error);
+    return false;
+  }
+};
+
 export const isMwMeetingDay = (lookupDate?: Date) => {
   try {
     const currentState = useCurrentStateStore();
@@ -164,20 +215,13 @@ export const isMwMeetingDay = (lookupDate?: Date) => {
     if (isReplacedByMemorial(lookupDate)) return false;
 
     lookupDate = dateFromString(lookupDate);
-    const coWeek = isCoWeek(lookupDate);
-    if (coWeek) {
+    if (isCoWeek(lookupDate)) {
       const coWeekTuesday = dateFromString(
         currentState.currentSettings?.coWeek ?? undefined,
       );
       return datesAreSame(coWeekTuesday, lookupDate);
-    } else if (shouldUseChangedMeetingSchedule(lookupDate)) {
-      return (
-        (currentState.currentSettings?.meetingScheduleChangeMwDay ??
-          currentState.currentSettings?.mwDay) === getWeekDay(lookupDate)
-      );
-    } else {
-      return currentState.currentSettings?.mwDay === getWeekDay(lookupDate);
     }
+    return isScheduledMwDay(lookupDate);
   } catch (error) {
     errorCatcher(error);
     return false;
@@ -193,15 +237,7 @@ export const isWeMeetingDay = (lookupDate?: Date) => {
 
     if (isReplacedByMemorial(lookupDate)) return false;
 
-    lookupDate = dateFromString(lookupDate);
-
-    const changedWeDay =
-      currentState.currentSettings?.meetingScheduleChangeWeDay;
-    if (changedWeDay && shouldUseChangedMeetingSchedule(lookupDate)) {
-      return changedWeDay === getWeekDay(lookupDate);
-    } else {
-      return currentState.currentSettings?.weDay === getWeekDay(lookupDate);
-    }
+    return isScheduledWeDay(lookupDate);
   } catch (error) {
     errorCatcher(error);
     return false;
@@ -280,18 +316,18 @@ function extendLookupPeriod(
   lookupPeriod: Partial<Record<string, DateInfo[]>>,
 ) {
   if (!lookupPeriod?.[congregation]) return;
-  const { getMeetingType } = useCurrentStateStore();
-  const DAYS_AHEAD =
-    (settings.meteredConnection ? 1 : DAYS_IN_FUTURE) + currentDate.getDay();
+  // Whole weeks from this week's Monday, whatever today's weekday is. A
+  // metered connection keeps just the current week: meetings after tomorrow
+  // still aren't fetched there (see shouldSkipMeteredMeeting in jw-media.ts).
+  const DAYS_AHEAD = (settings.meteredConnection ? 1 : WEEKS_TO_FETCH) * 7;
 
+  // Every date already there, whatever it holds. A meeting day still waiting
+  // for its media used to get a second, empty entry each time this ran
+  // during a fetch: the page shows a date's first entry, but the date picker
+  // read the empty one as "not ready yet", until fetchMedia's dedupeDays
+  // cleaned it up at its next run.
   const existingDates = new Set(
-    lookupPeriod[congregation]
-      .filter((d) => {
-        if (!getMeetingType(d.date)) return true;
-        const items = d.mediaSections?.flatMap((s) => s.items || []);
-        return items?.length > 0;
-      })
-      .map((d) => formatDate(d.date, 'YYYY/MM/DD')),
+    lookupPeriod[congregation].map((d) => formatDate(d.date, 'YYYY/MM/DD')),
   );
 
   const newDays = Array.from({ length: DAYS_AHEAD }, (_, i) => {

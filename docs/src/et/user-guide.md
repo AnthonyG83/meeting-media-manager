@@ -38,11 +38,12 @@ M³ kasutajaliides koosneb mitmest põhivaldkonnast:
 
 ### Kalendri vaate mõistmine {#calendar-view}
 
-Kalendri vaade näitab koosolekute ajakava ja kättesaadavaid meediakanaleid:
+Kalendri avamiseks klõpsa akna ülaosas oleval kuupäeval. See näitab kõiki nädalaid, mille jaoks M³ meediat ette valmistab, alates praegusest:
 
-- **Koosolekute päevad** – esiletõstetud päevad näitavad, millal koosolekud on kavandatud
-- **Meediaindikaatorid** – ikoonid näitavad, millised meediatüübid on saadaval
-- **Kuupäeva navigeerimine** - Kasuta nooleklahve kuude vahel navigeerimiseks
+- **Nädalad** – iga rida on üks nädal esmaspäevast pühapäevani koos selle kuupäevadega ja nimega „See nädal“, „Järgmine nädal“, „2 nädala pärast“ ja nii edasi
+- **Koosolekute päevad** – koosolekupäevad on olekust sõltuvalt värvitud: rohelised, kui nende meedia on valmis, oranžid, kui see pole veel valmis, ja punased, kui seda ei õnnestunud alla laadida. Päevad, millele oled ise meediat lisanud, on lillad. Kalendri all olev legend selgitab värve
+- **Erilised nädalad** – ringkonnaülevaataja külastuse ajal ja mälestusõhtu nädalal saavad selle nädala koosolekupäevad nädala värvi ning nädala nimi on kirjas selle kuupäevade all. Akna ülaosas kuupäeva kõrval olev silt näitab, mis on valitud päeval teisiti
+- **Klaviatuur** – päevade vahel liikumiseks kasuta nooleklahve ja päeva valimiseks Enter-klahvi
 
 ### Meedia organiseerimine {#organizing-media}
 

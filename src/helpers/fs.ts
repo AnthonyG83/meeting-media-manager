@@ -13,6 +13,7 @@ import { Buffer } from 'buffer'; // NOSONAR: this is not nodejs Buffer, it's the
 import { Platform } from 'quasar';
 import { FULL_HD } from 'src/constants/media';
 import { errorCatcher } from 'src/helpers/error-catcher';
+import { noticeUnopenableMedia } from 'src/helpers/unopenable-media';
 import { getFilesystemErrorCode } from 'src/shared/filesystem-errors';
 import { log } from 'src/shared/vanilla';
 import { fetchJson } from 'src/utils/api';
@@ -20,6 +21,7 @@ import { getCachedUserDataPath, getPublicationDirectory } from 'src/utils/fs';
 import {
   isAudio,
   isImage,
+  isUnopenableMediaError,
   isVideo,
   MediaElementTimeoutError,
   withMediaElementTimeout,
@@ -74,6 +76,7 @@ const {
   extname,
   fileUrlToPath,
   fs,
+  getBundledFfmpegPath,
   join,
   parseMediaFile,
   pathToFileURL,
@@ -306,6 +309,39 @@ const getThumbnailFromVideoPath = async (
   }
 };
 
+/**
+ * Says why a file's thumbnail couldn't be made, to whoever can do something
+ * about it: Sentry for M³'s own failures, the user for a file that can't be
+ * opened, nobody for one that never loads.
+ */
+const reportThumbnailFailure = (
+  error: unknown,
+  filepath: string | undefined,
+  forceRefresh: boolean | undefined,
+) => {
+  if (error instanceof Event) return;
+  // Environmental (a video that never loads), not a bug: no report.
+  if (error instanceof MediaElementTimeoutError) {
+    log(error.message, 'mediaProcessing', 'warn');
+    return;
+  }
+  // The file's problem, not M³'s: the user is told instead (MMM-V2-3CF).
+  if (filepath && error instanceof Error && isUnopenableMediaError(error)) {
+    noticeUnopenableMedia(filepath, error.message);
+    return;
+  }
+  errorCatcher(error, {
+    contexts: {
+      fn: {
+        filepath,
+        forceRefresh,
+        name: 'getThumbnailUrl',
+        type: typeof error,
+      },
+    },
+  });
+};
+
 export const getThumbnailUrl = async (
   filepath?: string,
   forceRefresh?: boolean,
@@ -332,22 +368,7 @@ export const getThumbnailUrl = async (
     }
     return withCacheBust(thumbnailUrl, forceRefresh);
   } catch (error) {
-    if (error instanceof Event) return '';
-    // Environmental (a video that never loads), not a bug: no report.
-    if (error instanceof MediaElementTimeoutError) {
-      log(error.message, 'mediaProcessing', 'warn');
-      return '';
-    }
-    errorCatcher(error, {
-      contexts: {
-        fn: {
-          filepath,
-          forceRefresh,
-          name: 'getThumbnailUrl',
-          type: typeof error,
-        },
-      },
-    });
+    reportThumbnailFailure(error, filepath, forceRefresh);
     return '';
   }
 };
@@ -433,7 +454,9 @@ export const watchExternalFolder = async (folder?: string) => {
 /**
  * Sets up FFmpeg.
  *
- * Downloads and extracts the latest version of FFmpeg if needed, and stores the path to the executable in the current state store.
+ * Uses the FFmpeg that ships with M³, or else (in development, or a build
+ * made without it) downloads and extracts the latest version if needed, and
+ * stores the path to the executable in the current state store.
  *
  * @returns The path to the FFmpeg executable, or an empty string if the setup failed.
  */
@@ -464,6 +487,13 @@ const runFFmpegSetup = async (): Promise<string> => {
   const currentState = useCurrentStateStore();
   try {
     if (currentState.ffmpegPath) return currentState.ffmpegPath;
+
+    const bundledPath = await getBundledFfmpegPath();
+    if (bundledPath) {
+      currentState.ffmpegPath = bundledPath;
+      void removeDownloadedFFmpeg();
+      return bundledPath;
+    }
 
     const ffmpegReleases = await fetchLatestRelease();
     const target =
@@ -512,6 +542,20 @@ const runFFmpegSetup = async (): Promise<string> => {
       errorCatcher(e, { contexts: { fn: { name: 'setupFFmpeg' } } });
     }
     return '';
+  }
+};
+
+/**
+ * Deletes the FFmpeg that an earlier version downloaded (its zip is kept
+ * too: about 180 MB on Windows), once the one that ships with M³ is used
+ * instead.
+ */
+const removeDownloadedFFmpeg = async () => {
+  try {
+    const ffmpegDir = await getFFmpegDirectory();
+    if (await pathExists(ffmpegDir)) await fs.remove(ffmpegDir);
+  } catch (error) {
+    log('Downloaded FFmpeg not removed', 'mediaProcessing', 'warn', error);
   }
 };
 

@@ -38,11 +38,12 @@ De hoofdinterface van M³ bestaat uit een aantal belangrijke onderdelen:
 
 ### De kalenderweergave begrijpen {#calendar-view}
 
-De kalenderweergave toont je vergaderschema en de beschikbare media:
+Klik op de datum bovenaan het venster om de kalender te openen. Deze toont elke week waarvoor M³ media voorbereidt, te beginnen met de huidige:
 
-- **Vergaderdagen** - Gemarkeerde dagen laten zien wanneer er vergaderingen gepland zijn
-- **Media-indicatoren** - Pictogrammen laten zien welke soorten media beschikbaar zijn
-- **Datumnavigatie** - Gebruik de pijltjestoetsen om tussen maanden te navigeren
+- **Weken** - Elke rij is een week van maandag tot en met zondag, met een naam als "Deze week", "Volgende week" of "Over 2 weken" en met de datums
+- **Vergaderdagen** - Vergaderdagen zijn gekleurd volgens hun status: groen als de media klaar is, oranje als die nog niet klaar is en rood als die niet kon worden opgehaald. Dagen met media die je zelf hebt toegevoegd, zijn paars. Een legenda onder de kalender legt de kleuren uit
+- **Speciale weken** - Tijdens het bezoek van de kringopziener en in de week van de Herdenking krijgen de vergaderdagen van die week de kleur van die week, en staat de naam van de week onder de datums. Een label naast de datum bovenaan het venster laat zien wat er op de geselecteerde dag anders is
+- **Toetsenbord** - Gebruik de pijltjestoetsen om tussen dagen te wisselen en Enter om er een te selecteren
 
 ### Media organiseren {#organizing-media}
 

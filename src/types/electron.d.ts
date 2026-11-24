@@ -37,6 +37,13 @@ import type {
 
 import type { TimerData } from './timer';
 
+/**
+ * The app store a copy of M³ was installed from, which then delivers its
+ * updates (see APP_STORE in src-electron/constants.ts).
+ */
+export type AppStore =
+  'flathub' | 'mac-app-store' | 'microsoft-store' | 'snap-store';
+
 export interface ConversionOptions {
   /**
    * the HEIC file buffer
@@ -96,10 +103,18 @@ export type Display = Electron.Display & {
 };
 
 export interface ElectronApi {
+  /**
+   * The app store this copy of M³ came from, which updates it; null for M³'s
+   * own installers, the AppImage and the portable build.
+   */
+  appStore: AppStore | null;
   askForMediaAccess: () => void;
   basename: typeof basename;
   cancelAllDownloads: () => void;
-  /** Stops a conversion started by convertForPlayback. False if none was running. */
+  /**
+   * Stops a conversion started by convertForPlayback, even before its ffmpeg
+   * has started. False if none was under way.
+   */
   cancelPlaybackConversion: (id: string) => Promise<boolean>;
   changeExt: typeof changeExt;
   checkForUpdates: () => void;
@@ -107,9 +122,10 @@ export interface ElectronApi {
   closeSqliteConnections: () => Promise<void>;
   closeWebsiteWindow: () => void;
   /**
-   * Converts a file this computer can't play into an H.264 / AAC MP4 at
-   * `request.outputPath`, with progress on onMediaConversionProgress.
-   * Rejects with a message containing "conversion-cancelled" once cancelled.
+   * Converts a file this computer can't play into an H.264 / AAC MP4 (an
+   * AAC M4A for an .m4a) at `request.outputPath`, which must be in the
+   * app's Temp folder, with progress on onMediaConversionProgress. Rejects
+   * with a message containing "conversion-cancelled" once cancelled.
    */
   convertForPlayback: (
     ffmpegPath: string,
@@ -121,12 +137,14 @@ export interface ElectronApi {
    *
    * @param originalFile - The path to the original non-video file.
    * @param ffmpegPath - The path to the FFmpeg executable.
+   * @param outputDir - Where to write it: the app's Temp folder (getTempPath),
+   * the only folder the main process accepts.
    * @returns A promise that resolves to the path of the converted video file.
    */
   createVideoFromNonVideo: (
     originalFile: string,
     ffmpegPath: string,
-    outputDir?: string,
+    outputDir: string,
   ) => Promise<string>;
   /**
    * Decrypts a secret previously encrypted with {@link encryptSecretSync}.
@@ -187,6 +205,13 @@ export interface ElectronApi {
   getAllScreens: () => Promise<Display[]>;
   getAppDataPath: () => Promise<string>;
   getBetaUpdatesPath: () => Promise<string>;
+  /** The FFmpeg that ships with M³, if any (see src-electron/main/ffmpeg.ts). */
+  getBundledFfmpegPath: () => Promise<null | string>;
+  /**
+   * The installed Zoom's version, from its files (Windows and macOS); null
+   * where it can't be told.
+   */
+  getInstalledZoomVersion: () => Promise<null | string>;
   getLocales: () => Promise<string[]>;
   getLocalPathFromFileObject: (fileObject: File | string | undefined) => string;
   getLowDiskSpaceStatus: () => Promise<boolean>;
@@ -207,6 +232,11 @@ export interface ElectronApi {
    */
   getMediaWindowCaptureSourceId: () => Promise<null | string>;
   getScreenAccessStatus: () => Promise<MediaAccessStatus>;
+  /**
+   * The main process's tags for Sentry events (see getSentryTags in
+   * src-electron/main/sentry-tags.ts), for the renderer's events too.
+   */
+  getSentryTags: () => Record<string, string>;
   getSharedDataPath: () => Promise<null | string>;
   /**
    * Returns the auto-updater's current lifecycle state (downloading /
@@ -341,7 +371,10 @@ export interface ElectronApi {
       transferred: number;
     }) => void,
   ) => void;
-  onUpdateError: (callback: () => void) => void;
+  /** An update M³ can't install, and why: the user can do something about it. */
+  onUpdateError: (
+    callback: (reason: 'disk-full' | 'read-only-volume') => void,
+  ) => void;
   onVideoCaptureCrashDetected: (callback: () => void) => void;
   onWatchFolderError: (
     callback: (args: {
@@ -356,6 +389,8 @@ export interface ElectronApi {
       event: string;
     }) => void,
   ) => void;
+  /** The website window couldn't load a page for want of a network. */
+  onWebsiteLoadFailed: (callback: () => void) => () => void;
   onWebsiteWindowClosed: (callback: () => void) => () => void;
   openDiscussion: (
     category: DiscussionCategory,
@@ -559,6 +594,8 @@ export type ElectronIpcInvokeKey =
   | 'getAllScreens'
   | 'getAppDataPath'
   | 'getBetaUpdatesPath'
+  | 'getBundledFfmpegPath'
+  | 'getInstalledZoomVersion'
   | 'getLocales'
   | 'getLowDiskSpaceStatus'
   | 'getMediaWindowCaptureSize'
@@ -622,6 +659,7 @@ export type ElectronIpcListenKey =
   | 'video-capture-crash-detected'
   | 'watchFolderError'
   | 'watchFolderUpdate'
+  | 'websiteLoadFailed'
   | 'websiteWindowClosed';
 
 // ipcMain.on / ipcRenderer.send channels
@@ -663,7 +701,10 @@ export type ElectronIpcSendKey =
 
 // ipcMain.on with event.returnValue / ipcRenderer.sendSync channels
 export type ElectronIpcSendSyncKey =
-  'decryptSecretSync' | 'encryptSecretSync' | 'isSecretEncryptionAvailableSync';
+  | 'decryptSecretSync'
+  | 'encryptSecretSync'
+  | 'getSentryTagsSync'
+  | 'isSecretEncryptionAvailableSync';
 
 export interface ExportPdfResult {
   /** The user closed the save dialog without choosing a file. */

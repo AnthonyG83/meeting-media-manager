@@ -13,14 +13,14 @@ import {
 } from 'electron';
 import {
   APP_ID,
-  IS_DEMO_MODE,
+  APP_STORE,
   IS_DEV,
   IS_TEST,
   PLATFORM,
-  PRODUCT_NAME,
   SENTRY_DSN,
   SENTRY_ENVIRONMENT,
 } from 'src-electron/constants';
+import { configureAppDataPaths } from 'src-electron/main/app-data-paths';
 import {
   markCleanExit,
   recordStartupCrashCount,
@@ -40,6 +40,7 @@ import {
   writeJsonResilientSync,
 } from 'src-electron/main/resilient-storage';
 import { initScreenListeners } from 'src-electron/main/screen';
+import { getSentryTags } from 'src-electron/main/sentry-tags';
 import {
   initSessionListeners,
   setAppQuitting,
@@ -64,7 +65,7 @@ import {
 import 'src-electron/main/ipc';
 import 'src-electron/main/security';
 import { log, scrubUserPathsDeep } from 'src/shared/vanilla';
-import { join, resolve } from 'upath';
+import { join } from 'upath';
 
 import { registerQuasarRuntime } from '#q-app/electron/main';
 
@@ -142,11 +143,16 @@ if (SENTRY_DSN) {
     },
     // @sentry/electron v8 replaced sendDefaultPii with dataCollection, whose
     // defaults now have Sentry record the user's IP address on events,
-    // sessions and native crash reports. Keep the v7 behavior of not
-    // collecting it.
-    dataCollection: { userInfo: false },
+    // sessions and native crash reports, and the requests' cookies and
+    // bodies (M³'s downloads, the timer remote's web server). Keep the v7
+    // behavior of collecting none of these, like the renderer
+    // (src/boot/sentry.ts). See the privacy policy (docs/src/en/privacy.md).
+    dataCollection: { cookies: false, httpBodies: [], userInfo: false },
     dsn: SENTRY_DSN,
     environment: SENTRY_ENVIRONMENT,
+    // How M³ was installed, and whether it runs under emulation on an ARM
+    // computer. The renderer gets the same tags (src/boot/sentry.ts).
+    initialScope: { tags: getSentryTags() },
     release: sentryRelease,
     // v8 streams spans by default, which turns every main-process request
     // (each media download, update check, etc.) into its own root span sent
@@ -200,23 +206,6 @@ async function captureGpuCrash(
     extra: { ...details, gpuInfo: basicGpuInfo },
     tags: { reason: details.reason, type },
   });
-}
-
-function configureAppDataPaths() {
-  if (process.env.PORTABLE_EXECUTABLE_DIR) {
-    const portableExecutableDir = resolve(process.env.PORTABLE_EXECUTABLE_DIR);
-    app.setPath('appData', portableExecutableDir);
-    app.setPath(
-      'userData',
-      join(portableExecutableDir, `${PRODUCT_NAME} - User Data`),
-    );
-    app.setPath(
-      'temp',
-      join(portableExecutableDir, `${PRODUCT_NAME} - Temporary Files`),
-    );
-  } else if (IS_TEST && PRODUCT_NAME) {
-    app.setPath('userData', join(app.getPath('appData'), PRODUCT_NAME));
-  }
 }
 
 function configureChromiumGpuDiagnostics() {
@@ -471,12 +460,14 @@ if (gotTheLock) {
   });
 
   if (PLATFORM === 'win32') {
-    app.setAppUserModelId(`${APP_ID}`);
+    // Not in the Microsoft Store build: Windows gives a packaged app its own
+    // ID, which its Start menu entry and taskbar pin go by.
+    if (APP_STORE !== 'microsoft-store') app.setAppUserModelId(`${APP_ID}`);
   } else if (PLATFORM === 'linux') {
     app.commandLine.appendSwitch('gtk-version', '3'); // Force GTK 3 on Linux (Workaround for https://github.com/electron/electron/issues/46538)
   }
 
-  if (!IS_DEMO_MODE) void initUpdater();
+  void initUpdater();
 
   initScreenListeners();
   createApplicationMenu();
