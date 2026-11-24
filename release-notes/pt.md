@@ -8,6 +8,13 @@ Para obter a lista completa das mudanças entre versões, consulte nosso arquivo
 
 ### ✨ Novos Recursos
 
+- ✨ **Visita do superintendente de circuito e semana da Celebração**: Durante a visita do superintendente de circuito e a semana da Celebração, uma etiqueta ao lado da data, na parte superior da janela, indica isso. Passe o cursor sobre ela para ver o que muda no dia selecionado, como a transferência da reunião do meio de semana para terça-feira, a mídia que o M³ oculta nesses dias ou a reunião que a Celebração substitui. No dia habitual da reunião do meio de semana durante a visita, ou no dia da reunião que a Celebração substitui, a página vazia agora explica por que não há reunião, com um botão que leva para a terça-feira ou para a Celebração. No calendário, os dias de reunião dessa semana ficam com a cor da semana, e o nome dela aparece abaixo das datas.
+- ✨ **Linux em ARM**: O M³ agora também está disponível para computadores Linux com processador ARM de 64 bits (arm64), como um Raspberry Pi 4 ou 5 com o sistema de 64 bits ou um notebook com processador Snapdragon rodando Linux: como AppImage, que se atualiza sozinho como o de x86_64, e na Snap Store. É novidade, então informe qualquer coisa que não funcione no seu.
+
+## v26.11.4
+
+### ✨ Novos Recursos
+
 - ✨ **Mover para outra seção**: Agora o menu de um item de mídia tem um submenu **Mover** com Mover para cima, Mover para baixo e as outras seções do dia, para enviar o item para outra seção com um clique, em vez de arrastá-lo até lá. Com vários itens selecionados, **Mover para a seção** reúne todos eles no fim da seção que você escolher; uma seção em que todos já estão não é oferecida.
 
 ## v26.11.3

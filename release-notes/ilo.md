@@ -8,6 +8,13 @@ Para iti kompleto a listaan dagiti nabaliwan iti nagbaetan dagiti bersion, kitae
 
 ### ✨ Dagiti Baro a Feature
 
+- ✨ **Circuit Overseer's Visit and Memorial Week**: During the circuit overseer's visit and the week of the Memorial, a label next to the date at the top of the window says so. Point at it to see what's different on the selected day, such as the midweek meeting moving to Tuesday, the media M³ hides then, or the meeting the Memorial replaces. On the usual midweek day of the visit, or the meeting day the Memorial replaces, the empty page now explains why there's no meeting, with a button that goes to Tuesday or to the Memorial. In the calendar, that week's meeting days take the week's color, and the week is named under its dates.
+- ✨ **Linux on ARM**: M³ now also comes for Linux computers with a 64-bit ARM processor (arm64), such as a Raspberry Pi 4 or 5 with its 64-bit system, or a laptop with a Snapdragon processor running Linux: as an AppImage, which updates itself like the x86_64 one, and in the Snap Store. It's new, so please report anything that doesn't work on yours.
+
+## v26.11.4
+
+### ✨ Dagiti Baro a Feature
+
 - ✨ **Move to Another Section**: A media item's menu now has a **Move** submenu with Move up, Move down and the day's other sections, to send the item to another section in one click instead of dragging it there. With several items selected, **Move to section** gathers them all at the end of the section you pick; a section they're all already in isn't offered.
 
 ## v26.11.3

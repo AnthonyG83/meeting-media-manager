@@ -38,11 +38,12 @@ A interface principal do M³ é formada por várias áreas importantes:
 
 ### Entendendo a visualização do calendário {#calendar-view}
 
-A visualização do calendário mostra sua programação de reunião e as mídias disponíveis:
+Clique na data na parte superior da janela para abrir o calendário. Ele mostra todas as semanas para as quais o M³ prepara mídia, começando pela semana atual:
 
-- **Dias de reunião** - Os dias destacados mostram quando há reuniões programadas
-- **Indicadores de mídia** - Ícones mostram quais tipos de mídia estão disponíveis
-- **Navegação de data** - Use as teclas de seta para navegar entre os meses
+- **Semanas** - Cada linha é uma semana de segunda-feira a domingo, chamada "Esta semana", "Próxima semana", "Daqui a 2 semanas" e assim por diante, com as suas datas
+- **Dias de reunião** - Os dias de reunião ficam coloridos de acordo com o status: verde quando a mídia está pronta, laranja quando ainda não está pronta e vermelho se não foi possível buscá-la. Os dias com mídia que você mesmo adicionou ficam roxos. Uma legenda abaixo do calendário explica as cores
+- **Semanas especiais** - Durante a visita do superintendente de circuito e a semana da Celebração, os dias de reunião dessa semana ficam com a cor da semana, e o nome dela aparece abaixo das datas. Uma etiqueta ao lado da data, na parte superior da janela, indica o que muda no dia selecionado
+- **Teclado** - Use as teclas de seta para navegar entre os dias e Enter para selecionar um
 
 ### Organizando a mídia {#organizing-media}
 

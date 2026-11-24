@@ -32,11 +32,11 @@ Controla el tema de apariencia de M³.
 
 <!-- **Setting**: `firstDayOfWeek` -->
 
-Establece qué día debe considerarse el primero de la semana en la vista de calendario.
+Establece qué día debe considerarse el primero de la semana en los campos de fecha de la configuración, como la fecha de la visita del superintendente de circuito. El calendario de la parte superior de la ventana siempre muestra las semanas de lunes a domingo, como las semanas de reuniones.
 
 **Opciones**: De domingo a sábado
 
-**Predeterminado**: Domingo
+**Predeterminado**: Lunes
 
 ### Formato de fecha {#date-format}
 

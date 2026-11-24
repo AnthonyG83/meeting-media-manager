@@ -38,11 +38,12 @@ La interfaz principal de M³ consta de varias áreas clave:
 
 ### Entender la vista de calendario {#calendar-view}
 
-La vista de calendario muestra tu programa de reuniones y los archivos multimedia disponibles:
+Haz clic en la fecha de la parte superior de la ventana para abrir el calendario. Muestra todas las semanas para las que M³ prepara archivos multimedia, empezando por la actual:
 
-- **Días de reunión** - Los días resaltados muestran cuándo hay reuniones programadas
-- **Indicadores de archivos multimedia** - Los iconos muestran qué tipos de archivos multimedia están disponibles
-- **Navegación por fechas** - Usa las teclas de flecha para moverte entre meses
+- **Semanas** - Cada fila es una semana de lunes a domingo, llamada "Esta semana", "La próxima semana", "Dentro de 2 semanas" y así sucesivamente, con sus fechas
+- **Días de reunión** - Los días de reunión se colorean según su estado: verde cuando sus archivos multimedia están listos, naranja cuando aún no lo están y rojo si no se pudieron obtener. Los días con archivos multimedia que añadiste tú mismo aparecen en morado. Una leyenda debajo del calendario explica los colores
+- **Semanas especiales** - Durante la visita del superintendente de circuito y la semana de la Conmemoración, los días de reunión de esa semana toman el color de la semana, y su nombre aparece debajo de sus fechas. Una etiqueta junto a la fecha, en la parte superior de la ventana, indica lo que cambia el día seleccionado
+- **Teclado** - Usa las teclas de flecha para moverte entre los días y Enter para seleccionar uno
 
 ### Organizar archivos multimedia {#organizing-media}
 

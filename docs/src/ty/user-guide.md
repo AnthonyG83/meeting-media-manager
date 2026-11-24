@@ -38,11 +38,12 @@ Te vāhi matapihi mātāmua o te M³ e rave rahi ïa tu’u vāhi faufa’a rahi
 
 ### Te maramarama-ra’a i te hi’ora’a tarena {#calendar-view}
 
-’A fa’a’ite te hi’ora’a tarena i tō ’oe porotarama nō te mau putuputura’a e te mau rorouira e vai nei:
+’A pata i ni’a i te ta’io mahana i te pae ni’a o te matapihi nō te ’iriti i te tarena. E fa’a’ite te reira i te mau hepetoma ato’a e fa’aineine ai M³ i te media, ma te ha’amata i teie hepetoma:
 
-- **Te mau mahana putuputura’a** — ’A fa’a’ite te mau mahana i tātarahia i te mau mahana i fa’anahohia ai te mau putuputura’a
-- **Te mau tai’o rorouira** — ’A fa’a’ite te mau hoho’a i te huru o te mau rorouira e vai nei
-- **Te fa’aterera’a i te mau rā’i** — ’A fa’a’ohipa i te mau taviri te’a nō te haere mai te tahi ’āva’e i te tahi atu
+- **Te mau hepetoma** - E fa’a’ite te rēni tāta’itahi i te hō’ē hepetoma mai te Monire e tae atu i te Tāpati, ’e tōna i’oa (« Teie hepetoma », « Te hepetoma i muri nei », « I roto i te 2 hepetoma », e te tahi atu) ’e tōna mau ta’io mahana
+- **Te mau mahana putuputura’a** - E ’ū tō te mau mahana putuputura’a ’ia au i tō rātou huru: matie ’ia ineine tō rātou media, ’ānani ’ia ’ore ā i ineine, ’e ’ute’ute mai te peu ’aita i nehenehe e huti mai i te reira. E vare’au te mau mahana e vai ai te media tā ’oe iho i tāpiri. E fa’ata’a te hō’ē tapura iti i raro a’e i te tarena i te mau ’ū
+- **Te mau hepetoma ta’a ’ē** - I te roara’a o te fārereira’a a te ti’a’au ha’a’ati ’e o te hepetoma o te Oro’a Ha’amana’ora’a, e fa’a’ite te mau mahana putuputura’a o taua hepetoma ra i te ’ū o te hepetoma, ’e e pāpa’ihia te i’oa o te hepetoma i raro a’e i tōna mau ta’io mahana. E fa’a’ite te hō’ē tāpa’o i piha’iho i te ta’io mahana i te pae ni’a o te matapihi i te mea ta’a ’ē i te mahana i mā’itihia
+- **Te mau taviri** - ’A fa’a’ohipa i te mau taviri te’a nō te haere mai te tahi mahana i te tahi atu, ’e i te taviri Enter nō te mā’iti i te hō’ē
 
 ### Te fa’anahora’a i te mau rorouira {#organizing-media}
 

@@ -8,6 +8,13 @@ No te tā’āto’ara’a o te mau fa’ahopura’a i rotopū i te mau nūmera 
 
 ### ✨ Te mau rave’a ‘āpī
 
+- ✨ **Fārereira’a a te ti’a’au ha’a’ati ’e hepetoma o te Oro’a Ha’amana’ora’a**: I te roara’a o te fārereira’a a te ti’a’au ha’a’ati ’e o te hepetoma o te Oro’a Ha’amana’ora’a, e fa’a’ite te hō’ē tāpa’o i piha’iho i te ta’io mahana i te pae ni’a o te matapihi i te reira. ’A tu’u i te ’iore i ni’a iho nō te ’ite i te mea ta’a ’ē i te mahana i mā’itihia, mai te putuputura’a hāpene e fa’anu’uhia i te Mahana piti, te mau media e huna M³ i taua taime ra, ’aore rā te putuputura’a e monohia e te Oro’a Ha’amana’ora’a. I te mahana mātau o te putuputura’a hāpene i te hepetoma o te fārereira’a, ’aore rā i te mahana putuputura’a e monohia e te Oro’a Ha’amana’ora’a, e fa’ata’a te ’api vata i teie nei nō te aha ’aita e putuputura’a, ma te hō’ē pitopito nō te haere i te Mahana piti ’aore rā i te Oro’a Ha’amana’ora’a. I roto i te tarena, e fa’a’ite te mau mahana putuputura’a o taua hepetoma ra i te ’ū o te hepetoma, ’e e pāpa’ihia te i’oa o te hepetoma i raro a’e i tōna mau ta’io mahana.
+- ✨ **Linux i ni’a i te ARM**: I teie nei, e vai ato’a mai o M³ nō te mau roro uira Linux e te tāmoni ARM 64 bits (arm64), mai te Raspberry Pi 4 ’aore ra 5 e tōna fa’anahora’a 64 bits, ’aore ra te hō’ē roro uira ’āfa’ifa’i e te tāmoni Snapdragon e fa’a’ohipa ra i te Linux: ei AppImage, o te fa’ahou iāna iho mai tō te x86_64, ’e i roto i te Snap Store. E mea ’āpī teie, nō reira, ’a fa’a’ite mai i te mau mea ato’a e ’ore e ’ohipa maita’i i ni’a i tā ’oe roro uira.
+
+## v26.11.4
+
+### ✨ Te mau rave’a ‘āpī
+
 - ✨ **Fa’anu’u i roto i te tahi atu tuha’a**: I teie nei, e tāpura iti **Fa’anu’u** tō te tāpura o te hō’ē tuha’a media, e Fa’anu’u i ni’a, Fa’anu’u i raro ’e te tahi atu mau tuha’a o te mahana i roto, nō te tono i te reira i roto i te tahi atu tuha’a nā roto i te hō’ē noa pata, eiaha e tarī i te reira. ’Ia mā’iti-hia e rave rahi tuha’a media, e ha’aputuputu **Fa’anu’u i roto i te tuha’a** i te reira pauroa i te hope’a o te tuha’a ta ’oe e mā’iti; ’aita e fa’a’itehia te hō’ē tuha’a tei reira a’ena te reira pauroa.
 
 ## v26.11.3

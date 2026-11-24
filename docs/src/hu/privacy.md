@@ -1,8 +1,8 @@
 # Adatvédelmi szabályzat {#privacy-policy}
 
-Hatálybalépés napja: 2026. november 22.
+Hatálybalépés napja: 2026. november 24.
 
-A Meeting Media Manager (M³) egy ingyenes, nyílt forráskódú alkalmazás, amelyet önkéntesek készítettek. Ez a szabályzat elmagyarázza, milyen adatokat kezel az M³, és hová kerülnek ezek. Az M³ minden verziójára vonatkozik: az erről a weboldalról letölthető telepítőkre és hordozható verzióra, valamint a Microsoft Store-ban, a Snap Store-ban és a Flathubon elérhető verziókra.
+A Meeting Media Manager (M³) egy ingyenes, nyílt forráskódú alkalmazás, amelyet önkéntesek készítettek. Ez a szabályzat elmagyarázza, milyen adatokat kezel az M³, és hová kerülnek ezek. Az M³ minden verziójára vonatkozik: az erről a weboldalról letölthető telepítőkre és hordozható verzióra, valamint a Microsoft Store-ban és a Snap Store-ban elérhető verziókra.
 
 **Röviden:** Az M³-ban nincsenek fiókok, nincsenek hirdetések, és nincsenek reklám- vagy marketingcélú nyomkövetők. A beállításai és a médiafájljai a számítógépén maradnak. A problémák felderítése és javítása érdekében az M³ diagnosztikai adatokat küld a fejlesztőinek: hibajelentéseket, valamint információkat az egyes munkamenetekről és arról, hogy milyen gyorsan fut az M³. Az M³ kihagyja belőlük azt, ami alapján Önt vagy a gyülekezetét azonosítani lehetne, és az IP-címét nem tárolják.
 
@@ -19,7 +19,7 @@ A hibajelentések tartalmazzák e beállítások némelyikét (lásd alább), de
 
 Ha egy kamera képét jeleníti meg a médiaablakban (ez egy lehetőség a jelnyelvi gyülekezetek számára), az csak megjelenik: az M³ nem rögzíti, nem menti és nem küldi el. Az M³ a számítógépén készíti el a médiaablak Önnek megjelenített előnézetét, és ezt sem menti el, és nem is küldi el.
 
-Mindezt bármikor törölheti az M³ adatmappájának törlésével. Windows rendszeren az M³ eltávolítása is törli. A Snap Store-ból és a Flathubról telepített verziók megtartják, amikor eltávolítja őket, hacsak nem kéri, hogy ne tegyék (`snap remove --purge`, illetve `flatpak uninstall --delete-data`).
+Mindezt bármikor törölheti az M³ adatmappájának törlésével. Windows rendszeren az M³ eltávolítása is törli. A Snap Store-ból telepített verzió megtartja, amikor eltávolítja, hacsak nem kéri, hogy ne tegye (`snap remove --purge`).
 
 ## Diagnosztikai adatok {#error-reports}
 
@@ -28,7 +28,7 @@ Az M³ diagnosztikai adatokat küld a [Sentry](https://sentry.io) szolgáltatás
 **Hibajelentések**, amikor valami rosszul sül el az M³-ban. Egy jelentés a következőket tartalmazhatja:
 
 - a hiba, és az, hogy az M³ kódjának melyik pontján történt;
-- az M³ verziója, az operációs rendszere és annak verziója, a nyelve és az időzónája, valamint alapvető információk a hardveréről, például a videokártyájáról;
+- az M³ verziója és telepítésének módja, az operációs rendszere és annak verziója, a nyelve és az időzónája, valamint alapvető információk a hardveréről, például a videokártyájáról;
 - a hibához vezető lépések, például az M³-ban megnyitott oldalak és azok a fájlok, amelyeket éppen letöltött;
 - az M³ akkori állapota: a beállításai, és az, hogy éppen mit csinált, például melyik médiát játszotta le, vagy melyik összejövetelt készítette elő;
 - ha az M³ egy része összeomlik, az adott rész összeomlási jelentése, amely a memóriája egy részét is tartalmazhatja az összeomlás pillanatából.
@@ -56,7 +56,7 @@ Az M³ karbantartói ezeket az adatokat csak a problémák felderítésére és 
 Feladatai ellátásához az M³ az alábbi szerverekhez csatlakozik. Ahogy bármely weboldal, amelyet meglátogat, ezek a szerverek is láthatják a számítógépe IP-címét.
 
 - **Jehova Tanúi hivatalos weboldala** és letöltési szerverei, az összejöveteli média és a kiadványok, valamint a hozzájuk tartozó információk letöltéséhez. Arra, amit ez a weboldal megkap, a weboldal saját adatvédelmi szabályzata vonatkozik.
-- **GitHub**, ahol az M³-at közzéteszik, az M³ frissítéseinek kereséséhez és letöltéséhez, valamint az újdonságainak megjelenítéséhez. A Microsoft Store-ból, a Snap Store-ból és a Flathubról telepített verziók ehelyett a saját áruházukból kapják a frissítéseket.
+- **GitHub**, ahol az M³-at közzéteszik, az M³ frissítéseinek kereséséhez és letöltéséhez, valamint az újdonságainak megjelenítéséhez. A Microsoft Store-ból és a Snap Store-ból telepített verziók ehelyett a saját áruházukból kapják a frissítéseket.
 - **jsDelivr**, a bizonyos nyelvekhez szükséges betűtípusok, valamint az M³ által a PDF-fájlok olvasásához használt összetevő letöltéséhez.
 - **Apple, Cloudflare, icanhazip.com és ipify.org**, annak ellenőrzéséhez, hogy a számítógépe csatlakozik-e az internethez.
 - **Sentry**, a fent leírt diagnosztikai adatok elküldéséhez.
@@ -71,7 +71,7 @@ Ha Jehova Tanúi hivatalos weboldalát az M³ weboldal-ablakában jeleníti meg,
 
 ## Áruházak {#stores}
 
-Ha az M³-at a Microsoft Store-ból, a Snap Store-ból vagy a Flathubról telepíti, a telepítését és a frissítéseit az adott áruház kezeli, a saját adatvédelmi szabályzata szerint. Maga az M³ minden verzióban ugyanúgy működik.
+Ha az M³-at a Microsoft Store-ból vagy a Snap Store-ból telepíti, a telepítését és a frissítéseit az adott áruház kezeli, a saját adatvédelmi szabályzata szerint. Maga az M³ minden verzióban ugyanúgy működik.
 
 ## A szabályzat módosításai {#changes}
 

@@ -11,6 +11,33 @@ For translations of the most important changes, see the [`./release-notes/`](./r
 - 🔧 **Updates (this fork)**: Builds of this fork now update from this fork's own GitHub releases instead of the official ones, so an official update no longer replaces them and removes the timer remote controls. The "update available" reminder (shown when automatic updates are off) checks the same releases. Announcements, memorial data and release notes still come from the official project.
 - 🔧 **Releases (this fork)**: A new **Fork Release (Windows)** workflow builds this fork's Windows installer and uploads it to a draft release in this fork, ready to check and publish.
 
+## v26.11.5
+
+### ✨ New Features
+
+- ✨ **Circuit Overseer's Visit and Memorial Week**: During the circuit overseer's visit and the week of the Memorial, a label next to the date at the top of the window says so. Point at it to see what's different on the selected day, such as the midweek meeting moving to Tuesday, the media M³ hides then, or the meeting the Memorial replaces. On the usual midweek day of the visit, or the meeting day the Memorial replaces, the empty page now explains why there's no meeting, with a button that goes to Tuesday or to the Memorial. In the calendar, that week's meeting days take the week's color, and the week is named under its dates.
+- ✨ **Linux on ARM**: M³ now also comes for Linux computers with a 64-bit ARM processor (arm64), such as a Raspberry Pi 4 or 5 with its 64-bit system, or a laptop with a Snapdragon processor running Linux: as an AppImage, which updates itself like the x86_64 one, and in the Snap Store. It's new, so please report anything that doesn't work on yours.
+
+### 🛠️ Improvements and Tweaks
+
+- 🛠️ **Calendar**: The calendar that opens from the date at the top of the window now shows every week M³ prepares media for at once, instead of one month at a time with arrows to flip to the next one. Each row is a week from Monday to Sunday, named "This week", "Next week", "In 2 weeks" and so on. Meeting days are tinted by their status, which a legend explains: green when their media is ready, orange when it isn't yet, red if it couldn't be fetched, and purple for a day with media you added. The arrow keys move between days. M³ also now always prepares six full weeks, starting on Monday of the current week: before, how far ahead it went depended on the day of the week, so the last week was often only partly there. With a limited data connection, the calendar shows the whole current week (media is still only downloaded for today and tomorrow). Since the calendar's weeks always start on Monday, the **First day of the week** setting now applies to the date fields in Settings.
+- 🛠️ **Notifications**: Notifications and notices are easier to read. The notifications that pop up now use deeper shades of green, blue, orange and red, so their white text stands out on each of them (orange warnings had dark text), and all their buttons are white. The notices on the page and in popups, such as the ones about OBS Studio, hidden media or the Zoom Meeting Manager, now follow the light or dark theme: a soft tint of their color behind the usual text, with a colored icon and edge, instead of white text on a bright color that was hard to read. Colored hints, like a setting's warning or the reason it's turned off, use the same shades. Some notifications also changed color to match what they say: red when something failed (such as a video that couldn't be played, or a JWPUB file that couldn't be read), orange when something needs a look (such as updates being turned off, or the circuit overseer's visit date not being set), blue for information (such as the media preview switching to a lighter mode), and green when something is done.
+- 🛠️ **Hidden Media**: During the circuit overseer's visit, the notice that some media items are hidden is now blue, for information, instead of orange, a warning: that week, M³ itself hides the closing song and the Congregation Bible Study's media, so it's expected. On the visit's meeting days, the notice now also says so. Otherwise, it stays orange.
+- 🛠️ **Hidden Media**: The notice that some media items are hidden now has an ⓘ after its text. Point at it to see which ones are hidden, by name, with each song's number. A name too long for the list ends in "…".
+
+### 🐞 Bug Fixes
+
+- 🐞 **Start at Login (Microsoft Store version)**: In the Microsoft Store version, turning **Automatically start M³ on computer startup** on or off didn't work, and M³ sent an error report each time it started. It now works.
+- 🐞 **Zoom Meeting Manager**: The notification that media wasn't shared in Zoom because the Zoom automations are paused had no close button, unlike other notifications, and was orange while the similar one about a failed share was red. It now has a close button, and it's red too.
+- 🐞 **Yeartext Preview**: When next year's yeartext couldn't be fetched for its preview, the notification showed "{year}" instead of the year. It now names the year.
+- 🐞 **Before-Meeting Panel**: The before-meeting panel, and the notice left when it's dismissed, showed an empty space where their icon should be. They now show a clock.
+- 🐞 **Media Items**: A media item with a very long name made its right-click menu as wide as the name. The name at the top of the menu now ends in "…" instead.
+
+### 🔧 Chores
+
+- 🔧 **Error Reporting**: Error reports now say how M³ was installed (with its installer, as the portable version or the AppImage, or from an app store), and, on Windows and macOS, whether it runs under emulation on a computer with an ARM processor. This shows how many people would benefit from a Windows version made for ARM processors. The [privacy policy](https://sircharlo.github.io/meeting-media-manager/privacy) says so too.
+- 🔧 **Error Reporting**: Importing an AVI video no longer sends an error report saying its details can't be read. M³ already knows it can't read those files, and offers to convert them. And when M³ can't open a publication's database, it now reports it once instead of once for each lookup, saying whether the file and its folder were still there.
+
 ## v26.11.4
 
 ### ✨ New Features

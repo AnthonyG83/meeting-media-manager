@@ -1,8 +1,8 @@
 # Fa’aturera’a o te mau ha’amāramaramara’a nō ni’a iā ’oe {#privacy-policy}
 
-Taio mahana e mana ai: 22 nō Novema 2026
+Taio mahana e mana ai: 24 nō Novema 2026
 
-E porotarama tāmoni ’ore ’e puna matara te Meeting Media Manager (M³), tei hāmanihia e te mau rima tauturu. Te fa’ata’a nei teie fa’aturera’a e aha te mau ha’amāramaramara’a tā M³ e ha’apa’o ’e i hea te reira e haere ai. E mana teie fa’aturera’a i ni’a i te mau version ato’a o M³: te mau porotarama fa’atā’atira’a ’e te version Portable nō ni’a mai i teie reni natirara, ’e te mau version i roto i te Microsoft Store, te Snap Store ’e Flathub.
+E porotarama tāmoni ’ore ’e puna matara te Meeting Media Manager (M³), tei hāmanihia e te mau rima tauturu. Te fa’ata’a nei teie fa’aturera’a e aha te mau ha’amāramaramara’a tā M³ e ha’apa’o ’e i hea te reira e haere ai. E mana teie fa’aturera’a i ni’a i te mau version ato’a o M³: te mau porotarama fa’atā’atira’a ’e te version Portable nō ni’a mai i teie reni natirara, ’e te mau version i roto i te Microsoft Store ’e te Snap Store.
 
 **Ma te poto:** ’Aita tō M³ e pāpa’ira’a i’oa, ’aita e poro’i ho’ora’a, ’e ’aita e porotarama e pe’e i tā ’oe mau ’ohipa nō te poro’i ho’ora’a ’aore rā nō te ho’ora’a. E vai noa tā ’oe mau fa’anahora’a ’e tā ’oe mau media i ni’a i tō ’oe roro uira. Nō te ’imi ’e nō te tātā’i i te mau fifi, e hāpono M³ i te mau ha’amāramaramara’a hi’opo’ara’a i tōna feiā hāmani: te mau parau nō te hapa, ’e te mau ha’amāramaramara’a nō ni’a i te taime fa’a’ohipara’a tā’itahi ’e nō ni’a i te vitiviti o M³. E vaiiho M³ i rapae i te mau mea e nehenehe e fa’a’ite ’o vai ’oe ’aore rā ’o fea tā ’oe amuira’a, ’e ’aita tō ’oe vāhi noho IP e ha’aputuhia.
 
@@ -19,7 +19,7 @@ Tē vai ra te tahi o teie mau fa’anahora’a i roto i te mau parau nō te hapa
 
 Mai te peu e fa’a’ite ’oe i te hōho’a o te hō’ē matini haruharu hōho’a i ni’a i te ha’amāramarama media (e rāve’a nō te mau amuira’a reo aparaa rima), e fa’a’itehia noa te reira: ’aita M³ e haruharu, e ha’aputu ’aore rā e hāpono i te reira. Te hi’o-mata-ra’a o te ha’amāramarama media tā M³ e fa’a’ite iā ’oe, e haruhia ïa i ni’a i tō ’oe roro uira, ’e ’aita ato’a e ha’aputuhia ’aore rā e hāponohia.
 
-E nehenehe tā ’oe e ha’amou i teie mau mea ato’a i te mau taime ato’a, nā roto i te ha’amoura’a i te fā’ari parau ha’amāramaramara’a o M³. I ni’a i te Windows, ’ia fa’a’ore ’oe iā M³, e ha’amouhia ato’a te reira. E vaiiho te mau version nō Snap Store ’e nō Flathub i te reira ’ia fa’a’ore ’oe ia rātou, maori rā ’ia ani ’oe ia rātou ’ia ’ore e vaiiho (`snap remove --purge`, ’aore rā `flatpak uninstall --delete-data`).
+E nehenehe tā ’oe e ha’amou i teie mau mea ato’a i te mau taime ato’a, nā roto i te ha’amoura’a i te fā’ari parau ha’amāramaramara’a o M³. I ni’a i te Windows, ’ia fa’a’ore ’oe iā M³, e ha’amouhia ato’a te reira. E vaiiho te version nō Snap Store i te reira ’ia fa’a’ore ’oe iāna, maori rā ’ia ani ’oe iāna ’ia ’ore e vaiiho (`snap remove --purge`).
 
 ## Te mau ha’amāramaramara’a hi’opo’ara’a {#error-reports}
 
@@ -28,7 +28,7 @@ E hāpono M³ i te mau ha’amāramaramara’a hi’opo’ara’a iā [Sentry](h
 **Te mau parau nō te hapa**, ’ia tupu te hō’ē fifi i roto iā M³. I roto i te hō’ē parau, e nehenehe e vai:
 
 - te hapa, ’e te vāhi i roto i te reni porotarama a M³ i tupu ai te reira;
-- te version o M³, tā ’oe fa’anahora’a tōna’o ’e tōna version, tō ’oe reo ’e tō ’oe tuha’a hora, ’e te tahi mau ha’amāramaramara’a tumu nō ni’a i tā ’oe matini, mai tā ’oe kāta hōho’a;
+- te version o M³ ’e te huru i fa’ata’ahia ai, tā ’oe fa’anahora’a tōna’o ’e tōna version, tō ’oe reo ’e tō ’oe tuha’a hora, ’e te tahi mau ha’amāramaramara’a tumu nō ni’a i tā ’oe matini, mai tā ’oe kāta hōho’a;
 - te mau ta’ahira’a nā mua a’e i te hapa, mai te mau ’api i ’iritihia i roto iā M³ ’e te mau dosie tāna e tātari ra;
 - te huru o M³ i taua taime ra: tōna mau fa’anahora’a, ’e te ’ohipa tāna e rave ra, mai te media e ha’utihia ra ’aore rā te putuputura’a tāna e fa’aineine ra;
 - ’ia fa’aea tā’ue noa te hō’ē tuha’a o M³, te hō’ē parau nō te fa’aeara’a tā’ue o taua tuha’a ra, e nehenehe e vai i roto te tahi tuha’a o tōna ha’amana’ora’a (memory) i te taime mau o te fa’aeara’a tā’ue.
@@ -56,7 +56,7 @@ E fa’a’ohipa te feiā e ha’apa’o ra iā M³ i teie mau ha’amāramarama
 Nō te rave i tāna ’ohipa, e tū’ati M³ i te mau roro uira tāvini i raro nei. Mai te mau reni natirara ato’a tā ’oe e haere, e nehenehe teie mau roro uira tāvini e ’ite i te vāhi noho IP o tō ’oe roro uira.
 
 - **Te tahua natirara mana a te mau Ite nō Iehova** ’e tōna mau roro uira tāvini nō te tātarira’a, nō te tātari i te mau media nō te putuputura’a ’e te mau papai, ’e tō rātou mau ha’amāramaramara’a. Te fa’aturera’a iho a taua reni natirara ra nō te mau ha’amāramaramara’a te mana i ni’a i te mau mea tāna e fāri’i.
-- **GitHub**, te vāhi i reira M³ e piahia ai, nō te hi’opo’a ’e nō te tātari i te mau fa’ahoura’a o M³, ’e nō te fa’a’ite i te mau mea ’āpī i roto iāna. E fāri’i rā te mau version nō Microsoft Store, nō Snap Store ’e nō Flathub i tō rātou mau fa’ahoura’a mai tō rātou iho fare toa mai.
+- **GitHub**, te vāhi i reira M³ e piahia ai, nō te hi’opo’a ’e nō te tātari i te mau fa’ahoura’a o M³, ’e nō te fa’a’ite i te mau mea ’āpī i roto iāna. E fāri’i rā te mau version nō Microsoft Store ’e nō Snap Store i tō rātou mau fa’ahoura’a mai tō rātou iho fare toa mai.
 - **jsDelivr**, nō te tātari i te mau huru pāpa’ira’a e tītauhia e te tahi mau reo, ’e te tuha’a porotarama tā M³ e fa’a’ohipa nō te tai’o i te mau dosie PDF.
 - **Apple, Cloudflare, icanhazip.com ’e ipify.org**, nō te hi’opo’a ē ’ua tū’ati ānei tō ’oe roro uira i te itenati.
 - **Sentry**, nō te hāpono i te mau ha’amāramaramara’a hi’opo’ara’a i ni’a nei.
@@ -71,7 +71,7 @@ Mai te peu e fa’a’ohipa ’oe ia rātou, e ’ohipa ato’a M³ e teie mau m
 
 ## Te mau fare toa porotarama {#stores}
 
-Mai te peu e fa’atā’ati ’oe iā M³ mai te Microsoft Store, te Snap Store ’aore rā Flathub mai, nā taua fare toa ra e ha’apa’o i tōna fa’atā’atira’a ’e tōna mau fa’ahoura’a, ia au i tāna iho fa’aturera’a nō te mau ha’amāramaramara’a. E ’ohipa M³ iho i te huru hō’ē ā i roto i te mau version ato’a.
+Mai te peu e fa’atā’ati ’oe iā M³ mai te Microsoft Store ’aore rā te Snap Store mai, nā taua fare toa ra e ha’apa’o i tōna fa’atā’atira’a ’e tōna mau fa’ahoura’a, ia au i tāna iho fa’aturera’a nō te mau ha’amāramaramara’a. E ’ohipa M³ iho i te huru hō’ē ā i roto i te mau version ato’a.
 
 ## Te mau tauira’a i teie fa’aturera’a {#changes}
 

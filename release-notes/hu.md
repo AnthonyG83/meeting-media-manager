@@ -8,6 +8,13 @@ A verziók közötti változások teljes listáját megtalálja a GitHubon talá
 
 ### ✨ Új funkciók
 
+- ✨ **A körzetfelvigyázó látogatása és az emlékünnep hete**: A körzetfelvigyázó látogatása alatt és az emlékünnep hetében ezt egy címke jelzi az ablak tetején, a dátum mellett. Ha a címke fölé viszi az egeret, megláthatja, mi változik a kiválasztott napon, például hogy a hét közbeni összejövetel keddre kerül, milyen médiát rejt el ilyenkor az M³, vagy melyik összejövetel helyére lép az emlékünnep. A látogatás alatt a hét közbeni összejövetel szokásos napján, illetve azon az összejöveteli napon, amelynek a helyére az emlékünnep lép, az üres oldal mostantól elmagyarázza, miért nincs összejövetel, és egy gomb keddre vagy az emlékünnepre visz. A naptárban az adott hét összejöveteli napjai a hét színét kapják, és a hét neve a dátumai alatt jelenik meg.
+- ✨ **Linux ARM-on**: Az M³ mostantól a 64 bites ARM processzoros (arm64) linuxos számítógépekre is elérhető, például a 64 bites rendszert futtató Raspberry Pi 4-re vagy 5-re, vagy a Linuxot futtató, Snapdragon processzoros laptopokra: AppImage formátumban, amely az x86_64-es változathoz hasonlóan magától frissül, valamint a Snap Store-ban. Ez újdonság, ezért kérjük, jelezze, ha valami nem működik az Ön gépén.
+
+## v26.11.4
+
+### ✨ Új funkciók
+
 - ✨ **Áthelyezés másik szakaszba**: A médiaelemek menüjében mostantól van egy **Mozgat** almenü, benne a Felfelé mozgat, a Lefelé mozgat és a nap többi szakasza, így az elem egy kattintással áthelyezhető egy másik szakaszba, nem kell odahúzni. Ha több elem van kiválasztva, az **Áthelyezés szakaszba** mindet a választott szakasz végére gyűjti; az a szakasz, amelyben már mind benne vannak, nem jelenik meg.
 
 ## v26.11.3

@@ -378,15 +378,7 @@
             >
               <div
                 class="media-tag__icon text-white"
-                :class="
-                  tagVariant === 'song'
-                    ? 'bg-accent-400'
-                    : tagVariant === 'warn'
-                      ? 'bg-warning'
-                      : tagVariant === 'neutral'
-                        ? 'bg-accent-300'
-                        : undefined
-                "
+                :class="TAG_ICON_CLASSES[tagVariant]"
                 :style="
                   tagVariant === 'paragraph' ? paragraphCapStyle : undefined
                 "
@@ -396,13 +388,7 @@
               <div
                 v-if="showTagValue"
                 class="media-tag__value"
-                :class="
-                  tagVariant === 'warn'
-                    ? 'bg-warning text-white'
-                    : tagVariant === 'song'
-                      ? 'bg-accent-200'
-                      : undefined
-                "
+                :class="TAG_VALUE_CLASSES[tagVariant]"
                 :style="[
                   { fontSize: tagValueFontSize },
                   tagVariant === 'paragraph' ? paragraphValueStyle : {},
@@ -492,7 +478,11 @@
               v-else-if="playbackProblem"
               class="media-cannot-play row items-center no-wrap text-caption fades-under-hover-actions"
             >
-              <q-icon class="q-mr-xs" color="warning" name="mmm-warning" />
+              <q-icon
+                class="q-mr-xs"
+                color="notice-warning"
+                name="mmm-warning"
+              />
               <span class="ellipsis">
                 {{
                   t(
@@ -567,7 +557,7 @@
               <q-icon
                 v-if="currentSongIsDuplicated"
                 class="q-mr-sm"
-                color="warning"
+                color="notice-warning"
                 name="mmm-warning"
                 size="sm"
               >
@@ -990,7 +980,9 @@
             </q-item>
           </template>
           <template v-else>
-            <q-item-label header>{{ displayMediaTitle }}</q-item-label>
+            <q-item-label class="media-item__menu-title ellipsis" header>
+              {{ displayMediaTitle }}
+            </q-item-label>
             <!--
               UX-6 (full-audit-2026-09-04.md / full-audit backlog): Move up/
               Move down are the keyboard/screen-reader equivalent to the
@@ -1959,13 +1951,28 @@ const mediaTagClasses = {
   'q-pr-none': true,
 };
 
-const tagVariant = computed(() => {
+type TagVariant = 'neutral' | 'paragraph' | 'song' | 'warn';
+
+const tagVariant = computed((): TagVariant => {
   if (props.media.tag?.type === 'song') {
     return currentSongIsDuplicated.value ? 'warn' : 'song';
   }
   if (props.media.tag?.type === 'paragraph') return 'paragraph';
   return 'neutral';
 });
+
+// A paragraph tag takes its section's color instead (see below). A song that
+// appears more than once gets the warning's solid fill, with white text.
+const TAG_ICON_CLASSES: Partial<Record<TagVariant, string>> = {
+  neutral: 'bg-accent-300',
+  song: 'bg-accent-400',
+  warn: 'bg-notice-warning',
+};
+
+const TAG_VALUE_CLASSES: Partial<Record<TagVariant, string>> = {
+  song: 'bg-accent-200',
+  warn: 'bg-notice-warning text-white',
+};
 
 // Paragraph tags borrow the color of the meeting section the item belongs
 // to (the same one behind that section's colored left-edge bar), rather
@@ -3577,6 +3584,13 @@ watch(
 // before wrapping/crowding its segment.
 .tag-edit-card {
   min-width: 320px;
+}
+
+// The item's name, at the top of its right-click menu: one line, as wide as
+// the menu's own items make it (its length doesn't count toward the menu's
+// width), and ending in "…" when it's longer.
+.media-item__menu-title {
+  contain: inline-size;
 }
 
 .media-filter-filename-match {

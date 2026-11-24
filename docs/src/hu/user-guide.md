@@ -36,13 +36,14 @@ Az M³ fő felülete több fontos részből áll:
 
 ## Médiakezelés {#user-guide-media-management}
 
-### A Naptárnézet megértése {#calendar-view}
+### A naptárnézet megértése {#calendar-view}
 
-A naptárnézetben látható az összejövetelek ütemezése és a rendelkezésre álló média:
+Kattintson az ablak tetején lévő dátumra a naptár megnyitásához. Megjeleníti az összes hetet, amelyhez az M³ médiát készít elő, az aktuális héttel kezdve:
 
-- **Összejövetelek napjai** – A kiemelt napok jelzik, hogy mikorra vannak beütemezve az összejövetelek
-- **Médiajelzők** – Az ikonok jelzik, hogy milyen típusú média áll rendelkezésre
-- **Navigálás a dátumok között** - A nyílbillentyűkkel lapozhat a hónapok között
+- **Hetek** - Minden sor egy hétfőtől vasárnapig tartó hét a dátumaival, „Ez a hét”, „Jövő hét”, „2 hét múlva” stb. néven
+- **Összejövetelek napjai** - Az összejöveteli napok színe az állapotukat jelzi: zöld, ha a médiájuk kész, narancssárga, ha még nincs kész, és piros, ha nem sikerült letölteni. Azok a napok, amelyekhez Ön adott hozzá médiát, lilák. A naptár alatt jelmagyarázat mutatja a színek jelentését
+- **Különleges hetek** - A körzetfelvigyázó látogatása alatt és az emlékünnep hetében az adott hét összejöveteli napjai a hét színét kapják, és a hét neve a dátumai alatt jelenik meg. Az ablak tetején, a dátum mellett egy címke jelzi, mi változik a kiválasztott napon
+- **Billentyűzet** - A nyílbillentyűkkel lépkedhet a napok között, az Enterrel pedig kiválaszthatja a kívánt napot
 
 ### A média rendszerezése {#organizing-media}
 

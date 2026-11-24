@@ -166,6 +166,7 @@ import {
   checkLowDiskSpaceAndNotify,
   createTemporaryNotification,
   notifyDiskFull,
+  notifyYeartextPreviewFailed,
 } from 'src/helpers/notifications';
 import {
   handleTimerRemoteCommand,
@@ -465,7 +466,7 @@ const checkMacosFolderPermission = async (
     if (result.status !== 'granted') {
       createTemporaryNotification({
         message: t('macos-folder-permission-failed'),
-        type: 'warning',
+        type: 'negative',
       });
       return;
     }
@@ -797,7 +798,7 @@ bcClose.onmessage = (event) => {
         message: t('make-sure-that-m-is-in-not-use-before-quitting'),
         noClose: true,
         timeout: 10_000,
-        type: 'negative',
+        type: 'warning',
       });
       closeAttempts.value += 1;
       setTimeout(() => {
@@ -935,7 +936,7 @@ const initListeners = () => {
       group: 'gpu-crash',
       message: t('gpu-crash-detected'),
       timeout: 0,
-      type: 'negative',
+      type: 'warning',
     });
   });
 
@@ -952,12 +953,12 @@ const initListeners = () => {
     createTemporaryNotification({
       actions: [
         {
-          color: 'dark',
+          color: 'white',
           handler: goToHardwareAccelerationSetting,
           label: t('go-to-settings'),
         },
         {
-          color: 'dark',
+          color: 'white',
           icon: 'close',
           round: true,
         },
@@ -985,12 +986,12 @@ const initListeners = () => {
     createTemporaryNotification({
       actions: [
         {
-          color: 'dark',
+          color: 'white',
           handler: goToHardwareAccelerationSetting,
           label: t('go-to-settings'),
         },
         {
-          color: 'dark',
+          color: 'white',
           icon: 'close',
           round: true,
         },
@@ -999,7 +1000,7 @@ const initListeners = () => {
       group: 'gpu-crash',
       message: t('media-decode-failed'),
       timeout: 15_000,
-      type: 'warning',
+      type: 'negative',
     });
   });
 
@@ -1208,7 +1209,7 @@ const checkYeartextPreview = () => {
                 currentYear: currentYear,
               }),
               timeout: 5000,
-              type: 'positive',
+              type: 'info',
             });
             // Save to prevent asking every time
             appSettingsStore.yeartextPreviewDismissed[nextYear] = true;
@@ -1218,17 +1219,11 @@ const checkYeartextPreview = () => {
             }, 100);
           }, 10_000);
         } else {
-          createTemporaryNotification({
-            message: t('yeartext-preview-failed'),
-            type: 'negative',
-          });
+          notifyYeartextPreviewFailed(nextYear);
         }
       } catch (error) {
         errorCatcher(error);
-        createTemporaryNotification({
-          message: t('yeartext-preview-failed'),
-          type: 'negative',
-        });
+        notifyYeartextPreviewFailed(nextYear);
       } finally {
         // Only resume if we didn't succeed (if we succeeded, the timeout will handle it)
         if (!success) {
@@ -1241,21 +1236,21 @@ const checkYeartextPreview = () => {
     createTemporaryNotification({
       actions: [
         {
-          color: 'primary',
+          color: 'white',
           handler: () => {
             // Session dismissal handled by not showing again until app restart
           },
           label: t('later'),
         },
         {
-          color: 'negative',
+          color: 'white',
           handler: () => {
             appSettingsStore.yeartextPreviewDismissed[nextYear] = true;
           },
           label: t('no'),
         },
         {
-          color: 'positive',
+          color: 'white',
           handler: () => {
             void previewNextYearYeartext();
           },
@@ -1264,6 +1259,7 @@ const checkYeartextPreview = () => {
       ],
       message: t('yeartext-preview-next-year', { year: nextYear }),
       timeout: 0, // Don't auto-dismiss
+      type: 'info',
     });
   } catch (error) {
     errorCatcher(error);
@@ -1594,7 +1590,7 @@ watch(currentCongregation, async (newCongregation, oldCongregation) => {
         deferWhileDialogOpen: true,
         message: t('updates-disabled-warning'),
         timeout: 10_000,
-        type: 'info',
+        type: 'warning',
       });
     }
   } catch (error) {

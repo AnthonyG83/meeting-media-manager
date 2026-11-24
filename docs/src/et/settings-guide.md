@@ -32,11 +32,11 @@ Kontrolli M³ välimuse teemat.
 
 <!-- **Setting**: `firstDayOfWeek` -->
 
-Määra, millist päeva tuleks kalendri vaates pidada nädala esimeseks päevaks.
+Määra, millist päeva tuleks seadete kuupäevaväljadel, näiteks ringkonnaülevaataja külastuse kuupäeva juures, pidada nädala esimeseks päevaks. Akna ülaosas olev kalender näitab nädalaid alati esmaspäevast pühapäevani, nagu kestavad ka koosolekunädalad.
 
 **Valikud**: pühapäevast laupäevani
 
-**Vaikimisi**: Pühapäev
+**Vaikimisi**: esmaspäev
 
 ### Kuupäeva vorming {#date-format}
 

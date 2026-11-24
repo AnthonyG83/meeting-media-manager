@@ -8,6 +8,13 @@ Pour la liste complète des changements entre les versions, consultez notre fich
 
 ### ✨ Nouvelles fonctionnalités
 
+- ✨ **Visite du responsable de circonscription et semaine du Mémorial** : Pendant la visite du responsable de circonscription et la semaine du Mémorial, une étiquette à côté de la date, en haut de la fenêtre, le signale. Survolez-la pour voir ce qui change le jour sélectionné, comme le déplacement de la réunion de semaine au mardi, les médias que M³ masque alors, ou la réunion que remplace le Mémorial. Le jour habituel de la réunion de semaine pendant la visite, ou le jour de la réunion que remplace le Mémorial, la page vide explique désormais pourquoi il n'y a pas de réunion, avec un bouton qui mène au mardi ou au Mémorial. Dans le calendrier, les jours de réunion de la semaine prennent sa couleur, et son nom s'affiche sous ses dates.
+- ✨ **Linux sur ARM** : M³ est désormais aussi disponible pour les ordinateurs Linux équipés d'un processeur ARM 64 bits (arm64), comme un Raspberry Pi 4 ou 5 avec son système 64 bits, ou un ordinateur portable à processeur Snapdragon sous Linux : en AppImage, qui se met à jour toute seule comme celle pour x86_64, et dans le Snap Store. C'est nouveau : merci de signaler tout ce qui ne fonctionne pas sur le vôtre.
+
+## v26.11.4
+
+### ✨ Nouvelles fonctionnalités
+
 - ✨ **Déplacer vers une autre section** : Le menu d'un élément multimédia comporte désormais un sous-menu **Déplacer**, avec Déplacer vers le haut, Déplacer vers le bas et les autres sections du jour, pour envoyer l'élément dans une autre section en un clic au lieu de l'y faire glisser. Quand plusieurs éléments sont sélectionnés, **Déplacer vers la section** les regroupe tous à la fin de la section choisie ; une section où ils se trouvent déjà tous n'est pas proposée.
 
 ## v26.11.3

@@ -1,8 +1,8 @@
 # Privaatsuspoliitika {#privacy-policy}
 
-Jõustumise kuupäev: 22. november 2026
+Jõustumise kuupäev: 24. november 2026
 
-Meeting Media Manager (M³) on tasuta avatud lähtekoodiga rakendus, mille on loonud vabatahtlikud. Selles poliitikas selgitatakse, milliseid andmeid M³ töötleb ja kuhu need lähevad. See kehtib M³ kõigi versioonide kohta: sellelt veebisaidilt saadavad installifailid ja kaasaskantav versioon ning versioonid Microsoft Store'is, Snap Store'is ja Flathubis.
+Meeting Media Manager (M³) on tasuta avatud lähtekoodiga rakendus, mille on loonud vabatahtlikud. Selles poliitikas selgitatakse, milliseid andmeid M³ töötleb ja kuhu need lähevad. See kehtib M³ kõigi versioonide kohta: sellelt veebisaidilt saadavad installifailid ja kaasaskantav versioon ning versioonid Microsoft Store'is ja Snap Store'is.
 
 **Lühidalt:** M³-l pole kontosid, reklaame ega reklaami- või turundusjälgijaid. Sinu seaded ja meedia jäävad sinu arvutisse. Probleemide leidmiseks ja parandamiseks saadab M³ oma arendajatele diagnostikaandmeid: veaaruandeid ning teavet iga seansi kohta ja selle kohta, kui kiiresti M³ töötab. Sealt jätab M³ välja selle, mis võiks tuvastada sind või sinu kogudust, ning sinu IP-aadressi ei säilitata.
 
@@ -19,7 +19,7 @@ Veaaruanded sisaldavad osa neist seadetest (vt allpool), kuid mitte kunagi neid,
 
 Kui näitad meediaaknas kaamera pilti (valik viipekeele kogudustele), siis seda ainult kuvatakse: M³ ei lindista, salvesta ega saada seda. Meediaakna eelvaade, mida M³ sulle näitab, jäädvustatakse sinu arvutis ning ka seda ei salvestata ega saadeta.
 
-Saad selle kõik igal ajal kustutada, kustutades M³ andmekausta. Windowsis kustutatakse see ka M³ desinstallimisel. Snap Store'i ja Flathubi versioonid jätavad selle desinstallimisel alles, välja arvatud juhul, kui palud neil seda mitte teha (`snap remove --purge` või `flatpak uninstall --delete-data`).
+Saad selle kõik igal ajal kustutada, kustutades M³ andmekausta. Windowsis kustutatakse see ka M³ desinstallimisel. Snap Store'i versioon jätab selle desinstallimisel alles, välja arvatud juhul, kui palud sellel seda mitte teha (`snap remove --purge`).
 
 ## Diagnostikaandmed {#error-reports}
 
@@ -28,7 +28,7 @@ M³ saadab diagnostikaandmeid teenusele [Sentry](https://sentry.io), mida M³ ar
 **Veaaruanded**, kui M³-s midagi valesti läheb. Aruanne võib sisaldada:
 
 - viga ja kohta M³ koodis, kus see tekkis;
-- M³ versiooni, sinu operatsioonisüsteemi ja selle versiooni, sinu keelt ja ajavööndit ning põhiteavet sinu riistvara kohta, näiteks sinu graafikakaardi kohta;
+- M³ versiooni ja paigaldusviisi, sinu operatsioonisüsteemi ja selle versiooni, sinu keelt ja ajavööndit ning põhiteavet sinu riistvara kohta, näiteks sinu graafikakaardi kohta;
 - samme, mis viisid veani, näiteks M³-s avatud lehti ja faile, mida M³ parajasti alla laadis;
 - M³ olekut sel hetkel: selle seadeid ja seda, mida see parajasti tegi, näiteks esitatavat meediat või koosolekut, mida see ette valmistas;
 - kui mõni M³ osa jookseb kokku, selle osa krahhiaruannet, mis võib sisaldada osa selle mälust krahhi hetkel.
@@ -56,7 +56,7 @@ M³ hooldajad kasutavad neid andmeid ainult probleemide leidmiseks ja parandamis
 Oma töö tegemiseks ühendub M³ allpool loetletud serveritega. Nagu iga veebisait, mida külastad, näevad ka need serverid sinu arvuti IP-aadressi.
 
 - **Jehoova tunnistajate ametlik veebisait** ja selle allalaadimisserverid, et laadida alla koosolekute meediat ja väljaandeid ning nende kohta käivat teavet. Selle veebisaidi enda privaatsuspoliitika kehtib selle kohta, mida see saab.
-- **GitHub**, kus M³ avaldatakse, et kontrollida M³ uuendusi, neid alla laadida ja näidata, mis M³-s uut on. Microsoft Store'i, Snap Store'i ja Flathubi versioonid saavad oma uuendused hoopis oma poest.
+- **GitHub**, kus M³ avaldatakse, et kontrollida M³ uuendusi, neid alla laadida ja näidata, mis M³-s uut on. Microsoft Store'i ja Snap Store'i versioonid saavad oma uuendused hoopis oma poest.
 - **jsDelivr**, et laadida alla fonte, mida mõned keeled vajavad, ja komponenti, mida M³ kasutab PDF-failide lugemiseks.
 - **Apple, Cloudflare, icanhazip.com ja ipify.org**, et kontrollida, kas sinu arvuti on internetiga ühendatud.
 - **Sentry**, et saata ülalkirjeldatud diagnostikaandmeid.
@@ -71,7 +71,7 @@ Kui kuvad Jehoova tunnistajate ametlikku veebisaiti M³ veebisaidi aknas, tööt
 
 ## Rakenduste poed {#stores}
 
-Kui installid M³ Microsoft Store'ist, Snap Store'ist või Flathubist, haldab see pood M³ installimist ja uuendusi oma privaatsuspoliitika alusel. M³ ise töötab igas versioonis ühtemoodi.
+Kui installid M³ Microsoft Store'ist või Snap Store'ist, haldab see pood M³ installimist ja uuendusi oma privaatsuspoliitika alusel. M³ ise töötab igas versioonis ühtemoodi.
 
 ## Selle poliitika muudatused {#changes}
 

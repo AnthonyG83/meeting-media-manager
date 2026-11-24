@@ -8,6 +8,13 @@ Per l'elenco completo delle modifiche tra le versioni, consulta il file CHANGELO
 
 ### ✨ Nuove funzionalità
 
+- ✨ **Visita del sorvegliante di circoscrizione e settimana della Commemorazione**: durante la visita del sorvegliante di circoscrizione e la settimana della Commemorazione, un'etichetta accanto alla data in alto nella finestra lo segnala. Passaci sopra il mouse per vedere cosa cambia nel giorno selezionato, come l'adunanza infrasettimanale spostata al martedì, i media che M³ nasconde in quei giorni o l'adunanza sostituita dalla Commemorazione. Nel giorno in cui di solito si tiene l'adunanza infrasettimanale durante la visita, o nel giorno dell'adunanza sostituita dalla Commemorazione, la pagina vuota ora spiega perché non c'è l'adunanza, con un pulsante che porta al martedì o alla Commemorazione. Nel calendario, i giorni delle adunanze di quella settimana prendono il colore della settimana e sotto le date compare il nome della settimana.
+- ✨ **Linux su ARM**: M³ ora è disponibile anche per i computer Linux con processore ARM a 64 bit (arm64), come un Raspberry Pi 4 o 5 con il suo sistema a 64 bit, o un portatile con processore Snapdragon che usa Linux: come AppImage, che si aggiorna da sola come quella per x86_64, e nello Snap Store. È una novità, quindi segnala qualsiasi cosa non funzioni sul tuo.
+
+## v26.11.4
+
+### ✨ Nuove funzionalità
+
 - ✨ **Sposta in un'altra sezione**: il menu di un elemento multimediale ora ha un sottomenu **Sposta** con Sposta in alto, Sposta in basso e le altre sezioni del giorno, per mandare l'elemento in un'altra sezione con un clic invece di trascinarlo. Con più elementi selezionati, **Sposta nella sezione** li raccoglie tutti alla fine della sezione che scegli; una sezione in cui si trovano già tutti non viene proposta.
 
 ## v26.11.3
