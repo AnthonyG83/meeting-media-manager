@@ -8,6 +8,12 @@ A verziók közötti változások teljes listáját megtalálja a GitHubon talá
 
 ### ✨ Új funkciók
 
+- ✨ **Áthelyezés másik szakaszba**: A médiaelemek menüjében mostantól van egy **Mozgat** almenü, benne a Felfelé mozgat, a Lefelé mozgat és a nap többi szakasza, így az elem egy kattintással áthelyezhető egy másik szakaszba, nem kell odahúzni. Ha több elem van kiválasztva, az **Áthelyezés szakaszba** mindet a választott szakasz végére gyűjti; az a szakasz, amelyben már mind benne vannak, nem jelenik meg.
+
+## v26.11.3
+
+### ✨ Új funkciók
+
 - ✨ **A számítógépén nem lejátszható média**: Egyes videók lejátszásakor bizonyos számítógépeken nincs kép vagy nincs hang: ilyen lehet egy HEVC-videó olyan videokártyán, amely nem tudja dekódolni, egy régi AVI- vagy MPEG-4-videó, vagy egy AC-3 vagy DTS hangsávú film. Az M³ mostantól azonnal jelzi, amint ilyet talál, a médiaelemen és egy értesítésben is, az összejövetel előtti panel pedig emlékezteti rá, így jóval azelőtt megoldhatja a problémát, hogy szüksége lenne a videóra. Az M³ az ilyen videóknál már azt sem javasolja, hogy kapcsolja ki a hardveres gyorsítást, ami csak rontana a helyzeten. Az „Átalakítás” olyan másolatot készít, amely bármelyik számítógépen lejátszható, és amikor csak lehet, a videokártyát használja, hogy az M³ és az összejövetel is zökkenőmentes maradjon. Az előrehaladás a médiaelemen és a „Média szinkronizálása” felugró ablakban látható, ahol meg is szakíthatja az átalakítást. Az Ön által importált fájl helyére az átalakított másolata kerül; a megosztott mappából származó fájl változatlan marad, az M³ pedig egy ezen a számítógépen tárolt átalakított másolatot játszik le.
 
 ## v26.11.2

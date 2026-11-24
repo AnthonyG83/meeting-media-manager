@@ -8,6 +8,12 @@ Täielik nimekiri versioonide vahelistest muudatustest on esitatud failis CHANGE
 
 ### ✨ Uued funktsioonid
 
+- ✨ **Teise jaotisesse liigutamine**: Meediaelemendi menüüs on nüüd alammenüü **Liiguta**, kus on Liiguta üles, Liiguta alla ja päeva teised jaotised, et saaksid elemendi ühe klõpsuga teise jaotisesse saata, selle asemel et seda sinna lohistada. Kui valitud on mitu elementi, koondab **Liiguta jaotisesse** need kõik selle jaotise lõppu, mille valid; jaotist, kus need kõik juba on, ei pakuta.
+
+## v26.11.3
+
+### ✨ Uued funktsioonid
+
 - ✨ **Meedia, mida sinu arvuti ei suuda esitada**: Mõnes arvutis esitatakse osa videoid ilma pildita või ilma helita: HEVC-video graafikakaardil, mis ei suuda seda dekodeerida, vana AVI- või MPEG-4-video või AC-3- või DTS-heliga film. M³ annab nüüd kohe teada, kui leiab sellise faili, nii meediaelemendil kui ka teavituses, ja koosolekueelne paneel tuletab seda meelde, nii et saad probleemi lahendada aegsasti enne, kui faili vaja läheb. Samuti ei soovita M³ sellise video puhul enam riistvaralist kiirendust keelata, mis teeks olukorra ainult hullemaks. „Teisenda” teeb koopia, mida saab esitada igas arvutis, ja kasutab võimaluse korral sinu graafikakaarti, et M³ ja koosolek kulgeksid sujuvalt. Edenemist näeb meediaelemendil ja meediafailide sünkroniseerimise hüpikaknas, kus saad teisendamise ka tühistada. Sinu imporditud fail asendatakse selle teisendatud koopiaga; jagatud kaustast pärit fail jääb muutmata ja M³ esitab selles arvutis hoitavat teisendatud koopiat.
 
 ## v26.11.2

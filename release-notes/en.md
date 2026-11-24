@@ -4,7 +4,13 @@
 
 For the full list of changes between versions, see our CHANGELOG.md file on GitHub.
 
-## UPCOMING VERSION
+## v26.11.4
+
+### ✨ New Features
+
+- ✨ **Move to Another Section**: A media item's menu now has a **Move** submenu with Move up, Move down and the day's other sections, to send the item to another section in one click instead of dragging it there. With several items selected, **Move to section** gathers them all at the end of the section you pick; a section they're all already in isn't offered.
+
+## v26.11.3
 
 ### ✨ New Features
 

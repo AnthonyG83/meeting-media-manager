@@ -16,11 +16,28 @@ import { dependencies as electronDependencies } from './src-electron/package.jso
 const IS_DEV = process.env.NODE_ENV === 'development';
 const IS_BETA = version.includes('beta');
 const IS_TEST = process.env.TEST_VERSION === 'true';
+// The Snap Store build (the snap job in .github/workflows/build.yml): a snap
+// instead of the AppImage.
+const IS_SNAP = process.env.M3_SNAP === 'true';
+// The Microsoft Store build (the msix job in .github/workflows/build.yml): an
+// MSIX package instead of the installer and the portable build.
+const IS_MSIX = process.env.M3_MSIX === 'true';
+// The Flathub build (build/flatpak): the unpacked app, which the Flatpak
+// manifest installs itself, instead of the AppImage.
+const IS_FLATPAK = process.env.M3_FLATPAK === 'true';
 
 // App
 const APP_NAME = `${name}${IS_TEST ? '-test' : ''}`;
 const PRODUCT_NAME = `${productName}${IS_TEST ? ' - Test' : ''}`;
 const APP_ID = `sircharlo.${APP_NAME}`;
+
+// M³'s package identity in the Microsoft Store, from the product's Product
+// identity page in Partner Center (Store ID 9PDC5BZ593BM). Public: every
+// installed package shows it. A test build gets its own name, so it installs
+// next to the Store's.
+const MSIX_IDENTITY_NAME = `CharlesOlivierSavignac.MeetingMediaManager${IS_TEST ? '.Test' : ''}`;
+const MSIX_PUBLISHER = 'CN=EA85FE0C-CB16-4547-83BB-237BB2238CA4';
+const MSIX_PUBLISHER_DISPLAY_NAME = 'Charles Olivier Savignac';
 
 // Sentry
 const SENTRY_ORG = 'jw-projects';
@@ -39,6 +56,12 @@ const getIconPath = (iconType: 'icns' | 'ico' | 'png' | 'splash') => {
     return `../build/logos/splash-portable.bmp`;
   }
   return `electron-assets/icons/${IS_BETA ? 'beta' : 'icon'}.${iconType}`;
+};
+
+const getLinuxTarget = () => {
+  if (IS_SNAP) return 'snap';
+  if (IS_FLATPAK) return 'dir';
+  return 'AppImage';
 };
 
 export default defineConfig((ctx) => {
@@ -88,6 +111,8 @@ export default defineConfig((ctx) => {
         IS_BETA,
         IS_DEV,
         IS_TEST,
+        MSIX_IDENTITY_NAME,
+        MSIX_PUBLISHER,
         PRODUCT_NAME,
         repository: repoURL,
         SENTRY_DSN,
@@ -156,13 +181,52 @@ export default defineConfig((ctx) => {
     electron: {
       builder: {
         appId: APP_ID,
+        // The MSIX (M3_MSIX=true, see IS_MSIX) for the Microsoft Store, which
+        // signs it. A desktop app's full trust (runFullTrust), as always.
+        appx: {
+          applicationId: 'MeetingMediaManager',
+          // The tiles' background: none, so the icon keeps its own shape.
+          backgroundColor: 'transparent',
+          // A sign-language congregation's camera feed: a packaged app only
+          // gets the camera if it declares it.
+          capabilities: ['webcam'],
+          // electron-builder's manifest, plus the startup task that "Start
+          // at login" turns on (see the file). An absolute path, like the
+          // extraResources below.
+          customManifestPath: fileURLToPath(
+            new URL('./build/appxmanifest.xml', import.meta.url),
+          ),
+          displayName: PRODUCT_NAME,
+          identityName: MSIX_IDENTITY_NAME,
+          // Windows 10 1809, the oldest version Microsoft still supports
+          // (LTSC 2019), and Windows 11 24H2.
+          maxVersionTested: '10.0.26100.0',
+          minVersion: '10.0.17763.0',
+          publisher: MSIX_PUBLISHER,
+          publisherDisplayName: MSIX_PUBLISHER_DISPLAY_NAME,
+        },
         // eslint-disable-next-line no-template-curly-in-string
         artifactName: APP_NAME + '-${version}-${arch}.${ext}',
+        // FFmpeg, for media conversions, with its license and where its
+        // source is (see scripts/fetch-ffmpeg.mjs, which `yarn build` runs).
+        // An absolute path, like the Zoom helper's below.
+        extraResources: [
+          {
+            filter: [
+              'bin/ffmpeg',
+              'bin/ffmpeg.exe',
+              'COPYING.GPLv3',
+              'README.md',
+            ],
+            from: fileURLToPath(new URL('./build/ffmpeg', import.meta.url)),
+            to: 'ffmpeg',
+          },
+        ],
         generateUpdatesFilesForAllChannels: true,
         linux: {
           category: 'Utility',
           icon: getIconPath('png'),
-          target: 'AppImage',
+          target: getLinuxTarget(),
         },
         mac: {
           // Unlike other resource paths in this config, mac.entitlements is read
@@ -215,6 +279,49 @@ export default defineConfig((ctx) => {
         },
         productName: PRODUCT_NAME,
         publish: ['github'],
+        // The snap (M3_SNAP=true, see IS_SNAP): core24 with snapcraft's gnome
+        // extension, which supplies GTK and the desktop, desktop-legacy,
+        // gsettings, opengl, wayland and x11 plugs. Built by snapcraft in an
+        // LXD container. Strict confinement, so M³ reaches only what a plug
+        // below grants.
+        snapcraft: {
+          base: 'core24',
+          core24: {
+            grade: 'stable',
+            plugs: [
+              'audio-playback',
+              // Chromium's own needs. Without allow-sandbox, which the Snap
+              // Store keeps for browsers, electron-builder starts M³ with
+              // --no-sandbox: snap confinement is the sandbox then.
+              'browser-support',
+              // A sign-language congregation's camera feed.
+              'camera',
+              // Media and backup folders in the user's home folder.
+              'home',
+              // Downloads, and OBS Studio's WebSocket.
+              'network',
+              // The timer remote's web server.
+              'network-bind',
+              // safeStorage, which encrypts the OBS password with the
+              // keyring. Without it, the password is saved as plain text,
+              // and M³ says so.
+              'password-manager-service',
+              // Folders on USB drives and other disks, in /media and /mnt.
+              'removable-media',
+              // Keeps the screen awake while a video plays.
+              'screen-inhibit-control',
+              // robotjs' key presses to Zoom go through XTest.
+              'x11',
+            ],
+            // No stage-packages: the gnome extension's runtimes already
+            // supply what Electron and robotjs link to (NSS, ALSA and libXtst
+            // in gnome-46-2404, X11 and GBM in mesa-2404), and get their
+            // security updates from them. A staged copy would come first
+            // on the library path and stay as old as the snap.
+            summary: 'Download and present media for congregation meetings',
+            useLXD: true,
+          },
+        },
         win: {
           // The Zoom Meeting Manager's UI Automation helper, compiled at
           // runtime by Windows PowerShell. An absolute path: a relative one
@@ -230,7 +337,11 @@ export default defineConfig((ctx) => {
             },
           ],
           icon: getIconPath('ico'),
-          target: [{ arch: 'x64', target: 'nsis' }, 'portable'],
+          // The MSIX's tiles come from src-electron/appx, which
+          // `yarn generate:logos` fills (build/profiles/appx-win.json).
+          target: IS_MSIX
+            ? [{ arch: 'x64', target: 'appx' }]
+            : [{ arch: 'x64', target: 'nsis' }, 'portable'],
         },
       },
       bundler: 'builder', // 'packager' or 'builder'

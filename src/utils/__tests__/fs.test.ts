@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   betaUpdatesDisabled,
   getAdditionalMediaPath,
+  getConvertedMediaPath,
   getFileSizeIfExists,
   getFontsPath,
   getParentDirectory,
@@ -26,6 +27,11 @@ import {
   trimFilepathAsNeeded,
   updatesDisabled,
 } from '../fs';
+
+// Before ../fs takes it from electronApi.
+const checkForUpdatesSpy = vi.hoisted(() =>
+  vi.spyOn(globalThis.electronApi, 'checkForUpdates'),
+);
 
 const { fs } = globalThis.electronApi;
 const { emptyDir, ensureFile, pathExists, remove } = fs;
@@ -97,6 +103,19 @@ describe('Paths', () => {
     });
 
     await Promise.all(paths.map((path) => remove(path)));
+  });
+
+  // MMM-V2-3P3: cleaning up asks for it on every computer, converting or
+  // not; a conversion creates its date's folder itself.
+  it("doesn't create the Converted Media folder just to name it", async () => {
+    // Whatever an earlier run left there.
+    await remove(await getConvertedMediaPath());
+
+    const path = await getConvertedMediaPath();
+
+    expect(path).toContain(basePath);
+    expect(path.endsWith('/Converted Media')).toBe(true);
+    expect(await pathExists(path)).toBe(false);
   });
 
   it('should overwrite default cache location', async () => {
@@ -235,6 +254,14 @@ describe('auto updates', () => {
     await toggleAutoUpdates(true);
     expect(await updatesDisabled()).toBe(false);
   });
+
+  it('tells the updater when they are turned off, not only on', async () => {
+    checkForUpdatesSpy.mockClear();
+    await toggleAutoUpdates(false);
+    expect(checkForUpdatesSpy).toHaveBeenCalledOnce();
+    await toggleAutoUpdates(true);
+    expect(checkForUpdatesSpy).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('beta updates', () => {
@@ -245,5 +272,21 @@ describe('beta updates', () => {
     expect(await betaUpdatesDisabled()).toBe(false);
     await toggleBetaUpdates(false);
     expect(await betaUpdatesDisabled()).toBe(true);
+  });
+});
+
+describe('updates in a store build', () => {
+  it("leaves them to the store: M³'s own switches don't apply, and there are no betas", async () => {
+    await toggleAutoUpdates(false);
+    await toggleBetaUpdates(true);
+    globalThis.electronApi.appStore = 'microsoft-store';
+    try {
+      expect(await updatesDisabled()).toBe(false);
+      expect(await betaUpdatesDisabled()).toBe(true);
+    } finally {
+      globalThis.electronApi.appStore = null;
+      await toggleAutoUpdates(true);
+      await toggleBetaUpdates(false);
+    }
   });
 });

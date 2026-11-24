@@ -8,6 +8,12 @@ Voor de volledige lijst van wijzigingen tussen versies, zie ons CHANGELOG.md bes
 
 ### ✨ Nieuwe functies
 
+- ✨ **Naar een andere sectie verplaatsen**: Het menu van een media-item heeft nu een submenu **Verplaatsen** met Naar boven verplaatsen, Naar beneden verplaatsen en de andere secties van de dag, zodat je het item met één klik naar een andere sectie stuurt in plaats van het erheen te slepen. Als er meerdere items geselecteerd zijn, zet **Naar sectie verplaatsen** ze allemaal aan het einde van de gekozen sectie; een sectie waar ze allemaal al in staan, wordt niet aangeboden.
+
+## v26.11.3
+
+### ✨ Nieuwe functies
+
 - ✨ **Media die je computer niet kan afspelen**: Sommige video's worden op bepaalde computers zonder beeld of zonder geluid afgespeeld: een HEVC-video op een videokaart die de video niet kan decoderen, een oude AVI- of MPEG-4-video, of een film met AC-3- of DTS-geluid. M³ laat het je nu weten zodra het er een vindt, bij het media-item en in een melding, en het paneel vóór de vergadering herinnert je eraan, zodat je het probleem ruim van tevoren kunt oplossen. Ook raadt M³ bij zo'n video niet langer aan om hardwareversnelling uit te schakelen, wat het alleen maar erger zou maken. "Omzetten" maakt een kopie die op elke computer kan worden afgespeeld, en gebruikt daarbij zo mogelijk je videokaart, zodat M³ en de vergadering soepel blijven lopen. De voortgang is te zien bij het media-item en in het pop-upvenster van de mediasynchronisatie, waar je het omzetten ook kunt annuleren. Een bestand dat je hebt geïmporteerd, wordt vervangen door de omgezette kopie; een bestand uit je gedeelde map blijft zoals het is, en M³ speelt een omgezette kopie af die op deze computer wordt bewaard.
 
 ## v26.11.2

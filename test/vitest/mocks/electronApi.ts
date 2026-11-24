@@ -30,6 +30,7 @@ const fakePath = async (path: string, create = true) => {
 };
 
 export const electronApi: ElectronApi = {
+  appStore: null,
   askForMediaAccess: function () {
     throw new Error('Function not implemented.');
   },
@@ -80,6 +81,8 @@ export const electronApi: ElectronApi = {
   },
   getAppDataPath: async () => fakePath('app'),
   getBetaUpdatesPath: async () => fakePath('app/beta-updates', false),
+  getBundledFfmpegPath: async () => null,
+  getInstalledZoomVersion: async () => null,
   getLocales: async () => [],
   getLocalPathFromFileObject: function (fileObject) {
     throw new Error('Function not implemented.');
@@ -203,6 +206,10 @@ export const electronApi: ElectronApi = {
   },
   onWatchFolderUpdate: function (callback) {
     throw new Error('Function not implemented.');
+  },
+  onWebsiteLoadFailed: function (callback) {
+    log('onWebsiteLoadFailed called but not implemented');
+    return () => undefined;
   },
   onWebsiteWindowClosed: function (callback) {
     log('onWebsiteWindowClosed called but not implemented');

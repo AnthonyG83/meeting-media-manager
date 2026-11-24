@@ -8,6 +8,12 @@ Para obter a lista completa das mudanças entre versões, consulte nosso arquivo
 
 ### ✨ Novos Recursos
 
+- ✨ **Mover para outra seção**: Agora o menu de um item de mídia tem um submenu **Mover** com Mover para cima, Mover para baixo e as outras seções do dia, para enviar o item para outra seção com um clique, em vez de arrastá-lo até lá. Com vários itens selecionados, **Mover para a seção** reúne todos eles no fim da seção que você escolher; uma seção em que todos já estão não é oferecida.
+
+## v26.11.3
+
+### ✨ Novos Recursos
+
 - ✨ **Mídias que seu computador não consegue reproduzir**: Em alguns computadores, certos vídeos são reproduzidos sem imagem ou sem som: um vídeo HEVC em uma placa de vídeo que não consegue decodificá-lo, um vídeo AVI ou MPEG-4 antigo, ou um filme com som AC-3 ou DTS. Agora o M³ avisa você assim que encontra um, no item de mídia e em uma notificação, e o painel de antes da reunião lembra você disso, para que possa resolver o problema bem antes de precisar do arquivo. Ele também não sugere mais desabilitar a aceleração de hardware para esse tipo de vídeo, o que só pioraria as coisas. A conversão cria uma cópia que pode ser reproduzida em qualquer computador, usando sua placa de vídeo quando possível para que o M³ e a reunião continuem funcionando bem. O progresso aparece no item de mídia e no pop-up "Baixar mídia", onde você também pode cancelar a conversão. Um arquivo que você importou é substituído pela cópia convertida; um arquivo da sua pasta compartilhada fica como está, e o M³ reproduz uma cópia convertida guardada neste computador.
 
 ## v26.11.2

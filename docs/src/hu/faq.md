@@ -275,7 +275,7 @@ Ha a számítógépet kikapcsolták vagy újraindították, miközben az M³ egy
 
 Ha a számítógép nem tud csatlakozni az internethez, az M³ által korábban letöltött telepítő általában még megvan: nyomja meg a `Win+R` billentyűkombinációt, írja be a `%LOCALAPPDATA%\meeting-media-manager-updater\pending` útvonalat, majd futtassa a megnyíló mappában található telepítőt.
 
-Az ilyen megszakadás elkerülése érdekében az M³ Windows rendszeren a letöltött frissítést a következő megnyitásakor telepíti, nem pedig a bezárásakor. When M³ is installed for all users of the computer, Windows asks for permission first, so M³ waits until you choose to install the update.
+Az ilyen megszakadás elkerülése érdekében az M³ Windows rendszeren a letöltött frissítést a következő megnyitásakor telepíti, nem pedig a bezárásakor. Ha az M³ a számítógép összes felhasználója számára van telepítve, a Windows először engedélyt kér, ezért az M³ megvárja, amíg a frissítés telepítését választja.
 
 ## Támogatás és közösség {#support-community}
 
@@ -359,6 +359,8 @@ Igen! Az M³-at a biztonságot és az adatvédelmet szem előtt tartva tervezté
 - **Közvetlen letöltések**: A média közvetlenül Jehova Tanúi hivatalos weboldaláról tölthető le
 - **Nyílt forráskód**: A kód nyílt, így ellenőrizhető és megtekinthető
 - **Hibabejelentések**: A hibabejelentések céljából korlátozott mennyiségű adat gyűjthető
+
+A részletekért olvassa el az M³ [adatvédelmi szabályzatát](privacy).
 
 ### :arrows_clockwise: Milyen gyakran ellenőrzi az M³ a frissítéseket? {#update-frequency}
 

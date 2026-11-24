@@ -8,6 +8,12 @@ No te tā’āto’ara’a o te mau fa’ahopura’a i rotopū i te mau nūmera 
 
 ### ✨ Te mau rave’a ‘āpī
 
+- ✨ **Fa’anu’u i roto i te tahi atu tuha’a**: I teie nei, e tāpura iti **Fa’anu’u** tō te tāpura o te hō’ē tuha’a media, e Fa’anu’u i ni’a, Fa’anu’u i raro ’e te tahi atu mau tuha’a o te mahana i roto, nō te tono i te reira i roto i te tahi atu tuha’a nā roto i te hō’ē noa pata, eiaha e tarī i te reira. ’Ia mā’iti-hia e rave rahi tuha’a media, e ha’aputuputu **Fa’anu’u i roto i te tuha’a** i te reira pauroa i te hope’a o te tuha’a ta ’oe e mā’iti; ’aita e fa’a’itehia te hō’ē tuha’a tei reira a’ena te reira pauroa.
+
+## v26.11.3
+
+### ✨ Te mau rave’a ‘āpī
+
 - ✨ **Te mau media ’aita tō ’oe roro uira e nehenehe e fa’ata’i**: I ni’a i te tahi mau roro uira, e fa’ata’ihia te tahi mau video ma te ’ore e hōho’a, ’aore rā ma te ’ore e reo: te hō’ē video HEVC i ni’a i te hō’ē karata hōho’a ’aita e nehenehe e tātara i te reira, te hō’ē video AVI ’aore rā MPEG-4 tahito, ’aore rā te hō’ē firimu e reo AC-3 ’aore rā DTS tōna. I teie nei, e fa’aite M³ ia ’oe i te taime iho e ’itehia ai te hō’ē, i ni’a i te media ’e i roto i te hō’ē fa’aarara’a, ’e e fa’aha’amana’o te ’āfata nā mua i te putuputura’a ia ’oe, ’ia nehenehe ’oe e fa’a’āfaro i te reira hou roa ’oe e hina’aro ai i te reira. ’Aita ato’a ’oia e mana’o fa’ahou ’ia fa’aea i te fa’ahorora’a pūai a te mātini nō te hō’ē video mai terā, o te fa’a’ino noa a’e i te huru. E hāmani te pitopito "’A fa’ariro" i te hō’ē putu’ite ’āpī e fa’ata’ihia i ni’a i te mau roro uira ato’a, ma te fa’a’ohipa i tō ’oe karata hōho’a ’ia nehenehe, ’ia haere maita’i noa o M³ ’e tō ’outou putuputura’a. E fa’aitehia tōna haerera’a i ni’a i te media ’e i roto i te ha’amāramarama iti "Fa’afana’ira’a media", i reira ato’a ’oe e nehenehe ai e fa’aru’e i te reira. E monohia te hō’ē putu’ite tā ’oe i fa’a’ō mai e tōna putu’ite i fa’arirohia; e vaiihohia te hō’ē putu’ite nō roto mai i te pu’e ’ite tufahia mai tōna huru, ’e e fa’ata’i M³ i te hō’ē putu’ite i fa’arirohia e vai ra i ni’a i teie roro uira.
 
 ## v26.11.2

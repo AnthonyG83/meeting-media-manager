@@ -24,6 +24,11 @@ export interface ZoomCommandResult {
   buttonTitle?: string;
   /** Whether the action changed anything (false: already in that state). */
   changed?: boolean;
+  /**
+   * Technical detail for logs, when the helper couldn't start: see
+   * ZoomHelperStartResult.
+   */
+  detail?: string;
   diagnosis?: ZoomDiagnosis;
   /** The `ping` command's echo, to check the helper's text encoding. */
   echo?: null | string;
@@ -51,6 +56,8 @@ export interface ZoomCommandResult {
   ok: boolean;
   /** `test-share-picker`: whether Zoom's share picker opened. */
   opened?: boolean;
+  /** `original-sound-probe`: what Zoom shows that could be its Original sound control. */
+  originalSound?: ZoomOriginalSoundProbe;
   participants?: ZoomParticipantRow[];
   /** `learn-hand-raised`: how Zoom marks a raised hand, in its language. */
   phrase?: null | string;
@@ -60,6 +67,13 @@ export interface ZoomCommandResult {
   placed?: ZoomPlacedWindows;
   /** `set-participant-mic`: whether the button was pressed at all. */
   pressed?: boolean;
+  /**
+   * `test-share-picker`, when the picker didn't open: how Share was pressed
+   * (`toolbar`, `more`, `shortcut`), or `open` for a picker already open.
+   */
+  pressedVia?: null | string;
+  /** `test-share-picker`, when the picker didn't open: how many times Share was pressed. */
+  presses?: number;
   /** `raised-hands`: who in the meeting has their hand raised. */
   raisedHands?: string[];
   /** `learn-hand-raised`: the Reactions button's name, when seen. */
@@ -77,6 +91,13 @@ export interface ZoomCommandResult {
   windowListed?: boolean;
   /** `test-share-picker`: whether sharing would select M³'s media window. */
   windowSelected?: boolean;
+  /**
+   * `test-share-picker`, when the picker didn't open: classes of the Zoom
+   * windows the press left open that couldn't be closed (in the user's way).
+   */
+  windowsLeft?: string[];
+  /** `test-share-picker`, when the picker didn't open: classes of the Zoom windows the press opened. */
+  windowsOpened?: string[];
 }
 
 export type ZoomCommandType = ZoomCommand['type'];
@@ -128,11 +149,16 @@ export interface ZoomFailureSnapshot {
 }
 
 export interface ZoomHelperStartResult {
-  /** Technical detail for logs, e.g. a compiler error. */
+  /**
+   * Technical detail for logs, e.g. a compiler error, or the exit code and
+   * what PowerShell printed before it stopped.
+   */
   detail?: string;
   /**
    * Why the helper couldn't start: `windows-only`, `powershell-not-found`,
-   * `powershell-restricted`, `helper-not-compiled`, `helper-start-timeout`,
+   * `powershell-restricted`, `powershell-broken` (PowerShell itself fails
+   * to start), `helper-blocked` (Windows App Control refuses the files the
+   * helper generates), `helper-not-compiled`, `helper-start-timeout`,
    * `helper-exited`.
    */
   error?: string;
@@ -255,6 +281,29 @@ export interface ZoomMeetingState {
   zoomVersion?: null | string;
 }
 
+/**
+ * What Zoom shows that could be its "Original sound for musicians" control
+ * (the `original-sound-probe` command), reported once a session to learn
+ * where each Zoom version offers it before M³ can keep it on. Zoom's own
+ * labels only: no device names, nothing in a video tile or a list, no name
+ * with a participant's in it, nothing from the meeting details.
+ */
+export interface ZoomOriginalSoundProbe {
+  audioMenu?: ZoomProbedAudioMenu;
+  /**
+   * Whether Zoom showed its meeting bars: Zoom 6.5's Original sound button,
+   * in its top bar, is only listed then.
+   */
+  barsShown?: boolean;
+  error?: string;
+  /** Names of the meeting window's controls and texts, shown or hidden. */
+  meetingControls?: string[];
+  /** While sharing: names of the share toolbar's controls. */
+  shareToolbar?: string[];
+  sharing?: boolean;
+  zoomVersion?: null | string;
+}
+
 export interface ZoomParticipantRow {
   /** Everything Zoom says about the row, in the user's Zoom language. */
   details: string;
@@ -273,6 +322,26 @@ export interface ZoomPlacedWindows {
   /** Whether Windows' own snapping put Zoom and M³ side by side. */
   snapped: boolean;
   zoom?: ZoomScreenRect;
+}
+
+/**
+ * Zoom's audio menu, opened by the probe and closed again: how many entries
+ * each group has (microphones, speakers, then Zoom's own), and the names of
+ * all but the first two groups, whole: Zoom puts an option's state at the
+ * end of its name (Zoom 7.2.1: "Original sound for musicians, Unchecked").
+ */
+export interface ZoomProbedAudioMenu {
+  /** Whether Zoom closed the menu itself before the probe did. */
+  closedByZoom?: boolean;
+  groups?: number[];
+  /** Whether the menu was still open after the probe's Escape. */
+  leftOpen?: boolean;
+  names?: string[];
+  /** How long the menu took to open, from the share toolbar. */
+  openedAfterMs?: number;
+  /** Why the menu wasn't read, e.g. `audio not joined`. */
+  unread?: string;
+  via?: 'meeting-toolbar' | 'share-toolbar';
 }
 
 /** A rectangle on screen, in physical pixels (not Electron's DIPs). */
@@ -366,6 +435,27 @@ export interface ZoomWindowState {
 type ZoomCommandBody =
   | {
       /**
+       * Only reads the participants panel if it's open already, pressing
+       * and bringing back nothing (no `participants` while it's closed).
+       */
+      peek?: boolean;
+      /**
+       * Opens the panel through its button even if it's open: closed
+       * through it first (the setup assistant's test of a picked entry).
+       */
+      reopen?: boolean;
+      type: 'participants';
+    }
+  | {
+      /**
+       * Opens the participants panel through its button even if it's open:
+       * closed through it first (the setup assistant's own checks).
+       */
+      reopenParticipants?: boolean;
+      type: 'diagnose';
+    }
+  | {
+      /**
        * Zoom's plain Raise hand button's name, once learned (accounts without
        * reactions, where Zoom shows that button instead of React).
        */
@@ -446,7 +536,6 @@ type ZoomCommandBody =
   | { title: string; type: 'test-mute-all-entry' }
   | { title: string; type: 'test-stop-share-entry' }
   | { type: 'ask-all-to-unmute' }
-  | { type: 'diagnose' }
   /**
    * `reveal` brings the meeting window back from Zoom's mini view to read
    * the audio and video states (Zoom's toolbar is read even while hidden);
@@ -455,8 +544,8 @@ type ZoomCommandBody =
   | { type: 'join-audio' }
   | { type: 'leave-audio' }
   | { type: 'mic-title' }
+  | { type: 'original-sound-probe' }
   | { type: 'panel-entries' }
-  | { type: 'participants' }
   | { type: 'share-entries' }
   | { type: 'share-participants' }
   | { type: 'share-toolbar-entries' }

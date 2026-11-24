@@ -275,7 +275,7 @@ Se il computer è stato spento o riavviato mentre M³ stava installando un aggio
 
 Se il computer non può connettersi a internet, di solito il programma di installazione che M³ aveva scaricato è ancora presente: premi `Win+R`, inserisci `%LOCALAPPDATA%\meeting-media-manager-updater\pending`, quindi esegui il programma di installazione nella cartella che si apre.
 
-Per evitare questo problema, su Windows M³ installa un aggiornamento scaricato alla successiva apertura, anziché alla chiusura. Quando M3 è installato per tutti gli utenti del computer, Windows chiede l'autorizzazione prima, quindi M3 aspetta fino a quando si sceglie di installare l'aggiornamento.
+Per evitare questo problema, su Windows M³ installa un aggiornamento scaricato alla successiva apertura, anziché alla chiusura. Quando M³ è installato per tutti gli utenti del computer, Windows chiede prima l'autorizzazione, quindi M³ aspetta che tu scelga di installare l'aggiornamento.
 
 ## Supporto e community {#support-community}
 
@@ -359,6 +359,8 @@ Sì! M³ è progettato pensando alla sicurezza e alla privacy:
 - **Download diretti**: i media vengono scaricati direttamente dal sito ufficiale dei Testimoni di Geova
 - **Open source**: il codice è aperto alla revisione e alla verifica
 - **Segnalazioni di bug**: potrebbero essere raccolti dati limitati a scopo di segnalazione dei bug
+
+Per i dettagli, leggi l'[informativa sulla privacy](privacy) di M³.
 
 ### :arrows_clockwise: Ogni quanto M³ controlla gli aggiornamenti? {#update-frequency}
 

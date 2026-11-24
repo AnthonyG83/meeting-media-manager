@@ -8,6 +8,12 @@ Pour la liste complète des changements entre les versions, consultez notre fich
 
 ### ✨ Nouvelles fonctionnalités
 
+- ✨ **Déplacer vers une autre section** : Le menu d'un élément multimédia comporte désormais un sous-menu **Déplacer**, avec Déplacer vers le haut, Déplacer vers le bas et les autres sections du jour, pour envoyer l'élément dans une autre section en un clic au lieu de l'y faire glisser. Quand plusieurs éléments sont sélectionnés, **Déplacer vers la section** les regroupe tous à la fin de la section choisie ; une section où ils se trouvent déjà tous n'est pas proposée.
+
+## v26.11.3
+
+### ✨ Nouvelles fonctionnalités
+
 - ✨ **Médias que votre ordinateur ne peut pas lire** : Sur certains ordinateurs, des vidéos sont lues sans image ou sans son : une vidéo HEVC sur une carte graphique incapable de la décoder, une ancienne vidéo AVI ou MPEG-4, ou un film dont le son est en AC-3 ou DTS. M³ vous le signale désormais dès qu'il en trouve une, sur l'élément multimédia et par une notification, et le panneau d'avant-réunion vous le rappelle, pour que vous puissiez régler le problème bien avant d'en avoir besoin. Il ne suggère plus non plus de désactiver l'accélération matérielle pour une telle vidéo, ce qui ne ferait qu'aggraver les choses. La conversion crée une copie lisible sur n'importe quel ordinateur, en utilisant si possible votre carte graphique pour que M³ et votre réunion restent fluides. Sa progression s'affiche sur l'élément multimédia et dans la fenêtre contextuelle « Synchronisation des médias », où vous pouvez aussi l'annuler. Un fichier que vous avez importé est remplacé par sa copie convertie ; un fichier de votre dossier partagé est laissé tel quel, et M³ lit une copie convertie conservée sur cet ordinateur.
 
 ## v26.11.2

@@ -8,6 +8,12 @@ Para ver la lista completa de cambios entre versiones, consulta nuestro archivo 
 
 ### ✨ Nuevas funciones
 
+- ✨ **Mover a otra sección**: El menú de un elemento multimedia ahora tiene un submenú **Mover** con Mover hacia arriba, Mover hacia abajo y las demás secciones del día, para enviar el elemento a otra sección con un solo clic en vez de arrastrarlo hasta allí. Con varios elementos seleccionados, **Mover a la sección** los reúne todos al final de la sección que elijas; no se ofrece una sección en la que ya estén todos.
+
+## v26.11.3
+
+### ✨ Nuevas funciones
+
 - ✨ **Archivos multimedia que tu computadora no puede reproducir**: En algunas computadoras, ciertos videos se reproducen sin imagen o sin sonido: un video HEVC en una tarjeta gráfica que no puede decodificarlo, un video AVI o MPEG-4 antiguo, o una película con sonido AC-3 o DTS. Ahora M³ te avisa en cuanto encuentra uno, en el elemento multimedia y con una notificación, y el panel de antes de la reunión te lo recuerda, para que puedas solucionarlo mucho antes de necesitarlo. Además, ya no sugiere desactivar la aceleración por hardware para este tipo de video, lo que solo empeoraría las cosas. La conversión crea una copia que se reproduce en cualquier computadora y, cuando es posible, usa tu tarjeta gráfica para que M³ y tu reunión sigan funcionando con fluidez. Su progreso se muestra en el elemento multimedia y en la ventana emergente de sincronización de archivos multimedia, donde también puedes cancelarla. Un archivo que importaste se reemplaza por su copia convertida; un archivo de tu carpeta compartida se deja como está, y M³ reproduce una copia convertida que se guarda en esta computadora.
 
 ## v26.11.2

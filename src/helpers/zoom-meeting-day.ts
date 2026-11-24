@@ -72,8 +72,8 @@ const sleep = (ms: number) =>
     setTimeout(resolve, ms);
   });
 
-/** Which step is due at `now`, and when the next one is. */
-const getSchedule = (now: Date): MeetingSchedule | null => {
+/** When each of today's steps is due (ms), for the current congregation. */
+const getStepTimes = (now: Date) => {
   const currentState = useCurrentStateStore();
   const congregationId = currentState.currentCongregation;
   const start = getMeetingStartToday(now)?.getTime();
@@ -81,12 +81,23 @@ const getSchedule = (now: Date): MeetingSchedule | null => {
 
   const stopBufferMs =
     (currentState.currentSettings?.meetingStopBufferSeconds ?? 60) * 1000;
-  const beforeFrom = start - AUTO_START_WINDOW_HOURS * 3600 * 1000;
-  // As background music's auto-start (see the music store's shouldAutoStart).
-  const beforeUntil = start - stopBufferMs * 1.5;
   const meetingFrom = start - stopBufferMs;
-  const meetingUntil = Math.max(start, meetingFrom + MIN_MEETING_STEP_MS);
-  const key = `${congregationId}:${new Date(start).toDateString()}`;
+  return {
+    beforeFrom: start - AUTO_START_WINDOW_HOURS * 3600 * 1000,
+    // As background music's auto-start (see the music store's
+    // shouldAutoStart).
+    beforeUntil: start - stopBufferMs * 1.5,
+    key: `${congregationId}:${new Date(start).toDateString()}`,
+    meetingFrom,
+    meetingUntil: Math.max(start, meetingFrom + MIN_MEETING_STEP_MS),
+  };
+};
+
+/** Which step is due at `now`, and when the next one is. */
+const getSchedule = (now: Date): MeetingSchedule | null => {
+  const times = getStepTimes(now);
+  if (!times) return null;
+  const { beforeFrom, beforeUntil, key, meetingFrom, meetingUntil } = times;
   const time = now.getTime();
 
   if (time < beforeFrom) return { key, nextAt: beforeFrom, step: null };
@@ -100,6 +111,19 @@ const getSchedule = (now: Date): MeetingSchedule | null => {
 
 const isPending = (schedule: MeetingSchedule | null) =>
   !!schedule?.step && !doneSteps.has(`${schedule.key}:${schedule.step}`);
+
+/**
+ * When today's meeting settings are due (ms: when background music stops,
+ * just before the meeting), while they're still to come or being tried;
+ * null once they're done, skipped or past, or with no meeting today. Whether
+ * they're turned on, or paused, is up to the caller.
+ */
+export const getPendingMeetingSettingsTime = (now = new Date()) => {
+  const times = getStepTimes(now);
+  if (!times || now.getTime() >= times.meetingUntil) return null;
+  if (doneSteps.has(`${times.key}:meeting`)) return null;
+  return times.meetingFrom;
+};
 
 /**
  * Whether a step has to wait: the automations are paused, or something
@@ -164,7 +188,10 @@ const runDue = async () => {
   const dueBefore = getSchedule(new Date());
   const outcome = await runZoomStartupCheck();
   const schedule = getSchedule(new Date());
-  // The check can take a while. The meeting settings, if due when it began,
+  // The check can take a while, though it only asks the user's go-ahead
+  // early enough for the question and the check to be over before the
+  // before/after-meeting settings' time is (see LAST_QUESTION_MS in
+  // zoom-startup-check.ts). The meeting settings, if due when it began,
   // still run after it, even once the meeting has started; the
   // before/after-meeting settings don't, if their time is over by then.
   const step = dueBefore?.step === 'meeting' ? dueBefore.step : schedule?.step;
@@ -234,7 +261,11 @@ const recheck = () => {
   const today = new Date().toDateString();
   if (today !== checkedDay) {
     checkedDay = today;
-    useZoomStateStore().checkedCongregations = [];
+    const zoomState = useZoomStateStore();
+    zoomState.checkedCongregations = [];
+    // Skipping a meeting's check turned the automations off for that
+    // meeting only.
+    zoomState.endDeclinedPause();
     doneSteps.clear();
     launchedMeetings.clear();
   }

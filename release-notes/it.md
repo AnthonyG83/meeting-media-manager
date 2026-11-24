@@ -8,6 +8,12 @@ Per l'elenco completo delle modifiche tra le versioni, consulta il file CHANGELO
 
 ### ✨ Nuove funzionalità
 
+- ✨ **Sposta in un'altra sezione**: il menu di un elemento multimediale ora ha un sottomenu **Sposta** con Sposta in alto, Sposta in basso e le altre sezioni del giorno, per mandare l'elemento in un'altra sezione con un clic invece di trascinarlo. Con più elementi selezionati, **Sposta nella sezione** li raccoglie tutti alla fine della sezione che scegli; una sezione in cui si trovano già tutti non viene proposta.
+
+## v26.11.3
+
+### ✨ Nuove funzionalità
+
 - ✨ **Media che il tuo computer non riesce a riprodurre**: su alcuni computer certi video vengono riprodotti senza immagine o senza audio: un video HEVC su una scheda grafica che non riesce a decodificarlo, un vecchio video AVI o MPEG-4, o un film con audio AC-3 o DTS. Ora M³ te lo segnala appena ne trova uno, sull'elemento multimediale e con una notifica, e il pannello prima dell'adunanza te lo ricorda, così puoi risolvere il problema ben prima che ti serva. Inoltre non suggerisce più di disabilitare l'accelerazione hardware per un video del genere, cosa che peggiorerebbe solo la situazione. La conversione crea una copia che si può riprodurre su qualsiasi computer, usando la scheda grafica quando possibile, così M³ e l'adunanza procedono senza intoppi. L'avanzamento è visibile sull'elemento multimediale e nel popup di sincronizzazione multimediale, dove puoi anche annullarla. Un file che hai importato viene sostituito dalla sua copia convertita; un file della tua cartella condivisa resta com'è, e M³ riproduce una copia convertita conservata su questo computer.
 
 ## v26.11.2

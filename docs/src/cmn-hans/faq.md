@@ -275,7 +275,7 @@ M³ 在您的电脑上播放带有声音的媒体，但当使用 OBS Studio 时�
 
 如果计算机无法联网，M³ 先前下载的安装程序通常还在：按 `Win+R`，输入 `%LOCALAPPDATA%\meeting-media-manager-updater\pending`，然后运行打开的文件夹中的安装程序。
 
-为了防止这种情况，Windows 版 M³ 会在下次启动时安装已下载的更新，而不是在关闭时安装。 When M³ is installed for all users of the computer, Windows asks for permission first, so M³ waits until you choose to install the update.
+为了防止这种情况，Windows 版 M³ 会在下次启动时安装已下载的更新，而不是在关闭时安装。如果 M³ 是为这台电脑的所有用户安装的，Windows 会先请求权限，因此 M³ 会等你选择安装更新后再安装。
 
 ## 支持与社区 {#support-community}
 
@@ -359,6 +359,8 @@ M³ 的硬件要求如下：
 - **直接下载**：媒体直接从耶和华见证人官方网站下载
 - **开源**：源代码公开，任何人都可以查看和验证
 - **错误报告**：只会为错误报告等必要用途处理有限的信息
+
+详情请阅读 M³ 的[隐私政策](privacy)。
 
 ### :arrows_clockwise: M³ 多久检查一次更新？ {#update-frequency}
 

@@ -29,7 +29,7 @@ import {
   shell,
   systemPreferences,
 } from 'electron';
-import { PLATFORM } from 'src-electron/constants';
+import { APP_STORE, PLATFORM } from 'src-electron/constants';
 import { updateDevMenuState } from 'src-electron/main/dev-menu';
 import {
   getLowDiskSpaceStatus,
@@ -43,7 +43,10 @@ import {
   pauseAllDownloads,
   resumeAllDownloads,
 } from 'src-electron/main/downloads';
-import { createVideoFromNonVideo } from 'src-electron/main/ffmpeg';
+import {
+  createVideoFromNonVideo,
+  getBundledFfmpegPath,
+} from 'src-electron/main/ffmpeg';
 import {
   ensureMacosFolderPermission,
   extractNestedZipEntry,
@@ -61,6 +64,7 @@ import {
   watchFolder,
 } from 'src-electron/main/fs';
 import { convertHeic } from 'src-electron/main/heic';
+import { setStartupTaskEnabled } from 'src-electron/main/msix';
 import { openFolder } from 'src-electron/main/open-folder';
 import { exportHtmlToPdf } from 'src-electron/main/pdf';
 import {
@@ -150,6 +154,7 @@ import {
 import { isZoomCommand } from 'src-electron/main/zoom-helper-process';
 import { getZoomLayoutTargets } from 'src-electron/main/zoom-layout';
 import { handleZoomTestParticipants } from 'src-electron/main/zoom-test-participants';
+import { getInstalledZoomVersion } from 'src-electron/main/zoom-version';
 
 const { openExternal } = shell;
 
@@ -353,7 +358,27 @@ handleIpcSend('authorizedClose', () => {
 });
 
 handleIpcSend('toggleOpenAtLogin', (_e, openAtLogin: boolean) => {
-  app.setLoginItemSettings({ openAtLogin });
+  // The Microsoft Store build's Run registry key would be virtualized, so
+  // Windows would never see it: it has a startup task instead.
+  if (APP_STORE !== 'microsoft-store') {
+    app.setLoginItemSettings({ openAtLogin });
+    return;
+  }
+  setStartupTaskEnabled(openAtLogin)
+    .then((state) => {
+      const askedState = openAtLogin ? 'Enabled' : 'Disabled';
+      logToWindow(
+        mainWindowInfo.mainWindow,
+        `[Startup task] Turned ${openAtLogin ? 'on' : 'off'}: now ${state}`,
+        {},
+        state === askedState ? 'info' : 'warn',
+      );
+    })
+    .catch((error: unknown) => {
+      captureElectronError(error, {
+        contexts: { fn: { name: 'setStartupTaskEnabled', openAtLogin } },
+      });
+    });
 });
 
 handleIpcSend(
@@ -514,6 +539,7 @@ function handleIpcInvoke<T = unknown>(
 
 handleIpcInvoke('getAppDataPath', async () => getAppDataPath());
 handleIpcInvoke('getBetaUpdatesPath', async () => getBetaUpdatesPath());
+handleIpcInvoke('getBundledFfmpegPath', () => getBundledFfmpegPath());
 handleIpcInvoke('getLowDiskSpaceStatus', async () => getLowDiskSpaceStatus());
 handleIpcInvoke('getUpdatesDisabledPath', async () => getUpdatesDisabledPath());
 handleIpcInvoke('getUpdaterState', () => getUpdaterState());
@@ -603,7 +629,8 @@ handleIpcInvoke('convertHeic', async (_e, image: ConversionOptions) =>
 
 handleIpcInvoke(
   'createVideoFromNonVideo',
-  async (_e, path: string, ffmpegPath: string, outputDir?: string) =>
+  // Its paths are checked there (see conversion-paths.ts).
+  (_e, path: string, ffmpegPath: string, outputDir: string) =>
     createVideoFromNonVideo(path, ffmpegPath, outputDir),
 );
 
@@ -685,6 +712,8 @@ handleIpcInvoke('zoomCommand', async (_e, command: unknown) => {
   }
   return runZoomHelperCommand(command);
 });
+
+handleIpcInvoke('getInstalledZoomVersion', () => getInstalledZoomVersion());
 
 handleIpcInvoke(
   'getZoomLayoutTargets',

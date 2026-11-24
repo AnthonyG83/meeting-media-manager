@@ -143,6 +143,7 @@ import {
   clearMeetingCheckStatusPruneTimers,
   downloadSongbookVideos,
   getJwMepsInfo,
+  isWatchedItemOfFile,
   setUrlVariables,
   watchedItemMapper,
 } from 'src/helpers/jw-media';
@@ -151,7 +152,10 @@ import {
   registerAllCustomShortcuts,
   unregisterAllCustomShortcuts,
 } from 'src/helpers/keyboardShortcuts';
-import { markUnplayable } from 'src/helpers/media-conversion';
+import {
+  markUnplayable,
+  removeOrphanedConversions,
+} from 'src/helpers/media-conversion';
 import {
   getOrCreateMediaSection,
   removeWatchedMediaSectionInfo,
@@ -168,14 +172,22 @@ import {
   syncTimerRemote,
 } from 'src/helpers/timer-remote';
 import { createWatchFolderEventQueue } from 'src/helpers/watch-folder-event-queue';
-import { cancelZoomRun, stopZoomSharingAfterMedia } from 'src/helpers/zoom';
+import {
+  cancelZoomRun,
+  startZoomHostMicMediaSync,
+  stopZoomSharingAfterMedia,
+  warnIfInstalledZoomOutdated,
+} from 'src/helpers/zoom';
 import {
   startHandAlertDisplaySync,
   syncZoomHandAlertWatcher,
 } from 'src/helpers/zoom-hand-alert';
 import { syncZoomLayoutWatcher } from 'src/helpers/zoom-layout';
 import { scheduleZoomAutomations } from 'src/helpers/zoom-meeting-day';
-import { watchZoomChanges } from 'src/helpers/zoom-startup-check';
+import {
+  runZoomStartupCheck,
+  watchZoomChanges,
+} from 'src/helpers/zoom-startup-check';
 import { localeOptions } from 'src/i18n';
 import { log, type LogPrefix } from 'src/shared/vanilla';
 import { useAppSettingsStore } from 'src/stores/app-settings';
@@ -261,7 +273,6 @@ const {
   onVideoCaptureCrashDetected,
   onWatchFolderError,
   onWatchFolderUpdate,
-  pathToFileURL,
   PLATFORM,
   relaunchApp,
   removeListeners,
@@ -369,6 +380,11 @@ useEventListener(globalThis, 'openZoomSetupAssistant', (event: Event) => {
   zoomSetupAssistantStep.value =
     detail?.step === 'layout' ? 'layout' : undefined;
   zoomSetupAssistantOpen.value = true;
+});
+// "Test again" on a notice that the Zoom automations are paused (see
+// src/helpers/zoom.ts, which the check is built on).
+useEventListener(globalThis, 'testZoomAgain', () => {
+  void runZoomStartupCheck({ manual: true });
 });
 const macosPermissionPromptTarget = ref<MacosFolderPermissionTarget | null>(
   null,
@@ -651,26 +667,32 @@ async function handleUnlinkCleanup(changedPath: string) {
 
 async function handleUnlinkWatchFolderEvent(
   dayObj: DateInfo,
+  day: string,
   changedPath?: string,
 ) {
   if (!changedPath) return;
-  const targetUrl = pathToFileURL(changedPath).toString();
-  removeWatchedItems(
+  // Also the item playing its converted copy, and then that copy.
+  const removed = removeWatchedItems(
     dayObj.mediaSections,
-    (item) => item?.source === 'watched' && item?.fileUrl === targetUrl,
+    (item) => !!item && isWatchedItemOfFile(item, day, changedPath),
   );
+  removeOrphanedConversions(removed.map((item) => item.fileUrl));
   await handleUnlinkCleanup(changedPath);
 }
 
+/** Takes the items `predicate` picks off the list. @returns Those items. */
 function removeWatchedItems(
   sections: MediaSectionWithConfig[],
   predicate: (item: MediaItem) => boolean,
 ) {
+  const removed: MediaItem[] = [];
   for (const section of sections) {
     if (!section.items) continue;
+    removed.push(...section.items.filter(predicate));
     // reassign instead of splicing to reduce reactive churn
     section.items = section.items.filter((item) => !predicate(item));
   }
+  return removed;
 }
 
 function sortMediaItems(sections: MediaSectionWithConfig[]) {
@@ -740,7 +762,7 @@ const updateWatchFolderRef = async ({
         break;
 
       case 'unlink':
-        await handleUnlinkWatchFolderEvent(dayObj, changedPath);
+        await handleUnlinkWatchFolderEvent(dayObj, day, changedPath);
         break;
     }
   } catch (error) {
@@ -1580,6 +1602,22 @@ watch(currentCongregation, async (newCongregation, oldCongregation) => {
   }
 });
 
+// An installed Zoom older than the version M³ is tested with gets a
+// warning, once a session, as soon as an integration that involves Zoom is
+// on (see warnIfInstalledZoomOutdated).
+watch(
+  () => [
+    currentCongregation.value,
+    currentSettings.value?.obsEnable,
+    currentSettings.value?.zoomEnable,
+    currentSettings.value?.zoomMeetingManagerEnable,
+  ],
+  () => {
+    void warnIfInstalledZoomOutdated();
+  },
+  { immediate: true },
+);
+
 watch(
   () => [currentCongregation.value, currentSettings.value?.congregationName],
   (
@@ -1913,6 +1951,10 @@ watchImmediate(
     syncZoomHandAlertWatcher();
   },
 );
+
+// While M³ shares media in Zoom, mute the host microphone for a video or an
+// audio file, and unmute it after (see followZoomHostMicWithMedia).
+startZoomHostMicMediaSync();
 
 // Keep Zoom's meeting window (and M³'s) where the window layout says.
 watchImmediate(

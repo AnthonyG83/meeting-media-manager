@@ -12,13 +12,19 @@ import type {
 
 import { i18n } from 'boot/i18n';
 import { AUTO_START_WINDOW_HOURS } from 'src/constants/date';
-import { MEDIA_WINDOW_TITLE } from 'src/constants/zoom';
+import { AUDIO_EXTENSIONS, VIDEO_EXTENSIONS } from 'src/constants/media';
+import { MEDIA_WINDOW_TITLE, ZOOM_TESTED_VERSION } from 'src/constants/zoom';
 import { getMeetingStartToday, isMemorialDay } from 'src/helpers/date';
 import { MEETING_SCHEDULED_DURATION_MINUTES } from 'src/helpers/meeting-parts';
 import { log } from 'src/shared/vanilla';
-import { areZoomButtonsLearned } from 'src/utils/zoom';
+import {
+  areZoomButtonsLearned,
+  isOlderZoomVersion,
+  zoomReleaseOf,
+} from 'src/utils/zoom';
 import { useCurrentStateStore } from 'stores/current-state';
 import { useZoomStateStore } from 'stores/zoom-state';
+import { watch } from 'vue';
 
 import { errorCatcher } from './error-catcher';
 import { sendKeyboardShortcut } from './keyboard-shortcuts';
@@ -83,6 +89,10 @@ export const getZoomTitlesFromSettings = (): ZoomTitles => {
 // which brings Zoom forward for a moment, and may, as a last resort when
 // Zoom ignores the quieter ways, move the mouse.
 const SILENT_COMMANDS = new Set<ZoomCommandType>([
+  // Opens and closes Zoom's audio menu, once a session, while M³'s media is
+  // being shared (see reportOriginalSoundControlsOnce): the overlay would
+  // cover M³ just then.
+  'original-sound-probe',
   'participants',
   'ping',
   'raised-hands',
@@ -263,6 +273,8 @@ const leaveFailureBreadcrumb = async (
 /** A Zoom action that failed, with what Zoom showed then. */
 export interface ZoomActionFailure {
   action: ZoomCommandType;
+  /** Why the helper couldn't start, for the log (see ZoomCommandResult). */
+  detail?: string;
   error?: string;
   snapshot?: ZoomFailureSnapshot;
 }
@@ -276,6 +288,7 @@ const actionFailures: ZoomActionFailure[] = [];
 const keepFailure = (action: ZoomCommandType, result: ZoomCommandResult) => {
   actionFailures.push({
     action,
+    detail: result.detail,
     error: result.error,
     snapshot: result.snapshot,
   });
@@ -379,6 +392,7 @@ export const getZoomMeetingState = async (
   // What the action island's Zoom button shows.
   useZoomStateStore().setMeeting(meeting);
   noticeZoomChanges(meeting);
+  warnIfZoomOutdated(meeting?.zoomVersion);
   return meeting;
 };
 
@@ -458,6 +472,70 @@ const noticeZoomChanges = (meeting: null | ZoomMeetingState) => {
   globalThis.dispatchEvent(
     new CustomEvent(ZOOM_CHANGED_EVENT, { detail: { reason } }),
   );
+};
+
+// The older Zoom version the user was last warned about this session.
+let warnedZoomVersion: null | string = null;
+
+/**
+ * Whether one of M³'s integrations that involve Zoom is on: the Zoom
+ * Meeting Manager, the Zoom shortcuts, or OBS Studio (whose picture halls
+ * often send into Zoom).
+ */
+const zoomIntegrationOn = () => {
+  const settings = getSettings();
+  return !!(
+    settings?.zoomMeetingManagerEnable ||
+    settings?.zoomEnable ||
+    settings?.obsEnable
+  );
+};
+
+/**
+ * Warns that this Zoom (`version`) is older than the version M³ is tested
+ * with (ZOOM_TESTED_VERSION), and recommends updating it: once a session
+ * for each version, while one of the integrations that involve Zoom is on.
+ * The version comes from the installed Zoom's files (see
+ * warnIfInstalledZoomOutdated), or from the Zoom helper once it finds a
+ * meeting, which also catches a Zoom run from elsewhere.
+ */
+const warnIfZoomOutdated = (version: null | string | undefined) => {
+  if (!version || version === warnedZoomVersion) return;
+  if (!zoomIntegrationOn()) return;
+  if (!isOlderZoomVersion(version, ZOOM_TESTED_VERSION)) return;
+  warnedZoomVersion = version;
+  log('Zoom is older than the version M³ is tested with', 'zoom', 'warn', {
+    testedVersion: ZOOM_TESTED_VERSION,
+    zoomVersion: version,
+  });
+  createTemporaryNotification({
+    caption: t('zoom-outdated-version-caption'),
+    deferWhileDialogOpen: true,
+    group: 'zoom-outdated-version',
+    icon: 'mmm-warning',
+    message: t('zoom-outdated-version', {
+      tested: ZOOM_TESTED_VERSION,
+      version: zoomReleaseOf(version),
+    }),
+    timeout: 15_000,
+    type: 'warning',
+  });
+};
+
+/**
+ * Warns about an older installed Zoom (see warnIfZoomOutdated), whether or
+ * not it's running: when a congregation's settings load, and when one of
+ * the integrations that involve Zoom is turned on. Silent when the version
+ * can't be told (Zoom installed elsewhere, Linux, any error): it's only a
+ * recommendation.
+ */
+export const warnIfInstalledZoomOutdated = async () => {
+  try {
+    if (!zoomIntegrationOn()) return;
+    warnIfZoomOutdated(await globalThis.electronApi.getInstalledZoomVersion());
+  } catch (error) {
+    log('Installed Zoom version not read', 'zoom', 'info', error);
+  }
 };
 
 /** Remembers Zoom's version as the one the learned names work with. */
@@ -562,10 +640,13 @@ export const admitZoomParticipants = (names: string[]) =>
 
 /**
  * How many people are in the meeting, the host included (not counting the
- * waiting room), or null if Zoom's participants list couldn't be read.
+ * waiting room), or null if Zoom's participants list couldn't be read. It
+ * opens Zoom's participants panel to read it, unless `peek`: then it's only
+ * read if the panel is open already, pressing nothing in Zoom (null while
+ * it's closed).
  */
-export const countZoomMeetingParticipants = async () => {
-  const result = await runCommand({ type: 'participants' });
+export const countZoomMeetingParticipants = async ({ peek = false } = {}) => {
+  const result = await runCommand({ peek, type: 'participants' });
   if (!result.ok || !result.participants) return null;
   return result.participants.filter((row) => row.section === 'meeting').length;
 };
@@ -884,6 +965,46 @@ export const runZoomPostMeetingSequence = (
   );
 };
 
+const areTitlesLearned = (onTitle: null | string, offTitle: null | string) =>
+  !!onTitle && !!offTitle;
+
+/**
+ * What runZoomMeetingSequence leaves Zoom in, for the meeting checklist. The
+ * microphone and the video only change once their buttons' names are
+ * learned (see NOT_LEARNED_ERRORS): undefined until then.
+ */
+export const getZoomMeetingSequenceOutcome = (
+  titles: ZoomTitles = getZoomTitlesFromSettings(),
+): ZoomChecklistState => ({
+  audioJoined: true,
+  hostMicOn: areTitlesLearned(titles.micOnTitle, titles.micOffTitle)
+    ? true
+    : undefined,
+  hostVideoOn: areTitlesLearned(titles.videoOnTitle, titles.videoOffTitle)
+    ? true
+    : undefined,
+  participantsCanUnmute: false,
+  participantsMuted: true,
+});
+
+/**
+ * What runZoomPostMeetingSequence leaves Zoom in, for the meeting checklist
+ * (see getZoomMeetingSequenceOutcome).
+ */
+export const getZoomPostMeetingSequenceOutcome = (
+  titles: ZoomTitles = getZoomTitlesFromSettings(),
+  askAllToUnmute = getSettings()?.zoomMeetingManagerPostMeetingAskToUnmute ??
+    true,
+): ZoomChecklistState => ({
+  audioJoined: false,
+  hostMicOn: false,
+  hostVideoOn: areTitlesLearned(titles.videoOnTitle, titles.videoOffTitle)
+    ? false
+    : undefined,
+  participantsCanUnmute: true,
+  participantsMuted: !askAllToUnmute,
+});
+
 /**
  * Applies the in-meeting Zoom settings, if enabled.
  * (Triggered just before each meeting, when background music stops: see
@@ -910,6 +1031,15 @@ export const automateZoomPostMeetingSettings = async () => {
   await runZoomPostMeetingSequence();
 };
 
+let afterMeetingSettingsAskedAt: null | number = null;
+
+/**
+ * When background music last asked for the before/after-meeting settings
+ * (ms since the epoch), if it has since M³ started: the meeting checklist
+ * tells from it whether they're still to come after today's meeting.
+ */
+export const getAfterMeetingSettingsAskedAt = () => afterMeetingSettingsAskedAt;
+
 /**
  * Background music started: applies the before/after-meeting settings,
  * unless today's meeting is still to come. Before it, the meeting's own
@@ -919,6 +1049,7 @@ export const automateZoomPostMeetingSettings = async () => {
 export const automateZoomSettingsOnMusicStart = async (now = new Date()) => {
   const start = getMeetingStartToday(now);
   if (start && now < start) return;
+  afterMeetingSettingsAskedAt = now.getTime();
   await automateZoomPostMeetingSettings();
 };
 
@@ -1031,8 +1162,210 @@ export const isAroundMeetingTime = (now = new Date()) => {
 let mediaShareStartedByM3 = false;
 let mediaShareStarting: null | Promise<boolean> = null;
 
-const startAutomatedMediaShare = async () => {
-  if (!(await zoomAutomationsAllowed('Zoom media sharing'))) return false;
+// --- Host microphone during media -------------------------------------------
+//
+// While M³'s share carries a video's or an audio file's sound to Zoom, the
+// host microphone can carry it too: a hall whose sound desk feeds the media
+// computer's own output back to it as Zoom's microphone sends Zoom the same
+// sound twice, which its echo cancellation and noise suppression then make
+// muffled or choppy for Zoom participants. So the host microphone is muted
+// while that media plays, and unmuted once it's finished. M³ only unmutes a
+// microphone it muted: one the host had muted already stays muted.
+
+let hostMicMutedForMedia = false;
+
+const SOUND_EXTENSIONS = new Set([...AUDIO_EXTENSIONS, ...VIDEO_EXTENSIONS]);
+
+/**
+ * Whether media M³ shows has sound to share: a video or an audio file, by
+ * its file or stream URL's extension (src/utils/media's isVideo needs
+ * electronApi's fs as soon as it's loaded, which this module doesn't).
+ */
+const hasSound = (url: string) => {
+  const path = url.split(/[?#]/, 1).at(0) ?? '';
+  const name = path.slice(path.lastIndexOf('/') + 1);
+  const dot = name.lastIndexOf('.');
+  return dot > 0 && SOUND_EXTENSIONS.has(name.slice(dot + 1).toLowerCase());
+};
+
+const mutesHostMicForMedia = () => {
+  const settings = getSettings();
+  return (
+    !!settings?.zoomMeetingManagerEnable &&
+    !!settings.zoomMeetingManagerAutomateMediaSharing &&
+    !!settings.zoomMeetingManagerMuteHostMicDuringMedia
+  );
+};
+
+/**
+ * Switches the host microphone for the media's time only: the meeting
+ * checklist, which says how the meeting was set up, is left as it is.
+ */
+const setHostMicForMedia = async (on: boolean) => {
+  const titles = getZoomTitlesFromSettings();
+  const result = await runCommand({
+    offTitle: titles.micOffTitle,
+    on,
+    onTitle: titles.micOnTitle,
+    type: 'set-mic',
+  });
+  if (result.ok && result.changed) {
+    notifyInfo(
+      'zoom-host',
+      on ? 'zoom-host-mic-on' : 'zoom-host-mic-off-for-media',
+    );
+  }
+  return result;
+};
+
+/**
+ * Mutes the host microphone for media with sound (see above). Says so if
+ * that failed, unless the host isn't joined to computer audio (the
+ * microphone then sends Zoom nothing) or the user stopped it.
+ */
+const muteHostMicForMedia = async (url: string) => {
+  if (hostMicMutedForMedia || !hasSound(url) || !mutesHostMicForMedia()) {
+    return;
+  }
+  const result = await setHostMicForMedia(false);
+  hostMicMutedForMedia = result.ok && !!result.changed;
+  if (
+    !result.ok &&
+    result.error !== 'audio-not-joined' &&
+    result.error !== CANCELLED.error
+  ) {
+    notifyWarning('zoom-host', 'zoom-host-mic-mute-failed');
+  }
+};
+
+/** Unmutes the host microphone M³ muted for media, once that's finished. */
+const unmuteHostMicAfterMedia = async () => {
+  if (!hostMicMutedForMedia) return;
+  hostMicMutedForMedia = false;
+  const result = await setHostMicForMedia(true);
+  // The hall can't be heard in Zoom until someone unmutes it.
+  if (!result.ok) {
+    notifyFailure('zoom-host', 'zoom-host-mic-unmute-failed');
+  }
+};
+
+/**
+ * Follows the media M³'s share shows while it goes on: a video or an audio
+ * file mutes the host microphone, a picture after it unmutes it (see
+ * muteHostMicForMedia). The share's start and end see to the rest (see
+ * startAutomatedMediaShare and stopAutomatedMediaShare).
+ */
+export const followZoomHostMicWithMedia = async (url: string) => {
+  if (!url || mediaShareStarting || !mediaShareStartedByM3) return;
+  if (!hasSound(url)) {
+    await unmuteHostMicAfterMedia();
+    return;
+  }
+  if (useZoomStateStore().automationsPaused) return;
+  await muteHostMicForMedia(url);
+};
+
+let stopFollowingMediaWithHostMic: (() => void) | undefined;
+
+/** Starts following the media shown with the host microphone (see above). */
+export const startZoomHostMicMediaSync = () => {
+  if (stopFollowingMediaWithHostMic) return;
+  const currentState = useCurrentStateStore();
+  stopFollowingMediaWithHostMic = watch(
+    () => currentState.mediaPlaying.url,
+    (url) => {
+      void followZoomHostMicWithMedia(url);
+    },
+  );
+};
+
+/**
+ * Says the media wasn't shared in Zoom as a failed (or skipped) check paused
+ * the automations, offering what the check's own notice offers: to test Zoom
+ * again, or the setup assistant once Zoom's buttons no longer read as
+ * learned. By events (handled in MainLayout), as the check is built on this
+ * module.
+ */
+const notifyMediaNotSharedWhilePaused = () => {
+  if (feedbackMuted) return;
+  const relearn = useZoomStateStore().relearnNeeded;
+  createTemporaryNotification({
+    actions: [
+      {
+        color: 'white',
+        handler: () => {
+          globalThis.dispatchEvent(
+            new CustomEvent(
+              relearn ? 'openZoomSetupAssistant' : 'testZoomAgain',
+            ),
+          );
+        },
+        label: t(relearn ? 'zoom-setup-open' : 'zoom-check-test-again'),
+      },
+    ],
+    caption: t('zoom-sharing-failed-caption'),
+    group: 'zoom-sharing',
+    icon: 'mmm-warning',
+    message: t('zoom-sharing-paused'),
+    type: 'warning',
+  });
+};
+
+// --- Original sound (diagnostics) --------------------------------------------
+
+// Whether this session has looked for Zoom's Original sound control.
+let originalSoundProbed = false;
+
+/**
+ * Tells Sentry, once a session, what Zoom shows that could be its "Original
+ * sound for musicians" control (see the helper's OriginalSoundProbe), which
+ * some congregations keep on for the hall's sound and which can turn off
+ * again. Zoom versions offer it in different places (the audio menu's
+ * microphone modes in 7.2.1, a button at the top of the meeting in some
+ * older ones), to be learned before M³ can keep it on. Run once M³'s own
+ * share has started, from the share toolbar, and only when Sentry is set up
+ * (there's no point opening Zoom's audio menu otherwise). One issue, tagged
+ * with Zoom's version.
+ */
+const reportOriginalSoundControlsOnce = async () => {
+  if (originalSoundProbed) return;
+  try {
+    const { captureMessage, getClient } = await import('@sentry/vue');
+    if (!getClient()) return;
+    originalSoundProbed = true;
+    const result = await runCommand({ type: 'original-sound-probe' });
+    const probe = result.originalSound;
+    if (!result.ok || !probe) {
+      log('Zoom original sound probe: no answer', 'zoom', 'info', {
+        error: result.error ?? null,
+      });
+      return;
+    }
+    captureMessage('Zoom original sound controls', {
+      // A copy: `extra` takes a plain record, which an interface isn't. The
+      // menu's lists stay within Sentry's depth (as the check's dialogs do).
+      extra: { ...probe },
+      fingerprint: ['zoom-original-sound-controls'],
+      level: 'info',
+      tags: {
+        feature: 'zoom-meeting-manager',
+        zoomVersion: probe.zoomVersion ?? 'unknown',
+      },
+    });
+  } catch (error) {
+    errorCatcher(error, {
+      contexts: { fn: { name: 'reportOriginalSoundControlsOnce' } },
+    });
+  }
+};
+
+const startAutomatedMediaShare = async (mediaUrl: string) => {
+  if (!(await zoomAutomationsAllowed('Zoom media sharing'))) {
+    // At meeting time, the media not being shared is said each time: the
+    // check's own notice may be closed by now.
+    if (isAroundMeetingTime()) notifyMediaNotSharedWhilePaused();
+    return false;
+  }
   const meeting = await getZoomMeetingState();
   if (!meeting?.found) {
     log('Zoom media sharing: skipped, no Zoom meeting found', 'zoom', 'info', {
@@ -1057,8 +1390,17 @@ const startAutomatedMediaShare = async () => {
   }
   mediaShareStartedByM3 = await withZoomRun(
     'zoom-run-media-sharing-start',
-    () => startSharingMediaInZoom(),
+    async () => {
+      // While Zoom still shows its meeting window, which sharing hides.
+      await muteHostMicForMedia(mediaUrl);
+      const started = await startSharingMediaInZoom();
+      // Without the share, the microphone may be all that carries the media.
+      if (!started) await unmuteHostMicAfterMedia();
+      return started;
+    },
   );
+  // Not waited for: the media plays meanwhile.
+  if (mediaShareStartedByM3) void reportOriginalSoundControlsOnce();
   return mediaShareStartedByM3;
 };
 
@@ -1069,25 +1411,32 @@ const stopAutomatedMediaShare = async () => {
   // Already stopped in Zoom, or the meeting was left.
   if (meeting && !meeting.sharing) {
     mediaShareStartedByM3 = false;
+    await unmuteHostMicAfterMedia();
     return true;
   }
   const stopped = await withZoomRun('zoom-run-media-sharing-stop', () =>
     stopSharingMediaInZoom(),
   );
   if (stopped) mediaShareStartedByM3 = false;
+  // The media is finished whether or not the share stopped.
+  await unmuteHostMicAfterMedia();
   return stopped;
 };
 
 /**
  * Starts sharing the media window in Zoom as media starts, if a Zoom meeting
  * is open and the Zoom automations aren't paused, or stops the share it
- * started as media stops. Resolves to whether Zoom is sharing (or, when
- * stopping, no longer sharing M³'s media).
+ * started as media stops. For media with sound (`mediaUrl`), the host
+ * microphone is muted for its time (see muteHostMicForMedia). Resolves to
+ * whether Zoom is sharing (or, when stopping, no longer sharing M³'s media).
  */
-export const automateZoomMediaSharing = async (start: boolean) => {
+export const automateZoomMediaSharing = async (
+  start: boolean,
+  mediaUrl = '',
+) => {
   if (!start) return stopAutomatedMediaShare();
   // Known at once, so a stop right behind it waits for it.
-  const starting = startAutomatedMediaShare();
+  const starting = startAutomatedMediaShare(mediaUrl);
   mediaShareStarting = starting;
   try {
     return await starting;
@@ -1156,19 +1505,29 @@ export const isZoomSetupNeeded = () => {
   );
 };
 
-/** Everything the Zoom Meeting Manager relies on, as found in Zoom now. */
-export const diagnoseZoom = async (): Promise<null | ZoomDiagnosis> => {
-  const result = await runCommand({ type: 'diagnose' });
+/**
+ * Everything the Zoom Meeting Manager relies on, as found in Zoom now. With
+ * `reopenParticipants` (the setup assistant's checks), Zoom's participants
+ * panel is opened through its button even if it's open, closed through it
+ * first: an open panel hid a button M³ couldn't find, which the assistant
+ * then never asked about (MMM-V2-3MJ).
+ */
+export const diagnoseZoom = async (
+  options: { reopenParticipants?: boolean } = {},
+): Promise<null | ZoomDiagnosis> => {
+  const result = await runCommand({ ...options, type: 'diagnose' });
   return result.ok ? (result.diagnosis ?? null) : null;
 };
 
 /**
  * Tries an entry the user picked as Zoom's Participants button (named in
  * their Zoom language, and sometimes kept in Zoom's "More" menu), and keeps
- * it once it has opened the participants panel.
+ * it once it has opened the participants panel: through the entry, closing
+ * the panel through it first if it's open.
  */
 export const tryZoomParticipantsEntry = async (entry: string) => {
   const result = await runCommand({
+    reopen: true,
     titles: { participants: entry },
     type: 'participants',
   });
@@ -1289,7 +1648,9 @@ export const joinZoomAudioForSetup = async (): Promise<
 /**
  * Checks that Zoom's share picker opens through the given Share entry (or
  * Zoom's default shortcut, if none) and offers M³'s media window, without
- * sharing anything.
+ * sharing anything. When the picker doesn't open, also says how Share was
+ * pressed, what Zoom showed instead and which of its windows the press left
+ * open (MMM-V2-3NC: the report only said the picker never came).
  */
 export const testZoomShareEntry = async (shareButtonTitle: null | string) => {
   const result = await runCommand({
@@ -1301,8 +1662,13 @@ export const testZoomShareEntry = async (shareButtonTitle: null | string) => {
     error: result.error,
     opened: !!result.opened,
     pickerError: result.pickerError,
+    pressedVia: result.pressedVia,
+    presses: result.presses,
+    snapshot: result.snapshot,
     windowListed: !!result.windowListed,
     windowSelected: !!result.windowSelected,
+    windowsLeft: result.windowsLeft,
+    windowsOpened: result.windowsOpened,
   };
 };
 
