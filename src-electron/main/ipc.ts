@@ -29,7 +29,11 @@ import {
   shell,
   systemPreferences,
 } from 'electron';
-import { APP_STORE, PLATFORM } from 'src-electron/constants';
+import {
+  APP_STORE,
+  PLATFORM,
+  UPDATES_REPOSITORY,
+} from 'src-electron/constants';
 import { updateDevMenuState } from 'src-electron/main/dev-menu';
 import {
   getLowDiskSpaceStatus,
@@ -467,7 +471,9 @@ handleIpcSend('openExternal', (_e, website: ExternalWebsite) => {
       url = homepage;
       break;
     case 'latestRelease':
-      url = repository.url.replace('.git', '/releases/latest');
+      // The release this build would update to, so the "update available"
+      // banner's button downloads the same version fetchLatestVersion found.
+      url = `${UPDATES_REPOSITORY}/releases/latest`;
       break;
     case 'repo':
       url = repository.url.replace('.git', '');

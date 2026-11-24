@@ -47,6 +47,9 @@ export const PRODUCT_NAME = import.meta.env.PRODUCT_NAME;
 // in every build.
 export const MSIX_IDENTITY_NAME = import.meta.env.MSIX_IDENTITY_NAME;
 export const MSIX_PUBLISHER = import.meta.env.MSIX_PUBLISHER;
+// Fork: the GitHub repository this build updates from (see UPDATES_OWNER in
+// quasar.config.ts), which isn't package.json's `repository`.
+export const UPDATES_REPOSITORY = import.meta.env.updatesRepository;
 
 // Sentry
 const getSentryEnvironment = () => {

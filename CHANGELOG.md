@@ -8,7 +8,7 @@ For translations of the most important changes, see the [`./release-notes/`](./r
 
 ### 🔧 Chores
 
-- 🔧 **Updates (this fork)**: Builds of this fork now update from this fork's own GitHub releases instead of the official ones, so an official update no longer replaces them and removes the timer remote controls. The "update available" reminder (shown when automatic updates are off) checks the same releases. Announcements, memorial data and release notes still come from the official project.
+- 🔧 **Updates (this fork)**: Builds of this fork now update from this fork's own GitHub releases instead of the official ones, so an official update no longer replaces them and removes the timer remote controls. The "update available" reminder (shown when automatic updates are off) checks the same releases, and its **Update** button opens this fork's latest release. Announcements, memorial data and release notes still come from the official project.
 - 🔧 **Releases (this fork)**: A new **Fork Release (Windows)** workflow builds this fork's Windows installer and uploads it to a draft release in this fork, ready to check and publish.
 
 ## v26.11.5
