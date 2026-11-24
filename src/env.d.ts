@@ -11,6 +11,7 @@ interface ImportMetaEnv {
   readonly PRODUCT_NAME: string;
   readonly repository: string;
   readonly SENTRY_DSN: string;
+  readonly updatesRepository: string;
   readonly version: string;
   readonly VITEST: boolean | undefined;
 }

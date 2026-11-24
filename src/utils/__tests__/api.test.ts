@@ -98,6 +98,15 @@ describe('fetchLatestVersion', () => {
     const version = await fetchLatestVersion();
     expect(version).toBe('1.2.3');
   });
+
+  it('should check the releases of the repository the app updates from', async () => {
+    clearFetchCache();
+    await fetchLatestVersion();
+    expect(fetch).toHaveBeenCalledWith(
+      'https://api.github.com/repos/test-owner/test-updates-repo/releases',
+      expect.anything(),
+    );
+  });
 });
 
 describe('fetchRaw caching', () => {

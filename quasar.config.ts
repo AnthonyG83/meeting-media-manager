@@ -49,6 +49,15 @@ const ENABLE_SOURCE_MAPS = !!SENTRY_AUTH_TOKEN && !IS_TEST;
 
 const repoURL = repository.url.replace('.git', '');
 
+// Fork: this fork's builds carry the timer remote controls, which the official
+// releases don't, so they update from this fork's own GitHub releases instead
+// of sircharlo's (an official update would otherwise replace the build and
+// remove them). Announcements, memorials and release notes still come from
+// `repository` above.
+const UPDATES_OWNER = 'AnthonyG83';
+const UPDATES_REPO = 'meeting-media-manager';
+const updatesRepoURL = `https://github.com/${UPDATES_OWNER}/${UPDATES_REPO}`;
+
 const getIconPath = (iconType: 'icns' | 'ico' | 'png' | 'splash') => {
   // electron-builder resolves these relative paths against /src-electron
   // (its "project dir" in v3), not the repo root.
@@ -116,6 +125,7 @@ export default defineConfig((ctx) => {
         PRODUCT_NAME,
         repository: repoURL,
         SENTRY_DSN,
+        updatesRepository: updatesRepoURL,
         version,
       },
       extendViteConf(viteConf) {
@@ -278,7 +288,9 @@ export default defineConfig((ctx) => {
           useZip: true,
         },
         productName: PRODUCT_NAME,
-        publish: ['github'],
+        publish: [
+          { owner: UPDATES_OWNER, provider: 'github', repo: UPDATES_REPO },
+        ],
         // The snap (M3_SNAP=true, see IS_SNAP): core24 with snapcraft's gnome
         // extension, which supplies GTK and the desktop, desktop-legacy,
         // gsettings, opengl, wayland and x11 plugs. Built by snapcraft in an
