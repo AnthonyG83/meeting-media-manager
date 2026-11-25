@@ -40,13 +40,11 @@ jobs:
           version=$(node -p "require('./package.json').version")
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Version: $version"
-          is_draft=$(gh release view "v$version" --json isDraft --jq .isDraft 2>/dev/null || echo none)
-          if [ "$is_draft" = "false" ]; then
+          published=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq "[.[] | select(.draft | not) | select(.tag_name == \"v$version\")] | length")
+          if [ "$published" != "0" ]; then
             echo "::error::v$version is already published in this repository. Merge a newer upstream release (or raise the version in package.json) first."
             exit 1
-          fi
-          if [ "$is_draft" = "true" ]; then
-            echo "A draft for v$version exists already: its files will be replaced."
           fi
         env:
           GH_TOKEN: ${{ github.token }}
@@ -81,6 +79,31 @@ jobs:
           node-version: 24
       - name: Install dependencies
         run: yarn install
+      # electron-builder publishes the installer and the portable build in
+      # parallel, and each one created its own draft when none existed yet
+      # (two "26.11.5" drafts on the first run). It reuses an existing draft
+      # with the same tag, so create exactly one up front. Drafts for this
+      # version left by an earlier run are deleted first; they were never
+      # published, so no installed copy can be using them.
+      - name: Prepare a single draft release
+        shell: bash
+        run: |
+          tag="v$VERSION"
+          gh api "repos/$GH_REPO/releases?per_page=100" \
+            --jq ".[] | select(.draft and .tag_name == \"$tag\") | .id" |
+            while read -r id; do
+              echo "Deleting the earlier draft $id for $tag"
+              gh api -X DELETE "repos/$GH_REPO/releases/$id"
+            done
+          gh api "repos/$GH_REPO/releases" \
+            -f tag_name="$tag" -f target_commitish="$GITHUB_SHA" \
+            -f name="$VERSION" -F draft=true \
+            -f body="M³ $VERSION with the timer remote controls (this fork). Built from $GITHUB_SHA." \
+            --jq '"Created draft \(.id) for \(.tag_name)"'
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.quality.outputs.version }}
       - name: Build Electron app and upload it to the draft release
         shell: bash
         run: |
@@ -88,14 +111,71 @@ jobs:
           yarn generate:logos
           yarn build --publish=always
         env:
-          # electron-builder creates (or reuses) the draft release
-          # v<version> in this repository and uploads the installer, the
-          # portable build and latest.yml (what the auto-updater reads).
+          # electron-builder uploads to the draft created above: the
+          # installer, its blockmap, the portable build and latest.yml (what
+          # the auto-updater reads).
           GITHUB_TOKEN: ${{ github.token }}
           SENTRY_AUTH_TOKEN: ''
           SENTRY_DSN: ''
           TEST_VERSION: 'false'
-      - name: Summary
+      # Installed copies update from latest.yml: without it on the release,
+      # publishing it would update no one. The first run's log showed no
+      # latest.yml upload, so check the draft's files, upload latest.yml
+      # from the build output if it's missing there, and fail if anything
+      # else is missing.
+      - name: Check the draft release's files
         shell: bash
         run: |
-          echo "Draft release v${{ needs.quality.outputs.version }} is ready: open Releases in this repository, check it, then publish it so installed copies update." >> "$GITHUB_STEP_SUMMARY"
+          tag="v$VERSION"
+          installer="meeting-media-manager-$VERSION-x64.exe"
+          ids=$(gh api "repos/$GH_REPO/releases?per_page=100" \
+            --jq ".[] | select(.draft and .tag_name == \"$tag\") | .id")
+          if [ "$(echo "$ids" | grep -c .)" != "1" ]; then
+            echo "::error::Expected exactly one draft release for $tag, found: ${ids:-none}"
+            exit 1
+          fi
+          id="$ids"
+          list_assets() {
+            gh api "repos/$GH_REPO/releases/$id/assets?per_page=100" --jq '.[].name'
+          }
+          assets=$(list_assets)
+          if ! grep -qxF latest.yml <<<"$assets"; then
+            local_file=dist/electron/Packaged/latest.yml
+            if [ ! -f "$local_file" ]; then
+              echo "::error::latest.yml is neither on the draft nor in the build output."
+              ls dist/electron/Packaged || true
+              exit 1
+            fi
+            echo "latest.yml wasn't uploaded by electron-builder: uploading it."
+            curl --fail-with-body -sS -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary "@$local_file" \
+              "https://uploads.github.com/repos/$GH_REPO/releases/$id/assets?name=latest.yml" > /dev/null
+            assets=$(list_assets)
+          fi
+          echo "Files on the draft:"
+          echo "$assets"
+          missing=0
+          for file in "$installer" "$installer.blockmap" latest.yml; do
+            if ! grep -qxF "$file" <<<"$assets"; then
+              echo "::error::$file is missing from the draft release."
+              missing=1
+            fi
+          done
+          if ! grep -qxF "path: $installer" dist/electron/Packaged/latest.yml; then
+            echo "::error::latest.yml doesn't point to $installer:"
+            cat dist/electron/Packaged/latest.yml
+            missing=1
+          fi
+          [ "$missing" = 0 ]
+          url=$(gh api "repos/$GH_REPO/releases/$id" --jq .html_url)
+          {
+            echo "Draft release $tag is ready: $url"
+            echo
+            echo "Installer: \`$installer\`. Test it, then publish the draft so installed copies update."
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.quality.outputs.version }}
