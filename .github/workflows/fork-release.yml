@@ -40,13 +40,18 @@ jobs:
           version=$(node -p "require('./package.json').version")
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Version: $version"
-          is_draft=$(gh release view "v$version" --json isDraft --jq .isDraft 2>/dev/null || echo none)
-          if [ "$is_draft" = "false" ]; then
+          # Read every release with this tag. `gh release view` can't tell a
+          # published release from one of several drafts that share a tag.
+          published=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases" \
+            --jq "[.[] | select(.tag_name == \"v$version\" and (.draft | not))] | length")
+          drafts=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases" \
+            --jq "[.[] | select(.tag_name == \"v$version\" and .draft)] | length")
+          if [ "$published" != "0" ]; then
             echo "::error::v$version is already published in this repository. Merge a newer upstream release (or raise the version in package.json) first."
             exit 1
           fi
-          if [ "$is_draft" = "true" ]; then
-            echo "A draft for v$version exists already: its files will be replaced."
+          if [ "$drafts" != "0" ]; then
+            echo "$drafts draft(s) for v$version exist already: they will be replaced by one new draft once the build succeeds."
           fi
         env:
           GH_TOKEN: ${{ github.token }}
@@ -81,21 +86,82 @@ jobs:
           node-version: 24
       - name: Install dependencies
         run: yarn install
-      - name: Build Electron app and upload it to the draft release
+      # Build only. Letting electron-builder publish (--publish=always) made
+      # two drafts on 24 Nov 2026: the NSIS and portable targets upload in
+      # parallel, both found no release for the tag and both created one, so
+      # the installer, portable build and latest.yml landed in one draft and
+      # the installer's blockmap in another. The draft is made below instead,
+      # in one step, once every file is known to be there.
+      - name: Build Electron app
         shell: bash
         run: |
           yarn generate:icons
           yarn generate:logos
-          yarn build --publish=always
+          yarn build --publish=never
         env:
-          # electron-builder creates (or reuses) the draft release
-          # v<version> in this repository and uploads the installer, the
-          # portable build and latest.yml (what the auto-updater reads).
           GITHUB_TOKEN: ${{ github.token }}
           SENTRY_AUTH_TOKEN: ''
           SENTRY_DSN: ''
           TEST_VERSION: 'false'
+      - name: Check the installer and the update file
+        id: files
+        shell: bash
+        run: |
+          version='${{ needs.quality.outputs.version }}'
+          dir=dist/electron/Packaged
+          files=(
+            "$dir/meeting-media-manager-$version-x64.exe"
+            "$dir/meeting-media-manager-$version-x64.exe.blockmap"
+            "$dir/meeting-media-manager-$version-portable.exe"
+            "$dir/latest.yml"
+          )
+          for f in "${files[@]}"; do
+            if [ ! -s "$f" ]; then
+              echo "::error::$f is missing or empty: not making a draft. Installed copies can't update without the installer and latest.yml."
+              exit 1
+            fi
+          done
+          # latest.yml must describe this version's installer, byte for byte,
+          # or the auto-updater rejects the download.
+          if ! grep -q "^version: $version\$" "$dir/latest.yml"; then
+            echo "::error::latest.yml isn't for version $version."
+            exit 1
+          fi
+          if ! grep -q "^path: meeting-media-manager-$version-x64.exe\$" "$dir/latest.yml"; then
+            echo "::error::latest.yml doesn't point at meeting-media-manager-$version-x64.exe."
+            exit 1
+          fi
+          expected=$(sed -n 's/^sha512: //p' "$dir/latest.yml")
+          actual=$(openssl dgst -sha512 -binary "$dir/meeting-media-manager-$version-x64.exe" | openssl base64 -A)
+          if [ "$expected" != "$actual" ]; then
+            echo "::error::latest.yml's checksum doesn't match the installer."
+            exit 1
+          fi
+          printf '%s\n' "${files[@]}" > "$RUNNER_TEMP/release-files.txt"
+      - name: Replace old drafts with one new draft release
+        shell: bash
+        run: |
+          version='${{ needs.quality.outputs.version }}'
+          # Only drafts are removed: the quality job stops the workflow if
+          # this version is already published.
+          for id in $(gh api --paginate "repos/$GITHUB_REPOSITORY/releases" \
+            --jq ".[] | select(.tag_name == \"v$version\" and .draft) | .id"); do
+            echo "Removing old draft $id for v$version"
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"
+          done
+          mapfile -t files < "$RUNNER_TEMP/release-files.txt"
+          gh release create "v$version" "${files[@]}" \
+            --draft --title "$version" --target "$GITHUB_SHA" \
+            --notes "Windows build of this fork for upstream $version."
+          count=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases" \
+            --jq "[.[] | select(.tag_name == \"v$version\" and .draft)] | length")
+          if [ "$count" != "1" ]; then
+            echo "::error::Expected one draft for v$version, found $count."
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
       - name: Summary
         shell: bash
         run: |
-          echo "Draft release v${{ needs.quality.outputs.version }} is ready: open Releases in this repository, check it, then publish it so installed copies update." >> "$GITHUB_STEP_SUMMARY"
+          echo "Draft release v${{ needs.quality.outputs.version }} is ready, with the installer, the portable build and latest.yml: open Releases in this repository, check it, then publish it so installed copies update." >> "$GITHUB_STEP_SUMMARY"
